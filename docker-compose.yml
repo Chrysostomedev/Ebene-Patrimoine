@@ -5,15 +5,15 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-    container_name: canal_app
+    container_name: ebene_patrimoine_app
     restart: always
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - NODE_ENV=production
     networks:
-      - canal_network
+      - ebene_patrimoine_network
 
 networks:
-  canal_network:
+  ebene_patrimoine_network:
     driver: bridge
