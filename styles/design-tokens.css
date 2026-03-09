@@ -1,0 +1,184 @@
+:root {
+/* Foundation (Base Tokens) */
+  --foundation-principal-colors-principal-colors-50: #e7e7e7;
+  --foundation-principal-colors-principal-colors-100: #b5b5b5;
+  --foundation-principal-colors-principal-colors-200: #919191;
+  --foundation-principal-colors-principal-colors-300: #5f5f5f;
+  --foundation-principal-colors-principal-colors-400: #404040;
+  --foundation-principal-colors-principal-colors-500: #101010;
+  --foundation-principal-colors-principal-colors-600: #0f0f0f;
+  --foundation-principal-colors-principal-colors-700: #0b0b0b;
+  --foundation-principal-colors-principal-colors-800: #090909;
+  --foundation-principal-colors-principal-colors-900: #070707;
+  --foundation-white-white-50: #ffffff;
+  --foundation-white-white-100: #ffffff;
+  --foundation-white-white-200: #ffffff;
+  --foundation-white-white-300: #ffffff;
+  --foundation-white-white-400: #ffffff;
+  --foundation-white-white-500: #ffffff;
+  --foundation-white-white-600: #e8e8e8;
+  --foundation-white-white-700: #b5b5b5;
+  --foundation-white-white-800: #8c8c8c;
+  --foundation-white-white-900: #6b6b6b;
+  --foundation-grey-grey-50: #fafafb;
+  --foundation-grey-grey-100: #f0f1f1;
+  --foundation-grey-grey-200: #e9eaeb;
+  --foundation-grey-grey-300: #e0e0e2;
+  --foundation-grey-grey-400: #d9dadc;
+  --foundation-grey-grey-500: #d0d1d3;
+  --foundation-grey-grey-600: #bdbec0;
+  --foundation-grey-grey-700: #949496;
+  --foundation-grey-grey-800: #727374;
+  --foundation-grey-grey-900: #575859;
+  --foundation-error-error-50: #ffe6e6;
+  --foundation-error-error-100: #ffb0b0;
+  --foundation-error-error-200: #ff8a8a;
+  --foundation-error-error-300: #ff5454;
+  --foundation-error-error-400: #ff3333;
+  --foundation-error-error-500: #ff0000;
+  --foundation-error-error-600: #e80000;
+  --foundation-error-error-700: #b50000;
+  --foundation-error-error-800: #8c0000;
+  --foundation-error-error-900: #6b0000;
+  --foundation-warring-warring-50: #fdf6ed;
+  --foundation-warring-warring-100: #f9e2c6;
+  --foundation-warring-warring-200: #f7d4aa;
+  --foundation-warring-warring-300: #f3c184;
+  --foundation-warring-warring-400: #f1b56c;
+  --foundation-warring-warring-500: #eda247;
+  --foundation-warring-warring-600: #d89341;
+  --foundation-warring-warring-700: #a87332;
+  --foundation-warring-warring-800: #825927;
+  --foundation-warring-warring-900: #64441e;
+  --foundation-green-green-50: #e6f5ec;
+  --foundation-green-green-100: #b3e0c5;
+  --foundation-green-green-200: #8ed1a9;
+  --foundation-green-green-300: #5abb81;
+  --foundation-green-green-400: #3aae69;
+  --foundation-green-green-500: #099a43;
+  --foundation-green-green-600: #088c3d;
+  --foundation-green-green-700: #066d30;
+  --foundation-green-green-800: #055525;
+  --foundation-green-green-900: #04411c;
+  --foundation-blue-blue-50: #e6f6fe;
+  --foundation-blue-blue-100: #b0e4fa;
+  --foundation-blue-blue-200: #8ad7f8;
+  --foundation-blue-blue-300: #54c5f5;
+  --foundation-blue-blue-400: #33b9f3;
+  --foundation-blue-blue-500: #00a8f0;
+  --foundation-blue-blue-600: #0099da;
+  --foundation-blue-blue-700: #0077aa;
+  --foundation-blue-blue-800: #005c84;
+  --foundation-blue-blue-900: #004765;
+}
+
+
+
+
+:root {
+/* Family (Base Tokens) */
+  --family-primary: Poppins;
+
+  /* Weights (Base Tokens) */
+  --weights-thin: 100;
+  --weights-extralight: 200;
+  --weights-light: 300;
+  --weights-regular: 400;
+  --weights-medium: 500;
+  --weights-semibold: 600;
+  --weights-bold: 700;
+  --weights-extrabold: 800;
+  --weights-black: 900;
+
+  /* Title (Base Tokens) */
+  --title-title-1-fontsize: 72px;
+  --title-title-1-lineheight: 88px;
+  --title-title-1-letterspacing: -0.8px;
+  --title-title-2-fontsize: 64px;
+  --title-title-2-lineheight: 76px;
+  --title-title-2-letterspacing: -0.8px;
+  --title-title-3-fontsize: 56px;
+  --title-title-3-lineheight: 68px;
+  --title-title-3-letterspacing: -0.6px;
+
+  /* Heading (Base Tokens) */
+  --heading-h1-fontsize: 56px;
+  --heading-h1-lineheight: 68px;
+  --heading-h1-letterspacing: -0.5px;
+  --heading-h2-fontsize: 48px;
+  --heading-h2-lineheight: 58px;
+  --heading-h2-letterspacing: -0.4px;
+  --heading-h3-fontsize: 40px;
+  --heading-h3-lineheight: 48px;
+  --heading-h3-letterspacing: -0.3px;
+  --heading-h4-fontsize: 32px;
+  --heading-h4-lineheight: 38px;
+  --heading-h4-letterspacing: -0.2px;
+  --heading-h5-fontsize: 24px;
+  --heading-h5-lineheight: 30px;
+  --heading-h5-letterspacing: -0.15px;
+  --heading-h6-fontsize: 20px;
+  --heading-h6-lineheight: 24px;
+  --heading-h6-letterspacing: 0;
+
+  /* Label (Base Tokens) */
+  --label-label-1-fontsize: 16px;
+  --label-label-1-lineheight: 22px;
+  --label-label-1-letterspacing: -0.18px;
+  --label-label-2-fontsize: 14px;
+  --label-label-2-lineheight: 20px;
+  --label-label-2-letterspacing: -0.16px;
+  --label-label-3-fontsize: 12px;
+  --label-label-3-lineheight: 16px;
+  --label-label-3-letterspacing: -0.12px;
+
+  /* Body (Base Tokens) */
+  --body-body-1-fontsize: 18px;
+  --body-body-1-lineheight: 28px;
+  --body-body-1-letterspacing: 0;
+  --body-body-2-fontsize: 16px;
+  --body-body-2-lineheight: 24px;
+  --body-body-2-letterspacing: 0;
+  --body-body-3-fontsize: 14px;
+  --body-body-3-lineheight: 20px;
+  --body-body-3-letterspacing: 0;
+  --body-body-4-fontsize: 12px;
+  --body-body-4-lineheight: 16px;
+  --body-body-4-letterspacing: 0;
+
+  /* Caption (Base Tokens) */
+  --caption-caption-1-fontsize: 10px;
+  --caption-caption-1-lineheight: 12px;
+  --caption-caption-1-letterspacing: 0;
+  --caption-caption-2-fontsize: 9px;
+  --caption-caption-2-lineheight: 10px;
+  --caption-caption-2-letterspacing: 0;
+
+  /* Title (Aliases) */
+  --title-title-1-fontfamily: var(--family-primary);
+  --title-title-2-fontfamily: var(--family-primary);
+  --title-title-3-fontfamily: var(--family-primary);
+
+  /* Heading (Aliases) */
+  --heading-h1-fontfamily: var(--family-primary);
+  --heading-h2-fontfamily: var(--family-primary);
+  --heading-h3-fontfamily: var(--family-primary);
+  --heading-h4-fontfamily: var(--family-primary);
+  --heading-h5-fontfamily: var(--family-primary);
+  --heading-h6-fontfamily: var(--family-primary);
+
+  /* Label (Aliases) */
+  --label-label-1-fontfamily: var(--family-primary);
+  --label-label-2-fontfamily: var(--family-primary);
+  --label-label-3-fontfamily: var(--family-primary);
+
+  /* Body (Aliases) */
+  --body-body-1-fontfamily: var(--family-primary);
+  --body-body-2-fontfamily: var(--family-primary);
+  --body-body-3-fontfamily: var(--family-primary);
+  --body-body-4-fontfamily: var(--family-primary);
+
+  /* Caption (Aliases) */
+  --caption-caption-1-fontfamily: var(--family-primary);
+  --caption-caption-2-fontfamily: var(--family-primary);
+}
