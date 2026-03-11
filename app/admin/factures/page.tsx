@@ -19,8 +19,8 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import ReusableForm from "@/components/ReusableForm";
 
-import { useInvoices } from "../../../hooks/useInvoices";
-import { Invoice, InvoiceService } from "../../../services/invoice.service";
+import { useInvoices } from "../../../hooks/admin/useInvoices";
+import { Invoice, InvoiceService } from "../../../services/admin/invoice.service";
 
 // ═══════════════════════════════════════════════
 // HELPERS

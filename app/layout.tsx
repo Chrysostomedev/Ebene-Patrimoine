@@ -22,8 +22,11 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Ebène Patrimoine",
-  description: "l'application tout en un faite par CIPLUS !",
+   title: "LA POSTE",
+  description: "l'application de gestion de patrimoines pour la POSTE par CIPLUS !",
+  
+  // title: "Ebène Patrimoine",
+  // description: "l'application de gestion des tout en un faite par CIPLUS !",
 };
 
 export default function RootLayout({

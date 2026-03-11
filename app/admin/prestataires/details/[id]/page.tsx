@@ -17,8 +17,8 @@ import ReusableForm from "@/components/ReusableForm";
 import DataTable from "@/components/DataTable";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 
-import { ProviderService, ProviderDetail } from "../../../../../services/provider.service";
-import { useServices } from "../../../../../hooks/useServices";
+import { ProviderService, ProviderDetail } from "../../../../../services/admin/provider.service";
+import { useServices } from "../../../../../hooks/admin/useServices";
 
 const STATUS_LABELS: Record<string, string> = {
   signalez: "Signalé", validé: "Validé", assigné: "Assigné",

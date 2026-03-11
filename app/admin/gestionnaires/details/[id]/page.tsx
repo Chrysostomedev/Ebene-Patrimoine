@@ -50,7 +50,7 @@ import {
   ManagerService,
   Manager,
   ManagerDetail,
-} from "../../../../../services/manager.service";
+} from "../../../../../services/admin/manager.service";
 
 // ── Palette couleur avatar (identique à GestCard) ─────────────────────────────
 const AVATAR_PALETTES = [

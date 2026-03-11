@@ -10,7 +10,7 @@ import PageHeader from "@/components/PageHeader";
 import MainCard from "@/components/MainCard";
 import { Filter, CalendarClock, Plus, CheckCircle2, XCircle } from "lucide-react";
 
-import { usePlanning } from "../../../hooks/usePlanning";
+import { usePlanning } from "../../../hooks/admin/usePlanning";
 import {
   CreatePlanningPayload,
   UpdatePlanningPayload,
@@ -20,7 +20,7 @@ import {
   formatTime,
   getSiteName,
   getProviderName,
-} from "../../../services/planningService";
+} from "../../../services/admin/planningService";
 import type { FieldConfig } from "@/components/ReusableForm";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────

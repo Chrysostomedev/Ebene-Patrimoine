@@ -13,7 +13,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 
-import { QuoteService, Quote, QuoteHistory } from "../../../../../services/quote.service";
+import { QuoteService, Quote, QuoteHistory } from "../../../../../services/admin/quote.service";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS FORMATTING

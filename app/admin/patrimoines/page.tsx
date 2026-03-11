@@ -5,7 +5,7 @@ import Link from "next/link";
 import * as XLSX from "xlsx";
 import {
   Filter, Download, Upload, Plus, Eye,
-  ChevronRight, X, Search, CalendarClock,
+  ChevronRight, X, CalendarClock,
 } from "lucide-react";
 
 import Navbar       from "@/components/Navbar";
@@ -17,11 +17,11 @@ import ReusableForm from "@/components/ReusableForm";
 import Paginate     from "@/components/Paginate";
 import { FieldConfig } from "@/components/ReusableForm";
 
-import { useAssets }        from "../../../hooks/useAssets";
-import { useTypes }         from "../../../hooks/useTypes";
-import { useSubTypeAssets } from "../../../hooks/useSubTypeAssets";
-import { useSites }         from "../../../hooks/useSites";
-import { AssetService, CompanyAsset } from "../../../services/asset.service";
+import { useAssets }        from "../../../hooks/admin/useAssets";
+import { useTypes }         from "../../../hooks/admin/useTypes";
+import { useSubTypeAssets } from "../../../hooks/admin/useSubTypeAssets";
+import { useSites }         from "../../../hooks/admin/useSites";
+import { AssetService, CompanyAsset } from "../../../services/admin/asset.service";
 
 
 // ─────────────────────────────────────────────────────────────
@@ -176,7 +176,7 @@ const exportToExcel = (assets: CompanyAsset[]) => {
 // ─────────────────────────────────────────────────────────────
 
 interface AssetFilters {
-  search?: string;
+ 
   type_id?: number;
   sub_type_id?: number;
   status?: string;
@@ -359,7 +359,6 @@ export default function PatrimoinesPage() {
   const [panelAsset,  setPanelAsset] = useState<CompanyAsset | null>(null);
   const [filters,     setFilters]    = useState<AssetFilters>({});
   const [filtersOpen, setFiltersOpen]= useState(false);
-  const [search,      setSearch]     = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const [flash, setFlash] = useState<{ type: "success"|"error"; msg: string } | null>(null);
 
@@ -390,11 +389,7 @@ export default function PatrimoinesPage() {
     setFiltersOpen(false);
   };
 
-  const handleSearch = (v: string) => {
-    setSearch(v);
-    applyFilters({ ...filters, search: v || undefined });
-  };
-
+  
   const handleCreateOrUpdate = async (formData: any) => {
     try {
       if (editingData) {
@@ -601,17 +596,9 @@ export default function PatrimoinesPage() {
           {/* Barre d'actions */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
 
-            {/* Gauche — search + badges */}
+            {/*  badges selecteurs*/}
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text" value={search}
-                  onChange={e => handleSearch(e.target.value)}
-                  placeholder="Rechercher..."
-                  className="pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm placeholder-slate-300 focus:outline-none focus:border-slate-400 w-56 transition"
-                />
-              </div>
+           
               {activeFiltersCount > 0 && (
                 <button onClick={() => handleApplyFilters({})}
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 font-bold border border-slate-200 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 transition">

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { MapPin, Phone, Mail, ArrowUpRight } from "lucide-react";
-import { Site } from "../../services/site.service";
+import { Site } from "../../services/admin/site.service";
 
 interface SiteCardProps {
   site?: Site | null; // safe : site peut être undefined ou null
@@ -62,12 +62,12 @@ export default function SiteCard({ site }: SiteCardProps) {
       </div>
 
       <div className="flex gap-2">
-        <div className="bg-[#111] text-white rounded-2xl px-6 py-4 text-xl font-bold flex items-center justify-center min-w-[80px]">
+        <div className="bg-theme-primary text-white rounded-2xl px-6 py-4 text-xl font-bold flex items-center justify-center min-w-[80px]">
           {site.effectifs ?? 0}
         </div>
         <Link
           href={detailUrl}
-          className="flex-grow bg-[#111] text-white rounded-2xl px-6 py-4 font-bold flex items-center justify-center gap-3 hover:bg-black transition-colors group text-sm"
+          className="flex-grow bg-theme-primary text-white rounded-2xl px-6 py-4 font-bold flex items-center justify-center gap-3 hover:bg-black transition-colors group text-sm"
         >
           voir les détails du site
           <div className="border border-white/30 rounded-full p-1 group-hover:bg-white group-hover:text-black transition-all">

@@ -6,7 +6,7 @@
 // Affiche les events groupés par jour du mois actif
 // ============================================================
 
-import { Planning, STATUS_COLORS, isPlanningOnDate } from "../../services/planningService";
+import { Planning, STATUS_COLORS, isPlanningOnDate } from "../../services/admin/planningService";
 import { DayCell } from "./DayCell";
 
 interface CalendarEvent {

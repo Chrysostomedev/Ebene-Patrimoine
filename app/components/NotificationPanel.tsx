@@ -6,7 +6,7 @@ import {
   Receipt, Users, Settings, ChevronRight, CheckCheck,
   Trash2, ExternalLink, ArrowLeft,
 } from "lucide-react";
-import { useNotifications, Notification, NotifSource } from "../../hooks/useNotifications";
+import { useNotifications, Notification, NotifSource } from "../../hooks/admin/useNotifications";
 
 // ── Helpers temps relatif ────────────────────────────────────────────────────
 

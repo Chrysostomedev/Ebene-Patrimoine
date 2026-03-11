@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
-import { Planning, STATUS_COLORS, isPlanningOnDate } from "../../services/planningService";
+import { Planning, STATUS_COLORS, isPlanningOnDate } from "../../services/admin/planningService";
 
 interface MiniCalendarProps {
   activeMonth: Date;

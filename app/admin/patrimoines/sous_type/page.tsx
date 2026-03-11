@@ -11,9 +11,9 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 
-import { useSubTypeAssets } from "../../../../hooks/useSubTypeAssets";
-import { useTypes } from "../../../../hooks/useTypes";
-import { SubTypeAssetService } from "../../../../services/sub-type-asset.service";
+import { useSubTypeAssets } from "../../../../hooks/admin/useSubTypeAssets";
+import { useTypes } from "../../../../hooks/admin/useTypes";
+import { SubTypeAssetService } from "../../../../services/admin/sub-type-asset.service";
 
 // ── Dropdown filtre par type — style CANAL+ noir/blanc ──
 function FilterDropdown({

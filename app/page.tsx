@@ -8,8 +8,9 @@ export default function Home() {
   const router = useRouter();
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white text-orane-600">
-      {/* Logo avec légère animation */}
+ <div className="flex min-h-screen flex-col items-center justify-center 
+  bg-[radial-gradient(ellipse_at_top_left,_#f5c518_0%,_#1a5c2a_45%,_#0d3d1a_100%)]
+  text-white">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -17,7 +18,7 @@ export default function Home() {
         className="mb-12"
       >
         <Image
-          src="/images/logoci.png" 
+          src="/images/logo-poste.png" 
           alt="CANAL+"
           width={240}
           height={80}
@@ -32,11 +33,11 @@ export default function Home() {
         transition={{ delay: 0.5, duration: 0.8 }}
         className="text-center px-6 sm:px-0 max-w-xl"
       >
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-          Bienvenue sur Ebène Patrimoine
+        <h1 className="text-4xl text-white sm:text-5xl font-bold tracking-tight mb-4">
+          Bienvenue sur POSTE PATRI
         </h1>
         <p className="text-lg sm:text-xl text-gray-500">
-          Gérez facilement vos parcs et suivez vos performances en temps réel.
+          Gérez facilement vos patrimoines et suivez vos performances en temps réel.
         </p>
       </motion.div>
 
@@ -48,8 +49,8 @@ export default function Home() {
         className="mt-12"
       >
         <button
-          onClick={() => router.push("/admin/login")}
-          className="relative flex items-center gap-3 bg-orange-500 text-white font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-orange-600 transition-all duration-300"
+          onClick={() => router.push("/login")}
+          className="relative flex items-center gap-3 bg-yellow-400 text-white font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-orange-600 transition-all duration-300"
         >
           Continuer
           {/* Petite icône animée à droite */}

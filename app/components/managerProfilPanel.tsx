@@ -10,7 +10,7 @@
  */
 
 import { X, Mail, Phone, ShieldCheck, User, Hash, Calendar } from "lucide-react";
-import { Manager } from "../../services/manager.service";
+import { Manager } from "../../services/admin/manager.service";
 
 interface ManagerProfilPanelProps {
   isOpen: boolean;

@@ -6,7 +6,7 @@ import {
   Ticket, MapPin, Building2, FileText,
   Receipt, Users, Settings,
 } from "lucide-react";
-import { useNotifications, Notification, NotifSource } from "../../hooks/useNotifications";
+import { useNotifications, Notification, NotifSource } from "../../hooks/admin/useNotifications";
 import NotificationPanel from "./NotificationPanel";
 
 // ─── Config source ────────────────────────────────────────────────────────────

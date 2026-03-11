@@ -14,7 +14,7 @@ import Sidebar    from "@/components/Sidebar";
 import PageHeader from "@/components/PageHeader";
 import StatsCard  from "@/components/StatsCard";
 
-import { AssetService, CompanyAsset } from "../../../../services/asset.service";
+import { AssetService, CompanyAsset } from "../../../../services/admin/asset.service";
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS

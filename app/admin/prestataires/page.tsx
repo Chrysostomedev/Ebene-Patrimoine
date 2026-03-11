@@ -16,9 +16,9 @@ import Paginate from "@/components/Paginate";
 import PrestCard from "@/components/PrestCard";
 import PageHeader from "@/components/PageHeader";
 
-import { useProviders } from "../../../hooks/useProviders";
-import { ProviderService, Provider } from "../../../services/provider.service";
-import { useServices } from "../../../hooks/useServices";
+import { useProviders } from "../../../hooks/admin/useProviders";
+import { ProviderService, Provider } from "../../../services/admin/provider.service";
+import { useServices } from "../../../hooks/admin/useServices";
 
 // ═══════════════════════════════════════════════
 // FILTER DROPDOWN

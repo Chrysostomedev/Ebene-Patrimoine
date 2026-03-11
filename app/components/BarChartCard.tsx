@@ -89,7 +89,7 @@ export default function BarChartCard({
                           future
                             ? "text-slate-300 cursor-not-allowed"
                             : selectedYear === year
-                            ? "bg-black text-white"
+                            ? "bg-theme-primary text-white"
                             : "text-slate-600 hover:bg-slate-50"
                         }`}
                       >
@@ -135,15 +135,15 @@ export default function BarChartCard({
                       initial={{ height: 0 }}
                       animate={{ height: maxValue === 0 ? "2px" : `${(item.value / maxValue) * 100}%` }}
                       transition={{ type: "spring", damping: 15, stiffness: 100 }}
-                      style={{ backgroundColor: item.color || "#0F172A" }}
+                      style={{ backgroundColor: item.color || "#11471fff" }}
                       className="w-full rounded-t-md hover:brightness-125 transition-all cursor-pointer relative"
                     >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[9px] py-0.5 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-bold whitespace-nowrap z-10">
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-theme-primary text-white text-[9px] py-0.5 px-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none font-bold whitespace-nowrap z-10">
                         {item.value} tickets
                       </div>
                     </motion.div>
                   </div>
-                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-slate-400 text-[8px] font-black tracking-tighter whitespace-nowrap">
+                  <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-slate-400 text-[8px] font-green tracking-tighter whitespace-nowrap">
                     {item.label}
                   </span>
                 </div>

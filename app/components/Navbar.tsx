@@ -38,10 +38,10 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await authService.logout();
-      router.push("/admin/login");
+      router.push("/login");
     } catch {
       localStorage.clear();
-      window.location.href = "/admin/login";
+      window.location.href = "/login";
     }
   };
 

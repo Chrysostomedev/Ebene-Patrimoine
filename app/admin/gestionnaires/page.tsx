@@ -24,8 +24,8 @@ import PageHeader           from "@/components/PageHeader";
 import GestCard             from "@/components/GestCard";
 import ManagerProfilPanel   from "@/components/managerProfilPanel";
 
-import { useManagers }                    from "../../../hooks/useManagers";
-import { ManagerService, Manager }        from "../../../services/manager.service";
+import { useManagers }                    from "../../../hooks/admin/useManagers";
+import { ManagerService, Manager }        from "../../../services/admin/manager.service";
 
 export default function GestionnairesPage() {
 

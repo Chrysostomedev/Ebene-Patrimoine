@@ -10,8 +10,8 @@ import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 
-import { useServices } from "../../../hooks/useServices";
-import { ServiceService } from "../../../services/service.service";
+import { useServices } from "../../../hooks/admin/useServices";
+import { ServiceService } from "../../../services/admin/service.service";
 
 export default function ServicesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);

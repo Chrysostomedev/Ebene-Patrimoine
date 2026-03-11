@@ -6,7 +6,7 @@
 // Reçoit les plannings réels via props depuis MainCard
 // ============================================================
 
-import { Planning, STATUS_COLORS, STATUS_BG, STATUS_LABELS } from "../../services/planningService";
+import { Planning, STATUS_COLORS, STATUS_BG, STATUS_LABELS } from "../../services/admin/planningService";
 
 const LEGEND_ITEMS = [
   { label: "Planifié",   color: STATUS_COLORS.planifie,  bg: STATUS_BG.planifie },

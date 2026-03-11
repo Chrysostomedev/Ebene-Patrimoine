@@ -11,8 +11,8 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 
-import { useTypes } from "../../../../hooks/useTypes";
-import { TypeAssetService } from "../../../../services/type-asset.service";
+import { useTypes } from "../../../../hooks/admin/useTypes";
+import { TypeAssetService } from "../../../../services/admin/type-asset.service";
 
 export default function PatrimoinesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);

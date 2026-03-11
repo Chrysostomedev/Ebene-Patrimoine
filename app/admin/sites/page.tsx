@@ -15,8 +15,8 @@ import PageHeader  from "@/components/PageHeader";
 import SearchInput from "@/components/SearchInput";
 import { FieldConfig } from "@/components/ReusableForm";
 
-import { useSites } from "../../../hooks/useSites";
-import { exportSites, importSites, downloadSiteImportTemplate } from "../../../services/site.service";
+import { useSites } from "../../../hooks/admin/useSites";
+import { exportSites, importSites, downloadSiteImportTemplate } from "../../../services/admin/site.service";
 
 // ═══════════════════════════════════════════════
 // HELPERS

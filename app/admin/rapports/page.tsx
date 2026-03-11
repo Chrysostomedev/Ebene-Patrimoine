@@ -15,8 +15,8 @@ import DataTable from "@/components/DataTable";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 
-import { useReports } from "../../../hooks/useReports";
-import { InterventionReport, ReportService, ValidateReportPayload } from "../../../services/report.service";
+import { useReports } from "../../../hooks/admin/useReports";
+import { InterventionReport, ReportService, ValidateReportPayload } from "../../../services/admin/report.service";
 
 // ═══════════════════════════════════════════════
 // HELPERS

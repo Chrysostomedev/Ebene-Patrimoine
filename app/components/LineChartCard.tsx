@@ -108,7 +108,7 @@ export default function LineChartCard({ title, data }: LineChartCardProps) {
               <path
                 d={pathD}
                 fill="none"
-                stroke="black"
+                stroke="green"
                 strokeWidth="5"
                 strokeLinecap="round"
               />
@@ -156,7 +156,7 @@ export default function LineChartCard({ title, data }: LineChartCardProps) {
                         height="36"
                         style={{ pointerEvents: "none", overflow: "visible" }}
                       >
-                        <div className="bg-black text-white text-[13px] font-black rounded-xl py-1.5 shadow-2xl text-center">
+                        <div className="bg-theme-primary text-white text-[13px] font-black rounded-xl py-1.5 shadow-2xl text-center">
                           {formatValue(p.value)}
                         </div>
                       </foreignObject>

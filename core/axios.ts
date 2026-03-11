@@ -32,7 +32,7 @@ api.interceptors.response.use(
       if (error.response?.status === 401) {
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem("user_role");
-        window.location.href = "/admin/login";
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);

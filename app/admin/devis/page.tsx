@@ -18,8 +18,8 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import ReusableForm from "@/components/ReusableForm";
 
-import { useQuotes } from "../../../hooks/useQuotes";
-import { Quote } from "../../../services/quote.service";
+import { useQuotes } from "../../../hooks/admin/useQuotes";
+import { Quote } from "../../../services/admin/quote.service";
 
 // ═══════════════════════════════════════════════
 // HELPERS

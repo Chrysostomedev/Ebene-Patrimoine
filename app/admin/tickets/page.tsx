@@ -15,12 +15,12 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import { FieldConfig } from "@/components/ReusableForm";
 
-import { useTickets } from "../../../hooks/useTickets";
-import { useProviders } from "../../../hooks/useProviders";
-import { useServices } from "../../../hooks/useServices";
-import { useSites } from "../../../hooks/useSites";
-import { useAssets } from "../../../hooks/useAssets";
-import { TicketService, Ticket } from "../../../services/ticket.service";
+import { useTickets } from "../../../hooks/admin/useTickets";
+import { useProviders } from "../../../hooks/admin/useProviders";
+import { useServices } from "../../../hooks/admin/useServices";
+import { useSites } from "../../../hooks/admin/useSites";
+import { useAssets } from "../../../hooks/admin/useAssets";
+import { TicketService, Ticket } from "../../../services/admin/ticket.service";
 import axiosInstance from "../../../core/axios";
 
 // ═══════════════════════════════════════════════

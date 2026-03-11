@@ -12,7 +12,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 
-import { ReportService, InterventionReport, ValidateReportPayload } from "../../../../../services/report.service";
+import { ReportService, InterventionReport, ValidateReportPayload } from "../../../../../services/admin/report.service";
 
 // ═══════════════════════════════════════════════
 // HELPERS
