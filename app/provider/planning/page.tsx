@@ -9,7 +9,7 @@ import PageHeader from "@/components/PageHeader";
 import MainCard from "@/components/MainCard";
 import { Filter, CheckCircle2, XCircle } from "lucide-react";
 
-import { useProviderPlanning } from "../../../hooks/useProviderPlanning";
+import { useProviderPlanning } from "../../../hooks/provider/useProviderPlanning";
 import {
   STATUS_LABELS,
   STATUS_COLORS,
@@ -17,7 +17,7 @@ import {
   formatTime,
   getSiteName,
   getProviderName,
-} from "../../../services/providerPlanningService";
+} from "../../../services/provider/providerPlanningService";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 

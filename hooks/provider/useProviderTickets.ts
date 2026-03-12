@@ -5,7 +5,7 @@ import {
   TicketStats,
   TicketMeta,
   ProviderUpdatableStatus,
-} from "../services/providerTicketService";
+} from "../../services/provider/providerTicketService";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

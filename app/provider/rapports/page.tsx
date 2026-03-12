@@ -18,14 +18,14 @@ import {
   AlertCircle, PlusCircle, Edit2, Star,
 } from "lucide-react";
 
-import { useProviderReports, ReportFilterState } from "@hooks/useProviderReports";
+import { useProviderReports, ReportFilterState } from "../../../hooks/provider/useProviderReports";
 import {
   InterventionReport,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
   TYPE_LABELS, TYPE_STYLES,
   RESULT_LABELS, RESULT_STYLES,
   formatDate, getAttachmentUrl, getSiteName, isEditable,
-} from "@services/providerReportService";
+} from "../../../services/provider/providerReportService";
 
 // ─── Toast ─────────────────────────────────────────────────────────────────────
 function Toast({ msg, type }: { msg: string; type: "success"|"error" }) {

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   providerQuoteService,
   Quote, QuoteStats, QuoteFilters, CreateQuotePayload,
-} from "@services/providerQuoteService";
+} from "../../services/provider/providerQuoteService";
 
 export interface UseProviderQuotesReturn {
   quotes:        Quote[];

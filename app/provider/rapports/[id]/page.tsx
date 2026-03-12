@@ -21,8 +21,8 @@ import {
   RESULT_LABELS, RESULT_STYLES,
   formatDate, formatDateTime, getAttachmentUrl,
   getSiteName, getProviderName, isEditable,
-} from "@services/providerReportService";
-import { useProviderReports } from "@hooks/useProviderReports";
+} from "../../../../services/provider/providerReportService";
+import { useProviderReports } from "../../../../hooks/provider/useProviderReports";
 
 // ─── Badges ────────────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status?: string }) {

@@ -18,7 +18,7 @@ import {
   formatMontant, formatDate, formatDateLong,
   getPdfUrl, getProviderName, getSiteName,
   getReport, toNum,
-} from "@services/providerInvoiceService";
+} from "../../../../services/provider/providerInvoiceService";
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 

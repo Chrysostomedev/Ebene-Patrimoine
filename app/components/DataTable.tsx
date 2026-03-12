@@ -65,7 +65,7 @@ export default function DataTable<T extends { id: string | number }>({
       <div className="overflow-x-auto px-6 pb-6">
         <table className="min-w-full border-separate border-spacing-y-0">
           <thead>
-            <tr className="bg-slate-50">
+            <tr className="bg-green-50">
               <th className="py-4 w-12 text-center rounded-l-2xl">
                 <div className="flex justify-center items-center">
                   <input
@@ -79,7 +79,7 @@ export default function DataTable<T extends { id: string | number }>({
               {columns.map((col, index) => (
                 <th
                   key={String(col.key)}
-                  className={`py-4 px-4 text-left text-[13px] font-black text-black bg-gray-200  tracking-wider ${
+                  className={`py-4 px-4 text-left text-[13px] font-black text-black bg-theme-secondary  tracking-wider ${
                     index === columns.length - 1 ? "rounded-r-2xl" : ""
                   }`}
                 >

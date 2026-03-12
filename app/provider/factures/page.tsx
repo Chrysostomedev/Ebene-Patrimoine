@@ -19,13 +19,13 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import { useProviderInvoices } from "@hooks/useProviderInvoices";
+import { useProviderInvoices } from "../../../hooks/provider/useProviderInvoices";
 import {
   Invoice, ALL_STATUSES,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
   formatMontant, formatDate, getPdfUrl,
   getProviderName, getSiteName, getReport, toNum,
-} from "@services/providerInvoiceService";
+} from "../../../services/provider/providerInvoiceService";
 
 // ─── Toast ─────────────────────────────────────────────────────────────────────
 

@@ -34,9 +34,9 @@ export default function Home() {
         className="text-center px-6 sm:px-0 max-w-xl"
       >
         <h1 className="text-4xl text-white sm:text-5xl font-bold tracking-tight mb-4">
-          Bienvenue sur POSTE PATRI
+          Bienvenue sur EBENE PATRIMOINE
         </h1>
-        <p className="text-lg sm:text-xl text-gray-500">
+        <p className="text-lg sm:text-xl text-white">
           Gérez facilement vos patrimoines et suivez vos performances en temps réel.
         </p>
       </motion.div>
@@ -50,7 +50,7 @@ export default function Home() {
       >
         <button
           onClick={() => router.push("/login")}
-          className="relative flex items-center gap-3 bg-yellow-400 text-white font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-orange-600 transition-all duration-300"
+          className="relative flex items-center gap-3 bg-yellow-400 text-white font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-yellow-300 transition-all duration-300"
         >
           Continuer
           {/* Petite icône animée à droite */}

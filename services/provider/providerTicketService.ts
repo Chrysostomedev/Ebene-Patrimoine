@@ -1,4 +1,4 @@
-import axiosInstance from "../core/axios";
+import axiosInstance from "../../core/axios";
 
 // ─── Types — miroir exact du backend Laravel ──────────────────────────────────
 

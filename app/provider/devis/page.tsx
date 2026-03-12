@@ -16,12 +16,12 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import { useProviderQuotes } from "@hooks/useProviderQuotes";
+import { useProviderQuotes } from "@hooks/provider/useProviderQuotes";
 import {
   Quote, ALL_STATUSES,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
   formatCurrency, formatDate, getPdfUrl,
-} from "@services/providerQuoteService";
+} from "@services/provider/providerQuoteService";
 import type { FieldConfig } from "@/components/ReusableForm";
 import { useState } from "react";
 
@@ -241,6 +241,7 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
                       <Download size={13} />
                     </a>
                   </div>
+                  
                 ))}
               </div>
             </div>
@@ -417,7 +418,7 @@ export default function ProviderDevisPage() {
           </button>
           {/* Détails — page [id] */}
           <button
-            onClick={() => router.push(`/provider/quotes/${row.id}`)}
+            onClick={() => router.push(`/provider/devis/${row.id}`)}
             className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 hover:border-black transition flex items-center justify-center"
           >
             <ArrowUpRight size={15} className="text-slate-600 group-hover:text-white group-hover:rotate-45 transition-all" />

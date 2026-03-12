@@ -1,6 +1,6 @@
 // app/admin/factures/page.tsx
 // VERSION 100% STATIQUE (aucune API / aucune DB)
-
+"use client";
 import Link from "next/link";
 import {
   Eye,

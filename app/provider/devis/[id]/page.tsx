@@ -15,7 +15,7 @@ import {
   providerQuoteService, Quote, QuoteHistory,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
   formatCurrency, formatDate, getPdfUrl,
-} from "@services/providerQuoteService";
+} from "../../../../services/provider/providerQuoteService";
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 

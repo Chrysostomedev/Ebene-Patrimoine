@@ -6,7 +6,7 @@ import {
   Planning,
   PlanningStats,
   PlanningFilters,
-} from "../services/providerPlanningService";
+} from "../../services/provider/providerPlanningService";
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 

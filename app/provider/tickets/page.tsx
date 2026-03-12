@@ -8,8 +8,8 @@ import DataTable from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import { Eye, X, Copy, Check, Tag, Clock, MapPin, Wrench, AlertTriangle, CheckCircle2, RefreshCw, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 
-import { useProviderTickets } from "../../../hooks/useProviderTickets";
-import { Ticket, ProviderUpdatableStatus } from "../../../services/providerTicketService";
+import { useProviderTickets } from "../../../hooks/provider/useProviderTickets";
+import { Ticket, ProviderUpdatableStatus } from "../../../services/provider/providerTicketService";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

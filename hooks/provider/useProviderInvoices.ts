@@ -5,7 +5,7 @@ import {
   providerInvoiceService,
   Invoice, InvoiceStats, InvoiceMeta,
   InvoiceFilters, CreateInvoicePayload,
-} from "@services/providerInvoiceService";
+} from "../../services/provider/providerInvoiceService";
 
 export interface UseProviderInvoicesReturn {
   invoices:        Invoice[];

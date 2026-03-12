@@ -5,7 +5,7 @@ import {
   providerReportService,
   InterventionReport, ReportStats,
   CreateReportPayload, UpdateReportPayload,
-} from "@services/providerReportService";
+} from "../../services/provider/providerReportService";
 
 export type ReportFilterState = {
   status?: string;
