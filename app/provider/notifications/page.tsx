@@ -9,7 +9,7 @@ import {
   ArrowLeft, ExternalLink, Ticket, MapPin, Building2,
   FileText, Receipt, Users, Settings,
 } from "lucide-react";
-import { useNotifications, Notification, NotifSource } from "../../../hooks/admin/useNotifications";
+import { useNotifications, Notification, NotifSource } from "../../../hooks/provider/useNotifications";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

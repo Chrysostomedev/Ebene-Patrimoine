@@ -105,12 +105,12 @@ const MENU_PROVIDER: MenuItem[] = [
  */
 const MENU_MANAGER: MenuItem[] = [
   { label: "Tableau de bord",  icon: <LayoutDashboard size={20} />,                href: "/manager/dashboard"       },
-  {
-    label: "Sites",
-    icon: <MapPinHouse size={20} />,
-    href: "/manager/sites",
-    // Le manager voit ses propres sites — la page /manager/sites filtre côté back
-  },
+  // {
+  //   label: "Sites",
+  //   icon: <MapPinHouse size={20} />,
+  //   href: "#",
+  //   // Le manager voit ses propres sites — la page /manager/sites filtre côté back
+  // },
   {
     label: "Patrimoines",
     icon: <Building2 size={20} />,
@@ -146,7 +146,7 @@ const BOTTOM_ADMIN: BottomItem[] = [
 
 /** PROVIDER */
 const BOTTOM_PROVIDER: BottomItem[] = [
-  { label: "Paramètres", href: "/provider/parametres", icon: <Settings size={20} /> },
+  { label: "Paramètres", href: "/provider/parametre", icon: <Settings size={20} /> },
 ];
 
 /** MANAGER */
