@@ -1,173 +1,98 @@
-/**
- * hooks/useManagers.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Hook pour la gestion des gestionnaires (Managers).
- *
- * Différence clé avec useProviders :
- *   - Le backend retourne une liste simple (pas paginée)
- *   - La pagination, la recherche et les filtres sont gérés CÔTÉ FRONT
- *   - Les stats KPIs sont calculées localement depuis la liste complète
- *
- * Quand le backend évolue vers une pagination server-side, il suffit de
- * basculer fetchManagers() vers l'approche paginée (comme useProviders).
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-import { useState, useEffect, useMemo } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { ManagerService, Manager, ManagerStats } from "../../services/admin/manager.service";
 
-// ── Constantes ────────────────────────────────────────────────────────────────
-const PER_PAGE = 12; // Nombre de managers par page (pagination front)
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
-export const useManagers = () => {
-
-  // ── État brut (tous les managers récupérés du backend) ────────────────────
+export function useManagers() {
+  const [managers,    setManagers]    = useState<Manager[]>([]);
   const [allManagers, setAllManagers] = useState<Manager[]>([]);
-
-  // ── État de chargement ────────────────────────────────────────────────────
+  const [stats,       setStats]       = useState<ManagerStats>({
+    total_managers: 0, active_managers: 0, inactive_managers: 0,
+  });
   const [isLoading, setIsLoading] = useState(false);
+  const [page,      setPageNum]   = useState(1);
+  const [search,    setSearch]    = useState("");
+  const [filters,   setFilters]   = useState<{ is_active?: boolean }>({});
+  const [meta,      setMeta]      = useState({
+    current_page: 1, last_page: 1, per_page: 15, total: 0,
+  });
 
-  // ── Pagination front ──────────────────────────────────────────────────────
-  const [page, setPage] = useState(1);
-
-  // ── Recherche (filtre local sur first_name, last_name, email) ────────────
-  const [search, setSearch] = useState("");
-
-  // ── Filtres ───────────────────────────────────────────────────────────────
-  const [filters, setFilters] = useState<{
-    is_active?: boolean;
-    /**
-     * ── Filtre site — COMMENTÉ car pas encore géré côté Backend ─────────────
-     * TODO: Décommenter quand l'API retournera le site du manager
-     * site_id?: number;
-     */
-  }>({});
-
-  // ── Fetch initial — charge TOUS les managers (liste simple du backend) ────
-  const fetchManagers = async () => {
+  const doFetch = useCallback(async (p: number, s: string, f: { is_active?: boolean }) => {
     setIsLoading(true);
     try {
-      const data = await ManagerService.getManagers();
-      setAllManagers(data);
+      const params: any = { page: p, per_page: 15 };
+      if (s.trim()) params.search = s.trim();
+      if (f.is_active !== undefined) params.is_active = f.is_active;
+
+      const result = await ManagerService.getManagers(params);
+      setManagers(result.data);
+      setMeta(result.meta);
+
+      if (p === 1 && !s.trim() && f.is_active === undefined) {
+        const all = await ManagerService.getManagers({ per_page: 1000 });
+        setAllManagers(all.data);
+      }
     } catch (err) {
       console.error("Erreur chargement gestionnaires", err);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // ── Chargement initial ─────────────────────────────────────────────────────
-  useEffect(() => {
-    fetchManagers();
   }, []);
 
-  // ── Managers filtrés (recherche + filtres) — recalculé à chaque changement ─
-  const filteredManagers = useMemo(() => {
-    let result = [...allManagers];
+  const doFetchStats = useCallback(async () => {
+    try {
+      const s = await ManagerService.getStats();
+      setStats(s);
+    } catch { /* silencieux */ }
+  }, []);
 
-    // Filtre recherche — sur nom, prénom, email
-    if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      result = result.filter(m =>
-        [m.first_name, m.last_name, m.email]
-          .filter(Boolean)
-          .some(field => field!.toLowerCase().includes(q))
-      );
-    }
+  useEffect(() => {
+    doFetch(1, "", {});
+    doFetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Filtre is_active
-    if (filters.is_active !== undefined) {
-      result = result.filter(m => m.is_active === filters.is_active);
-    }
-
-    /**
-     * ── Filtre site — COMMENTÉ car pas encore géré côté Backend ─────────────
-     * TODO: Décommenter quand l'API retournera managed_site sur le manager
-     *
-     * if (filters.site_id !== undefined) {
-     *   result = result.filter(m => m.managed_site?.id === filters.site_id);
-     * }
-     */
-
-    return result;
-  }, [allManagers, search, filters]);
-
-  // ── Pagination front — appliquée sur les managers filtrés ─────────────────
-  const meta = useMemo(() => {
-    const total = filteredManagers.length;
-    const last_page = Math.max(1, Math.ceil(total / PER_PAGE));
-    return {
-      current_page: page,
-      last_page,
-      per_page: PER_PAGE,
-      total,
-    };
-  }, [filteredManagers.length, page]);
-
-  // ── Managers de la page courante ───────────────────────────────────────────
-  const managers = useMemo(() => {
-    const start = (page - 1) * PER_PAGE;
-    return filteredManagers.slice(start, start + PER_PAGE);
-  }, [filteredManagers, page]);
-
-  // ── Stats KPIs — calculées localement depuis allManagers ─────────────────
-  const stats = useMemo<ManagerStats>(() => ({
-    total_managers: allManagers.length,
-    active_managers: allManagers.filter(m => m.is_active !== false).length,
-    inactive_managers: allManagers.filter(m => m.is_active === false).length,
-  }), [allManagers]);
-
-  /**
-   * ── applySearch ────────────────────────────────────────────────────────────
-   * Met à jour le terme de recherche et remet la pagination à 1.
-   */
   const applySearch = (value: string) => {
     setSearch(value);
-    setPage(1);
+    setPageNum(1);
+    doFetch(1, value, filters);
   };
 
-  /**
-   * ── applyFilters ───────────────────────────────────────────────────────────
-   * Met à jour les filtres actifs et remet la pagination à 1.
-   */
-  const applyFilters = (newFilters: typeof filters) => {
-    setFilters(prev => ({ ...prev, ...newFilters }));
-    setPage(1);
+  const applyFilters = (newFilters: { is_active?: boolean }) => {
+    const merged = { ...filters, ...newFilters };
+    setFilters(merged);
+    setPageNum(1);
+    doFetch(1, search, merged);
   };
 
-  /**
-   * ── resetFilters ───────────────────────────────────────────────────────────
-   * Remet tous les filtres à zéro.
-   */
   const resetFilters = () => {
     setFilters({});
     setSearch("");
-    setPage(1);
+    setPageNum(1);
+    doFetch(1, "", {});
+  };
+
+  const setPage = (p: number) => {
+    setPageNum(p);
+    doFetch(p, search, filters);
+  };
+
+  const fetchManagers = () => {
+    doFetch(page, search, filters);
+    doFetchStats();
   };
 
   return {
-    // Liste paginée + filtrée (pour la page liste)
     managers,
-    // Stats KPIs calculées localement
+    allManagers,
     stats,
-    // Méta pagination
     meta,
-    // Page courante
     page,
     setPage,
-    // Recherche
     search,
     applySearch,
-    // Filtres
     filters,
     applyFilters,
     resetFilters,
-    // Loading
     isLoading,
-    // Refetch manuel (après création, suppression, toggle statut)
     fetchManagers,
-    // Liste complète (utile pour les selects dans les formulaires)
-    allManagers,
   };
-};
+}

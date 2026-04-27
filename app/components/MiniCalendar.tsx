@@ -72,7 +72,7 @@ export default function MiniCalendar({ activeMonth, onMonthChange, plannings }: 
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => { setIsMonthOpen(!isMonthOpen); setIsYearOpen(false); }}
-              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 px-3 py-1.5 rounded-xl transition-all font-bold text-[14px]"
+              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 px-3 py-1.5 rounded-xl transition-all font-bold text-[14px] text-black"
             >
               {months[month]}
               <ChevronDown size={14} className={`transition-transform ${isMonthOpen ? "rotate-180" : ""}`} />
@@ -86,7 +86,7 @@ export default function MiniCalendar({ activeMonth, onMonthChange, plannings }: 
                       onClick={() => { onMonthChange(new Date(year, i, 1)); setIsMonthOpen(false); }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] hover:bg-slate-50 rounded-lg transition-colors"
                     >
-                      <span className={month === i ? "font-bold text-theme-primary" : "text-slate-600"}>{m}</span>
+                      <span className={month === i ? "font-bold text-black" : "text-slate-600"}>{m}</span>
                       {month === i && <Check size={14} className="text-black" />}
                     </button>
                   ))}
@@ -99,7 +99,7 @@ export default function MiniCalendar({ activeMonth, onMonthChange, plannings }: 
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => { setIsYearOpen(!isYearOpen); setIsMonthOpen(false); }}
-              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 px-3 py-1.5 rounded-xl transition-all font-bold text-[14px]"
+              className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-100 px-3 py-1.5 rounded-xl transition-all font-bold text-[14px] text-black"
             >
               {year}
               <ChevronDown size={14} className={`transition-transform ${isYearOpen ? "rotate-180" : ""}`} />
@@ -113,7 +113,7 @@ export default function MiniCalendar({ activeMonth, onMonthChange, plannings }: 
                       onClick={() => { onMonthChange(new Date(y, month, 1)); setIsYearOpen(false); }}
                       className="w-full flex items-center justify-between px-3 py-2 text-[13px] hover:bg-slate-50 rounded-lg transition-colors"
                     >
-                      <span className={year === y ? "font-bold text-theme-primary" : "text-slate-600"}>{y}</span>
+                      <span className={year === y ? "font-bold text-black" : "text-slate-600"}>{y}</span>
                       {year === y && <Check size={14} className="text-black" />}
                     </button>
                   ))}

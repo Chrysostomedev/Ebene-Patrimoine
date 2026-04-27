@@ -5,23 +5,26 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, CheckCircle2, Clock, FileText,
-  Eye, Download, Star, X, MapPin, Wrench,
+  Eye, Download, Star, X, MapPin, Wrench, ArrowUpRight,
 } from "lucide-react";
 
+import AttachmentViewer from "@/components/AttachmentViewer";
+
 import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
 import StatsCard from "@/components/StatsCard";
 
 import { ReportService, InterventionReport, ValidateReportPayload } from "../../../../../services/admin/report.service";
+import { resolveUrl } from "@/components/AttachmentViewer";
+import { useToast } from "@/contexts/ToastContext";
+import { formatDate } from "@/lib/utils";
+
 
 // ═══════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════
 
-const formatDate = (iso?: string | null): string => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-};
+// local formatDate removed - using @/lib/utils
+
 
 // ═══════════════════════════════════════════════
 // COMPOSANTS LOCAUX
@@ -30,9 +33,8 @@ const formatDate = (iso?: string | null): string => {
 function StatusBadge({ status }: { status?: string }) {
   const isValidated = status === "validated";
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${
-      isValidated ? "border-black bg-black text-white" : "border-slate-300 bg-slate-100 text-slate-700"
-    }`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold ${isValidated ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-amber-200 bg-amber-50 text-amber-600"
+      }`}>
       {isValidated ? <CheckCircle2 size={11} /> : <Clock size={11} />}
       {isValidated ? "Validé" : "En attente"}
     </span>
@@ -42,9 +44,8 @@ function StatusBadge({ status }: { status?: string }) {
 function TypeBadge({ type }: { type?: string }) {
   const isCuratif = type === "curatif";
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold ${
-      isCuratif ? "bg-orange-50 text-orange-600 border border-orange-200" : "bg-blue-50 text-blue-600 border border-blue-200"
-    }`}>
+    <span className={`inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold ${isCuratif ? "bg-orange-50 text-orange-600 border border-orange-200" : "bg-blue-50 text-blue-600 border border-blue-200"
+      }`}>
       {isCuratif ? "Curatif" : "Préventif"}
     </span>
   );
@@ -96,7 +97,7 @@ function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; on
 }
 
 // ═══════════════════════════════════════════════
-// VALIDATE MODAL — notation + commentaire
+// VALIDATE MODAL - notation + commentaire
 // ═══════════════════════════════════════════════
 
 function ValidateModal({
@@ -106,15 +107,24 @@ function ValidateModal({
   onClose: () => void;
   onConfirm: (payload: ValidateReportPayload) => Promise<void>;
 }) {
-  const [rating,  setRating]  = useState<number>(0);
+  const [result, setResult] = useState<"RAS" | "ANOMALIE">("RAS");
+  const [rating, setRating] = useState<number>(0);
   const [hovered, setHovered] = useState<number>(0);
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
+    if (!comment.trim()) {
+      alert("Le commentaire est obligatoire.");
+      return;
+    }
     setLoading(true);
     try {
-      await onConfirm({ rating: rating || null, comment: comment || null });
+      await onConfirm({
+        result,
+        rating: rating || null,
+        comment: comment.trim(),
+      });
       onClose();
     } finally {
       setLoading(false);
@@ -128,13 +138,33 @@ function ValidateModal({
         <div className="flex items-center justify-between px-7 py-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-black text-slate-900">Valider le rapport</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Rapport #{report.id}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Rapport {report.id}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition">
             <X size={18} className="text-slate-500" />
           </button>
         </div>
         <div className="px-7 py-6 space-y-6">
+          {/* <div>
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-3">
+              Résultat de l'intervention
+            </label>
+            <div className="flex gap-3 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                onClick={() => setResult("RAS")}
+                className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${result === "RAS" ? "bg-white text-slate-900 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+              >
+                RAS
+              </button>
+                <button
+                  onClick={() => setResult("ANOMALIE")}
+                  className={`flex-1 py-3 rounded-xl text-xs font-black transition-all ${result === "ANOMALIE" ? "bg-white text-red-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
+                >
+                  ANOMALIE
+                </button>
+            </div>
+          </div> */}
+
           <div>
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-3">
               Note de satisfaction
@@ -193,19 +223,15 @@ function ValidateModal({
 // ═══════════════════════════════════════════════
 
 export default function ReportDetailPage() {
-  const params    = useParams();
-  const reportId  = Number(params.id);
+  const params = useParams();
+  const reportId = Number(params.id);
 
-  const [report,        setReport]        = useState<InterventionReport | null>(null);
-  const [isLoading,     setIsLoading]     = useState(false);
-  const [pdfPreview,    setPdfPreview]    = useState<{ url: string; name: string } | null>(null);
-  const [showValidate,  setShowValidate]  = useState(false);
-  const [flash,         setFlash]         = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [report, setReport] = useState<InterventionReport | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
+  const [showValidate, setShowValidate] = useState(false);
+  const { toast } = useToast();
 
-  const showFlash = (type: "success" | "error", message: string) => {
-    setFlash({ type, message });
-    setTimeout(() => setFlash(null), 5000);
-  };
 
   const fetchReport = async () => {
     setIsLoading(true);
@@ -225,40 +251,32 @@ export default function ReportDetailPage() {
     try {
       const updated = await ReportService.validateReport(reportId, payload);
       setReport(updated);
-      showFlash("success", "Rapport validé avec succès.");
+      toast.success("Rapport validé avec succès.");
     } catch {
-      showFlash("error", "Erreur lors de la validation.");
+      toast.error("Erreur lors de la validation.");
     }
   };
 
-  const isValidated  = report?.status === "validated";
-  const pdfs         = (report?.attachments ?? []).filter(a => a.file_type === "document");
-  const photos       = (report?.attachments ?? []).filter(a => a.file_type === "photo");
-  const providerName = report?.provider?.company_name ?? report?.provider?.name ?? "—";
-  const siteName     = report?.site?.nom ?? report?.site?.name ?? "—";
+  const isValidated = report?.status === "validated";
+  const pdfs = (report?.attachments ?? []).filter(a => a.file_type === "document");
+  const photos = (report?.attachments ?? []).filter(a => a.file_type === "photo");
+  const providerName = report?.provider?.company_name ?? report?.provider?.name ?? "-";
+  const siteName = report?.site?.nom ?? report?.site?.name ?? "-";
 
   // KPIs dynamiques depuis le rapport
   const kpis = [
-    { label: "Prestataire",   value: providerName,                                    delta: "", trend: "up" as const },
-    { label: "Site",          value: siteName,                                        delta: "", trend: "up" as const },
-    { label: "Pièces jointes",value: (report?.attachments?.length ?? 0),              delta: "", trend: "up" as const },
-    { label: "Note",          value: report?.rating ? `${report.rating}/5` : "N/A",  delta: "", trend: "up" as const },
+    { label: "Prestataire", value: providerName, delta: "", trend: "up" as const },
+    { label: "Site", value: siteName, delta: "", trend: "up" as const },
+    { label: "Pièces jointes", value: (report?.attachments?.length ?? 0), delta: "", trend: "up" as const },
+    { label: "Note", value: report?.rating ? `${report.rating}/5` : "N/A", delta: "", trend: "up" as const },
   ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-64">
+      <div className="flex-1 flex flex-col">
         <Navbar />
         <main className="mt-20 p-8 space-y-8">
 
-          {flash && (
-            <div className={`px-6 py-4 rounded-2xl text-sm font-semibold ${
-              flash.type === "success"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200"
-            }`}>{flash.message}</div>
-          )}
 
           {/* ── Header ── */}
           <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -272,7 +290,7 @@ export default function ReportDetailPage() {
               <div>
                 <div className="flex items-center gap-4 mb-1">
                   <h1 className="text-5xl font-black text-slate-900 tracking-tighter uppercase">
-                    {isLoading ? "Chargement..." : `Rapport #${reportId}`}
+                    {isLoading ? "Chargement..." : `Rapport ${reportId}`}
                   </h1>
                   {report && <StatusBadge status={report.status} />}
                   {report && <TypeBadge type={report.intervention_type} />}
@@ -290,7 +308,7 @@ export default function ReportDetailPage() {
               </div>
             </div>
 
-            {/* Bloc droit — info validation + bouton */}
+            {/* Bloc droit - info validation + bouton */}
             <div className="flex flex-col gap-4">
               <div className="bg-slate-50/50 p-6 rounded-[24px] border border-slate-100 flex flex-col gap-4 min-w-[300px]">
                 <div className="flex flex-col gap-2 text-sm">
@@ -298,17 +316,17 @@ export default function ReportDetailPage() {
                     <span className="text-slate-400 font-medium">Créé le</span>
                     <span className="font-bold text-slate-900">{formatDate(report?.created_at)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  {/* <div className="flex justify-between items-center">
                     <span className="text-slate-400 font-medium">Début</span>
                     <span className="font-bold text-slate-900">{formatDate(report?.start_date)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
+                  </div> */}
+                  {/* <div className="flex justify-between items-center">
                     <span className="text-slate-400 font-medium">Fin</span>
                     <span className="font-bold text-slate-900">{formatDate(report?.end_date)}</span>
-                  </div>
+                  </div> */}
                   {isValidated && (
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-400 font-medium">Validé le</span>
+                      <span className="text-slate-400 font-medium">Rapport validé le</span>
                       <span className="font-bold text-emerald-700">{formatDate(report?.validated_at)}</span>
                     </div>
                   )}
@@ -344,8 +362,8 @@ export default function ReportDetailPage() {
               {/* Description */}
               <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Description</h3>
-                {report?.description ? (
-                  <p className="text-sm text-slate-700 leading-relaxed">{report.description}</p>
+                {report?.action_taken ? (
+                  <p className="text-sm text-slate-700 leading-relaxed">{report.action_taken}</p>
                 ) : (
                   <p className="text-slate-400 text-sm italic">Aucune description renseignée.</p>
                 )}
@@ -369,7 +387,7 @@ export default function ReportDetailPage() {
                   </h3>
                   <div className="grid grid-cols-3 gap-3">
                     {photos.map(att => {
-                      const url = ReportService.getAttachmentUrl(att.file_path);
+                      const url = resolveUrl(att.file_path);
                       return (
                         <a key={att.id} href={url} target="_blank" rel="noreferrer"
                           className="aspect-square rounded-xl overflow-hidden border border-slate-100 hover:opacity-80 transition">
@@ -382,7 +400,7 @@ export default function ReportDetailPage() {
               )}
             </div>
 
-            {/* Sidebar droite — docs PDF + infos */}
+            {/* Sidebar droite - docs PDF + infos */}
             <div className="space-y-6">
 
               {/* Documents PDF */}
@@ -393,7 +411,7 @@ export default function ReportDetailPage() {
                 {pdfs.length > 0 ? (
                   <div className="space-y-3">
                     {pdfs.map(att => {
-                      const url  = ReportService.getAttachmentUrl(att.file_path);
+                      const url = resolveUrl(att.file_path);
                       const name = att.file_path.split("/").pop() ?? "document.pdf";
                       return (
                         <div key={att.id} className="flex flex-col gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50">
@@ -436,10 +454,10 @@ export default function ReportDetailPage() {
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">Ticket lié</h3>
                   <div className="space-y-2.5">
                     {[
-                      { label: "ID",      value: `#${report.ticket.id}` },
-                      { label: "Sujet",   value: report.ticket.subject ?? "—" },
-                      { label: "Type",    value: report.ticket.type === "curatif" ? "Curatif" : "Préventif" },
-                      { label: "Statut",  value: report.ticket.status ?? "—" },
+                      { label: "Code", value: `${report.ticket.code_ticket}` },
+                      { label: "Sujet", value: report.ticket.subject ?? "-" },
+                      { label: "Type", value: report.ticket.type === "curatif" ? "Curatif" : "Préventif" },
+                      { label: "Statut", value: report.ticket.status ?? "-" },
                     ].map((f, i) => (
                       <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
                         <span className="text-xs text-slate-400 font-medium">{f.label}</span>

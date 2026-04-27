@@ -3,229 +3,174 @@
 import { useState, useEffect, useRef } from "react";
 import { Eye, Filter, Download, Upload, Building2, X } from "lucide-react";
 
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import DataTable from "@/components/DataTable";
 import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
+import UniversalImportPreview, { ColumnDef, ImportResult } from "@/components/UniversalImportPreview";
 
 import { useSubTypeAssets } from "../../../../hooks/admin/useSubTypeAssets";
 import { useTypes } from "../../../../hooks/admin/useTypes";
 import { SubTypeAssetService } from "../../../../services/admin/sub-type-asset.service";
+import { useToast } from "@/contexts/ToastContext";
 
-// ── Dropdown filtre par type — style CANAL+ noir/blanc ──
-function FilterDropdown({
-  isOpen,
-  onClose,
-  types,
-  selectedTypeId,
-  onApply,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  types: any[];
-  selectedTypeId: number | undefined;
-  onApply: (typeId: number | undefined) => void;
+// Colonnes attendues par SubTypesImport.php : nom*, code*, type_asset*, description
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: "nom",         label: "Nom",         required: true  },
+  { key: "code",        label: "Code",        required: true  },
+  { key: "type_asset",  label: "Type parent", required: true  },
+  { key: "description", label: "Description", required: false },
+];
+
+function FilterDropdown({ isOpen, onClose, types, selectedTypeId, onApply }: {
+  isOpen: boolean; onClose: () => void; types: any[];
+  selectedTypeId: number | undefined; onApply: (id: number | undefined) => void;
 }) {
   const [local, setLocal] = useState<number | undefined>(selectedTypeId);
-
   useEffect(() => { setLocal(selectedTypeId); }, [selectedTypeId]);
-
   if (!isOpen) return null;
-
   return (
     <div className="absolute right-0 top-full mt-2 z-50 w-60 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
         <span className="text-sm font-black text-slate-900 uppercase tracking-widest">Filtrer par type</span>
-        <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition">
-          <X size={16} className="text-slate-500" />
-        </button>
+        <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition"><X size={16} className="text-slate-500" /></button>
       </div>
-
-      {/* Liste des types */}
       <div className="p-4 space-y-1.5 max-h-64 overflow-y-auto">
-        <button
-          onClick={() => setLocal(undefined)}
-          className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition ${
-            !local ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-          }`}
-        >
+        <button onClick={() => setLocal(undefined)} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition ${!local ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}>
           Tous les types
         </button>
         {types.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setLocal(t.id)}
-            className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-between ${
-              local === t.id ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-            }`}
-          >
+          <button key={t.id} onClick={() => setLocal(t.id)} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-between ${local === t.id ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"}`}>
             <span>{t.name}</span>
             <span className={`text-[10px] font-black ${local === t.id ? "opacity-60" : "opacity-40"}`}>{t.code}</span>
           </button>
         ))}
       </div>
-
-      {/* Footer */}
       <div className="px-4 py-4 border-t border-slate-100 flex gap-3">
-        <button
-          onClick={() => { setLocal(undefined); onApply(undefined); onClose(); }}
-          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition"
-        >
-          Réinitialiser
-        </button>
-        <button
-          onClick={() => { onApply(local); onClose(); }}
-          className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
-        >
-          Appliquer
-        </button>
+        <button onClick={() => { setLocal(undefined); onApply(undefined); onClose(); }} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition">Réinitialiser</button>
+        <button onClick={() => { onApply(local); onClose(); }} className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition">Appliquer</button>
       </div>
     </div>
   );
 }
 
-// ── Page principale ──
 export default function SousTypePage() {
   const filterRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSubType, setSelectedSubType] = useState<any>(null);
+  const [isModalOpen,   setIsModalOpen]   = useState(false);
+  const [selectedItem,  setSelectedItem]  = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [editingData, setEditingData] = useState<Record<string, any> | null>(null);
-  const [flashMessage, setFlashMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [editingData,   setEditingData]   = useState<Record<string, any> | null>(null);
+  const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [selectedTypeId, setSelectedTypeId] = useState<number | undefined>(undefined);
-  const [importLoading, setImportLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [previewFile,   setPreviewFile]   = useState<File | null>(null);
+  const [previewOpen,   setPreviewOpen]   = useState(false);
+  const { toast } = useToast();
 
   const { subTypes, isLoading, fetchSubTypes } = useSubTypeAssets();
   const { types, fetchTypes } = useTypes();
 
   useEffect(() => { fetchTypes(); fetchSubTypes(); }, []);
-
   useEffect(() => {
-    if (!flashMessage) return;
-    const timer = setTimeout(() => setFlashMessage(null), 5000);
-    return () => clearTimeout(timer);
-  }, [flashMessage]);
-
-  // Ferme dropdown au clic extérieur
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setFiltersOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const h = (e: MouseEvent) => { if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFiltersOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const showFlash = (type: "success" | "error", message: string) =>
-    setFlashMessage({ type, message });
 
-  // ── Filtre côté client par type ──
   const filteredSubTypes = selectedTypeId
-    ? subTypes.filter(
-        (st: any) =>
-          st.type?.id === selectedTypeId ||
-          st.type_company_asset_id === selectedTypeId
-      )
+    ? subTypes.filter((st: any) => st.type?.id === selectedTypeId || st.type_company_asset_id === selectedTypeId)
     : subTypes;
 
-  // ── Détails panel ──
-  const handleOpenDetails = (subType: any) => {
-    setSelectedSubType({
-      title: subType.name,
-      reference: subType.id,
+  const handleOpenDetails = (item: any) => {
+    setSelectedItem({
+      title: item.name, reference: item.id,
       fields: [
-        { label: "Famille / Type", value: subType.type?.name || "-" },
-        { label: "Codification", value: subType.code },
-        { label: "Sous-type", value: subType.name },
-        { label: "Description", value: subType.description || "-" },
-        { label: "Date d'ajout", value: subType.created_at?.split("T")[0] || "-" },
+        { label: "Famille / Type", value: item.type?.name || "-" },
+        { label: "Codification",   value: item.code },
+        { label: "Sous-type",      value: item.name },
+        { label: "Description",    value: item.description || "-" },
+        { label: "Date d'ajout",   value: item.created_at?.split("T")[0] || "-" },
       ],
-      description: subType.description,
-      rawData: subType,
+      description: item.description, rawData: item,
     });
     setIsDetailsOpen(true);
   };
 
   const handleEdit = () => {
-    if (!selectedSubType?.rawData) return;
-    setEditingData({
-      type_company_asset_id: selectedSubType.rawData.type?.id || "",
-      name: selectedSubType.rawData.name,
-      code: selectedSubType.rawData.code,
-      description: selectedSubType.rawData.description,
-    });
+    if (!selectedItem?.rawData) return;
+    setEditingData({ type_company_asset_id: selectedItem.rawData.type?.id || "", name: selectedItem.rawData.name, code: selectedItem.rawData.code, description: selectedItem.rawData.description });
     setIsModalOpen(true);
     setIsDetailsOpen(false);
   };
 
-  // ── CRUD ──
-  const handleCreateOrUpdateSubType = async (formData: Record<string, any>) => {
+  const handleCreateOrUpdate = async (formData: Record<string, any>) => {
     try {
-      if (editingData && selectedSubType?.reference) {
-        await SubTypeAssetService.updateSubType(selectedSubType.reference, formData);
-        showFlash("success", "Sous-type mis à jour avec succès.");
+      if (editingData && selectedItem?.reference) {
+        await SubTypeAssetService.updateSubType(selectedItem.reference, formData);
+        toast.success("Sous-type mis à jour avec succès.");
       } else {
         await SubTypeAssetService.createSubType(formData);
-        showFlash("success", "Sous-type créé avec succès.");
+        toast.success("Sous-type créé avec succès.");
       }
       await fetchSubTypes();
       setIsModalOpen(false);
       setEditingData(null);
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message || "Erreur serveur.");
+      toast.error(err?.response?.data?.message || "Erreur serveur.");
     }
   };
 
-  // ── Import ──
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportLoading(true);
+    e.target.value = "";
+    setPreviewFile(file);
+    setPreviewOpen(true);
+  };
+
+  const handleConfirmImport = async (rows: Record<string, any>[]): Promise<ImportResult> => {
+    const XLSX = await import("xlsx");
+    const ws   = XLSX.utils.json_to_sheet(rows);
+    const wb   = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "SousTypes");
+    const buf  = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const file = new File([buf], "import_sous_types.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     try {
-      // await SubTypeAssetService.importSubTypes(file); // décommenter quand endpoint dispo
-      showFlash("success", "Import réussi.");
+      await SubTypeAssetService.importSubTypes(file);
       await fetchSubTypes();
-    } catch {
-      showFlash("error", "Erreur lors de l'import.");
-    } finally {
-      setImportLoading(false);
-      e.target.value = "";
+      toast.success(`${rows.length} sous-type${rows.length > 1 ? "s" : ""} importé${rows.length > 1 ? "s" : ""} avec succès.`);
+      return { imported: rows.length, skipped: 0, errors: [] };
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "Erreur lors de l'import.";
+      toast.error(msg);
+      return { imported: 0, skipped: 0, errors: [{ row: 0, message: msg }] };
     }
   };
 
-  // ── Export ──
   const handleExport = async () => {
     setExportLoading(true);
     try {
-      // await SubTypeAssetService.exportSubTypes(); // décommenter quand endpoint dispo
-      showFlash("success", "Export téléchargé.");
+      await SubTypeAssetService.exportSubTypes();
+      toast.success("Export téléchargé.");
     } catch {
-      showFlash("error", "Erreur lors de l'export.");
+      toast.error("Erreur lors de l'export.");
     } finally {
       setExportLoading(false);
     }
   };
 
-  // ── Colonnes ──
   const columns = [
-    { header: "Type", key: "type", render: (_: any, row: any) => row.type?.name || "-" },
+    { header: "Type",         key: "type",        render: (_: any, row: any) => row.type?.name || "-" },
     { header: "Codification", key: "code" },
-    { header: "Sous-type", key: "name" },
-    { header: "Description", key: "description", render: (_: any, row: any) => row.description || "-" },
+    { header: "Sous-type",    key: "name" },
+    { header: "Description",  key: "description", render: (_: any, row: any) => row.description || "-" },
     {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
-        <button
-          onClick={() => handleOpenDetails(row)}
-          className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
-        >
+        <button onClick={() => handleOpenDetails(row)} className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
           <Eye size={18} /> Aperçu
         </button>
       ),
@@ -233,138 +178,89 @@ export default function SousTypePage() {
   ];
 
   const subTypeFields: FieldConfig[] = [
-    {
-      name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true,
-      // label = name du type (plus lisible que le code seul)
-      options: types.map((t: any) => ({ label: t.name, value: String(t.id) })),
-    },
-    { name: "name", label: "Sous-type", type: "text", required: true },
-    { name: "code", label: "Codification", type: "text", required: true },
-    { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
+    { name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true, options: types.map((t: any) => ({ label: t.name, value: String(t.id) })) },
+    { name: "name",        label: "Sous-type",    type: "text",      required: true },
+    { name: "code",        label: "Codification", type: "text",      required: true },
+    { name: "description", label: "Description",  type: "rich-text", gridSpan: 2 },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="ml-64 mt-20 p-6 space-y-8">
-          <PageHeader
-            title="Sous-type de patrimoine"
-            subtitle="Ce menu vous permet de voir les sous-types disponibles"
-          />
+    <div className="flex-1 flex flex-col">
+      <Navbar />
+      <main className="mt-20 p-6 space-y-8">
+        <PageHeader title="Sous-type de patrimoine" subtitle="Gérez les sous-types de patrimoine" />
 
-          {/* Barre d'actions */}
-          <div className="shrink-0 flex justify-end items-center gap-3">
-
-            {/* Import */}
-            <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition ${importLoading ? "opacity-50 pointer-events-none" : ""}`}>
-              <Download size={16} />
-              {importLoading ? "Import..." : "Importer"}
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            </label>
-
-            {/* Export */}
-            <button
-              onClick={handleExport}
-              disabled={exportLoading}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50"
-            >
-              <Upload size={16} />
-              {exportLoading ? "Export..." : "Exporter"}
+        <div className="shrink-0 flex justify-end items-center gap-3">
+         
+          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition">
+            <Download size={16} /> Importer
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
+          </label>
+          <button onClick={handleExport} disabled={exportLoading} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50">
+            {exportLoading ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" /> : <Upload size={16} />}
+            Exporter
+          </button>
+          <div className="relative" ref={filterRef}>
+            <button onClick={() => setFiltersOpen(!filtersOpen)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${filtersOpen || selectedTypeId ? "bg-slate-900 text-white border-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
+              <Filter size={16} /> Filtrer
+              {selectedTypeId && <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">1</span>}
             </button>
-
-            {/* Filtre par type — dropdown CANAL+ */}
-            <div className="relative" ref={filterRef}>
-              <button
-                onClick={() => setFiltersOpen(!filtersOpen)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${
-                  filtersOpen || selectedTypeId
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                <Filter size={16} />
-                Filtrer
-                {selectedTypeId && (
-                  <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                    1
-                  </span>
-                )}
-              </button>
-
-              <FilterDropdown
-                isOpen={filtersOpen}
-                onClose={() => setFiltersOpen(false)}
-                types={types}
-                selectedTypeId={selectedTypeId}
-                onApply={(typeId) => { setSelectedTypeId(typeId); }}
-              />
-            </div>
-
-            {/* Ajouter */}
-            <button
-              onClick={() => { setEditingData(null); setIsModalOpen(true); }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
-            >
-              <Building2 size={16} /> Ajouter un sous-type
-            </button>
+            <FilterDropdown isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} types={types} selectedTypeId={selectedTypeId} onApply={id => setSelectedTypeId(id)} />
           </div>
+          <button onClick={() => { setEditingData(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition">
+            <Building2 size={16} /> Ajouter un sous-type
+          </button>
+        </div>
 
-          {/* Badge filtre actif */}
-          {selectedTypeId && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
-              <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {types.find((t: any) => t.id === selectedTypeId)?.name ?? "Type"}
-                <button
-                  onClick={() => setSelectedTypeId(undefined)}
-                  className="hover:opacity-70 transition"
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            </div>
-          )}
-
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={isLoading ? [] : filteredSubTypes} onViewAll={() => {}} />
-            <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-              <Paginate currentPage={1} totalPages={1} onPageChange={() => {}} />
-            </div>
+        {selectedTypeId && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
+            <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+              {types.find((t: any) => t.id === selectedTypeId)?.name ?? "Type"}
+              <button onClick={() => setSelectedTypeId(undefined)} className="hover:opacity-70 transition"><X size={12} /></button>
+            </span>
           </div>
+        )}
 
-          <ReusableForm
-            isOpen={isModalOpen}
-            onClose={() => { setIsModalOpen(false); setEditingData(null); }}
-            title={editingData ? "Modifier un sous-type" : "Ajouter un nouveau sous-type"}
-            subtitle="Remplissez les informations ci-dessous."
-            fields={subTypeFields}
-            onSubmit={handleCreateOrUpdateSubType}
-            initialValues={editingData || {}}
-          />
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <DataTable columns={columns as any} data={isLoading ? [] : filteredSubTypes} onViewAll={() => {}} />
+          <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
+            <Paginate currentPage={1} totalPages={1} onPageChange={() => {}} />
+          </div>
+        </div>
 
-          <SideDetailsPanel
-            isOpen={isDetailsOpen}
-            onClose={() => setIsDetailsOpen(false)}
-            title={selectedSubType?.title || ""}
-            reference={selectedSubType?.reference}
-            fields={selectedSubType?.fields || []}
-            descriptionContent={selectedSubType?.description}
-            onEdit={handleEdit}
-          />
+        <ReusableForm
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingData(null); }}
+          title={editingData ? "Modifier un sous-type" : "Ajouter un nouveau sous-type"}
+          subtitle="Remplissez les informations ci-dessous."
+          fields={subTypeFields}
+          onSubmit={handleCreateOrUpdate}
+          initialValues={editingData || {}}
+        />
 
-          {flashMessage && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-medium border ${
-              flashMessage.type === "success"
-                ? "text-green-700 bg-green-50 border-green-200"
-                : "text-red-600 bg-red-100 border-red-300"
-            }`}>
-              {flashMessage.message}
-            </div>
-          )}
-        </main>
-      </div>
+        <SideDetailsPanel
+          isOpen={isDetailsOpen}
+          onClose={() => setIsDetailsOpen(false)}
+          title={selectedItem?.title || ""}
+          reference={selectedItem?.reference}
+          fields={selectedItem?.fields || []}
+          descriptionContent={selectedItem?.description}
+          onEdit={handleEdit}
+        />
+
+      </main>
+
+      <UniversalImportPreview
+        isOpen={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewFile(null); }}
+        file={previewFile}
+        columns={IMPORT_COLUMNS}
+        dedupeKey={["code", "type_asset"]}
+        existingData={subTypes.map((st: any) => ({ code: st.code, type_asset: st.type?.name ?? "" }))}
+        onConfirm={handleConfirmImport}
+        title="Prévisualisation — Import Sous-types de patrimoine"
+      />
     </div>
   );
 }

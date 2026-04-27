@@ -1,10 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
-import DataTable from "@/components/DataTable";
+import DataTable, { ColumnConfig } from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import ActionGroup from "@/components/ActionGroup";
 import ReusableForm from "@/components/ReusableForm";
@@ -16,32 +15,19 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import { useProviderQuotes } from "@hooks/provider/useProviderQuotes";
+import { useProviderQuotes } from "../../../hooks/provider/useProviderQuotes";
 import {
   Quote, ALL_STATUSES,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
-  formatCurrency, formatDate, getPdfUrl,
-} from "@services/provider/providerQuoteService";
+  getPdfUrl,
+} from "../../../services/provider/providerQuoteService";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { FieldConfig } from "@/components/ReusableForm";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useToast } from "../../../contexts/ToastContext";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ msg, type }: { msg: string; type: "success" | "error" }) {
-  return (
-    <div className={`fixed bottom-6 right-6 z-[99999] flex items-center gap-3 px-5 py-4
-      rounded-2xl shadow-2xl border text-sm font-semibold
-      animate-in slide-in-from-bottom-4 duration-300
-      ${type === "success"
-        ? "bg-white border-green-100 text-green-700"
-        : "bg-white border-red-100 text-red-700"}`}>
-      {type === "success"
-        ? <CheckCircle2 size={18} className="text-green-500 shrink-0" />
-        : <XCircle      size={18} className="text-red-500 shrink-0" />}
-      {msg}
-    </div>
-  );
-}
+// Remplacé par `Toast` global de `@/components/Toast`
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 
@@ -88,12 +74,12 @@ function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; on
 // ─── Side Panel aperçu (droite) ───────────────────────────────────────────────
 
 function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => void }) {
-  const [copied,     setCopied]     = useState(false);
+  const [copied, setCopied] = useState(false);
   const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
 
   const pdfFiles = (quote.pdf_paths ?? []).map(p => ({
     name: p.split("/").pop() ?? "devis.pdf",
-    url:  getPdfUrl(p),
+    url: getPdfUrl(p),
   }));
 
   const copyRef = () => {
@@ -107,7 +93,7 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
       <div className="fixed right-0 top-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col rounded-l-3xl overflow-hidden">
 
-        {/* Header — croix haut gauche comme admin */}
+        {/* Header - croix haut gauche comme admin */}
         <div className="flex items-start px-6 pt-6 pb-0 shrink-0">
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl transition -ml-1">
             <X size={18} className="text-slate-500" />
@@ -134,11 +120,11 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
                   </div>
                 ),
               },
-              { label: "Ticket",    value: quote.ticket?.subject ?? quote.ticket?.title ?? `#${quote.ticket_id}` },
-              { label: "Site",      value: quote.site?.nom ?? quote.site?.name ?? "—" },
-              { label: "Montant HT",  value: formatCurrency(quote.amount_ht) },
-              { label: `TVA (${quote.tax_rate ?? 18}%)`, value: formatCurrency(quote.tax_amount) },
-              { label: "Date",      value: formatDate(quote.created_at) },
+              { label: "Ticket", value: quote.ticket?.subject ?? quote.ticket?.title ?? `#${quote.ticket_id}` },
+              { label: "Site", value: quote.site?.nom ?? quote.site?.name ?? "-" },
+              { label: "Montant HT", value: formatCurrency(quote.amount_ht) },
+              { label: `TVA (${quote.tax_rate ?? 18}%)`, value: formatCurrency(quote.tax_amount || (quote.amount_ht * (quote.tax_rate || 18) / 100)) },
+              { label: "Date", value: formatDate(quote.created_at) },
             ].map((f, i) => (
               <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <p className="text-xs text-slate-400 font-medium">{f.label}</p>
@@ -167,9 +153,10 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
           {quote.description && (
             <div>
               <p className="text-xs text-slate-400 font-medium mb-2">Description</p>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">
-                {quote.description}
-              </p>
+              <div
+                className="prose prose-sm max-w-none text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100"
+                dangerouslySetInnerHTML={{ __html: quote.description ?? "" }}
+              />
             </div>
           )}
 
@@ -201,15 +188,15 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
                 <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Total HT</span>
-                    <span className="font-bold">{formatCurrency(quote.amount_ht)}</span>
+                    <span className="font-bold">{formatCurrency(quote.amount_ht || quote.items?.reduce((s, i) => s + (Number(i.total_price) || (Number(i.quantity) * Number(i.unit_price))), 0) || 0)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">TVA ({quote.tax_rate}%)</span>
-                    <span className="font-bold">{formatCurrency(quote.tax_amount)}</span>
+                    <span className="font-bold">{formatCurrency(quote.tax_amount || ((quote.amount_ht || 0) * (quote.tax_rate || 18) / 100))}</span>
                   </div>
                   <div className="flex justify-between text-sm border-t border-slate-200 pt-1.5">
                     <span className="font-black text-slate-900">Total TTC</span>
-                    <span className="font-black text-slate-900">{formatCurrency(quote.amount_ttc)}</span>
+                    <span className="font-black text-slate-900">{formatCurrency(quote.amount_ttc || (quote.amount_ht + (quote.tax_amount || (quote.amount_ht * (quote.tax_rate || 18) / 100))))}</span>
                   </div>
                 </div>
               </div>
@@ -241,7 +228,6 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
                       <Download size={13} />
                     </a>
                   </div>
-                  
                 ))}
               </div>
             </div>
@@ -268,6 +254,7 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
 
 export default function ProviderDevisPage() {
   const router = useRouter();
+  const { toast } = useToast();
 
   const {
     quotes, stats, selectedQuote,
@@ -280,48 +267,71 @@ export default function ProviderDevisPage() {
     createQuote, exportXlsx,
   } = useProviderQuotes();
 
-  // ── Champs formulaire — même pattern que DevisPage admin ─────────────────
+  useEffect(() => { if (submitSuccess) toast.success(submitSuccess); }, [submitSuccess]);
+  useEffect(() => { if (submitError) toast.error(submitError); }, [submitError]);
+
+  // ── Chargement des tickets pour le select ─────────────────────────────────
+  const [ticketOptions, setTicketOptions] = useState<{ label: string; value: number }[]>([]);
+  useEffect(() => {
+    import("../../../services/provider/providerTicketService").then(({ providerTicketService }) => {
+      providerTicketService.getTickets({ per_page: 200 }).then(({ items }) => {
+        setTicketOptions(
+          items.map(t => ({
+            label: t.subject
+              ? `${t.subject} — ${t.site?.nom ?? ""}`
+              : `Ticket #${t.id}${t.site?.nom ? ` — ${t.site.nom}` : ""}`,
+            value: t.id,
+          }))
+        );
+      }).catch(() => { });
+    });
+  }, []);
+
+  // ── Champs formulaire - même pattern que DevisPage admin ─────────────────
   const quoteFields: FieldConfig[] = [
     {
-      name:     "ticket_id",
-      label:    "ID du Ticket *",
-      type:     "text",
+      name: "ticket_id",
+      label: "Ticket concerné",
+      type: "select",
       required: true,
+      gridSpan: 2,
+      options: [
+        ...ticketOptions,
+      ],
     },
     {
-      name:  "description",
+      name: "items",
+      label: "Articles du devis",
+      type: "quote-items",
+      required: true,
+      gridSpan: 2,
+    },
+    {
+      name: "description",
       label: "Description",
-      type:  "textarea",
+      type: "rich-text",
+      required: true,
+      gridSpan: 2,
+            placeholder: "Dévrivez ce que vous voulez",
+
     },
+
     {
-      name:  "unit_price",
-      label: "Prix unitaire",
-      type:  "number",
-    },
-    {
-      name:  "quantity",
-      label: "Quantité",
-      type:  "number",
-    },
-  
-    {
-      name:     "quote_pdf",
-      label:    "Devis PDF",
-      type:     "pdf-upload",
-      maxPDFs:  1,
+      name: "quote_pdf",
+      label: "Devis PDF ou Image",
+      type: "pdf-upload",
+      accept: "application/pdf,image/*",
+      maxPDFs: 1,
       gridSpan: 2,
     } as any,
   ];
 
   const handleCreate = async (formData: any) => {
     const ok = await createQuote({
-      ticket_id:   parseInt(formData.ticket_id),
+      ticket_id: parseInt(formData.ticket_id),
       description: formData.description || undefined,
-      tax_rate:    parseFloat(formData.tax_rate) || 18,
-      // Items par défaut — le prestataire les saisit dans le formulaire
-      items: formData.items ?? [
-        { designation: "Prestation", quantity: 1, unit_price: 0 },
-      ],
+      tax_rate: 18,
+      items: formData.items ?? [{ designation: "Prestation", quantity: 1, unit_price: 0 }],
       pdf_file: formData.quote_pdf?.[0] ?? undefined,
     });
     return ok;
@@ -331,44 +341,58 @@ export default function ProviderDevisPage() {
   const kpis = [
     {
       label: "Total devis",
-      value: statsLoading ? "—" : (stats?.total ?? 0),
+      value: statsLoading ? "-" : (stats?.total ?? 0),
       delta: "", trend: "up" as const,
     },
     {
       label: "En attente",
-      value: statsLoading ? "—" : (stats?.pending ?? 0),
+      value: statsLoading ? "-" : (stats?.pending ?? 0),
       delta: "", trend: "up" as const,
     },
     {
       label: "Approuvés",
-      value: statsLoading ? "—" : (stats?.approved ?? 0),
+      value: statsLoading ? "-" : (stats?.approved ?? 0),
       delta: "", trend: "up" as const,
     },
     {
       label: "Montant approuvé",
-      value: statsLoading ? "—" : formatCurrency(stats?.total_approved_amount ?? 0),
+      value: statsLoading ? "-" : formatCurrency(stats?.total_approved_amount ?? 0),
       delta: "", trend: "up" as const,
     },
   ];
 
   // ── ActionGroup ───────────────────────────────────────────────────────────
+  const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
+
   const actions = [
     {
-      label:   "Exporter",
-      icon:    Download,
+      label: "Exporter",
+      icon: Download,
       onClick: exportXlsx,
       variant: "secondary" as const,
     },
     {
-      label:   "Nouveau devis",
-      icon:    PlusCircle,
+      label: "Nouveau devis",
+      icon: PlusCircle,
       onClick: openCreate,
       variant: "primary" as const,
     },
   ];
 
+  // Filtre date côté client
+  const filteredQuotes = dateRange?.from
+    ? quotes.filter(q => {
+        const d = new Date(q.created_at ?? "");
+        if (isNaN(d.getTime())) return true;
+        const from = dateRange.from!;
+        const to = dateRange.to ?? dateRange.from!;
+        const toEnd = new Date(to); toEnd.setHours(23, 59, 59, 999);
+        return d >= from && d <= toEnd;
+      })
+    : quotes;
+
   // ── Colonnes DataTable ────────────────────────────────────────────────────
-  const columns = [
+  const columns: ColumnConfig<Quote>[] = [
     {
       header: "Référence", key: "reference",
       render: (_: any, row: Quote) => (
@@ -379,7 +403,7 @@ export default function ProviderDevisPage() {
       header: "Ticket", key: "ticket",
       render: (_: any, row: Quote) => (
         <span className="text-xs text-slate-600 font-medium">
-         {row.ticket?.subject ?? row.ticket?.title ?? `#${row.ticket_id}`}
+          {row.ticket?.subject ?? row.ticket?.title ?? `#${row.ticket_id}`}
         </span>
       ),
     },
@@ -391,9 +415,14 @@ export default function ProviderDevisPage() {
     },
     {
       header: "Montant TTC", key: "amount_ttc",
-      render: (_: any, row: Quote) => (
-        <span className="text-sm font-black text-slate-900">{formatCurrency(row.amount_ttc)}</span>
-      ),
+      render: (_: any, row: Quote) => {
+        const itemsTotal = row.items?.reduce((acc: number, item: any) => acc + (Number(item.total_price) || (Number(item.quantity) * Number(item.unit_price))), 0) || 0;
+        const totalHT = row.amount_ht || itemsTotal;
+        const totalTTC = row.amount_ttc || (totalHT * (1 + (row.tax_rate || 18) / 100));
+        return (
+          <span className="text-sm font-black text-slate-900">{formatCurrency(totalTTC)}</span>
+        );
+      },
     },
     {
       header: "Statut", key: "status",
@@ -410,18 +439,18 @@ export default function ProviderDevisPage() {
       render: (_: any, row: Quote) => (
         <div className="flex items-center gap-3">
           {/* Aperçu panel droite */}
-          <button
+          {/* <button
             onClick={() => openPanel(row)}
             className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
           >
             <Eye size={18} />
-          </button>
-          {/* Détails — page [id] */}
+          </button> */}
+          {/* Détails - page [id] */}
           <button
             onClick={() => router.push(`/provider/devis/${row.id}`)}
             className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 hover:border-black transition flex items-center justify-center"
           >
-            <ArrowUpRight size={15} className="text-slate-600 group-hover:text-white group-hover:rotate-45 transition-all" />
+            <Eye size={15} className="text-slate-600 group-hover:text-white group-hover:rotate-45 transition-all" />
           </button>
         </div>
       ),
@@ -429,95 +458,93 @@ export default function ProviderDevisPage() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="ml-64 mt-20 p-6 space-y-8">
+    <div className="flex-1 flex flex-col">
+      <Navbar />
+      <main className="mt-20 p-6 space-y-8">
 
-          <PageHeader
-            title="Mes Devis"
-            subtitle="Ce menu vous permet de consulter et gérer vos devis d'intervention"
+        <PageHeader
+          title="Mes Devis"
+          subtitle="Ce menu vous permet de consulter et gérer vos devis d'intervention"
+        />
+
+        {/* Erreur globale */}
+        {error && (
+          <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-2xl text-sm font-medium">
+            <AlertCircle size={15} className="shrink-0" /> {error}
+          </div>
+        )}
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          {statsLoading
+            ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 animate-pulse h-28" />
+            ))
+            : kpis.map((k, i) => <StatsCard key={i} {...k} />)
+          }
+        </div>
+
+        {/* Toolbar : filtre SELECT + ActionGroup */}
+        <div className="shrink-0 flex justify-between items-center gap-4">
+
+          {/* Filtre par statut - select standard */}
+          <div className="flex items-center gap-2">
+            <Filter size={15} className="text-slate-400 shrink-0" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-slate-200 bg-white text-slate-700 text-sm font-semibold rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900 transition cursor-pointer"
+            >
+              <option value="">Tous les statuts</option>
+              {ALL_STATUSES.map((s) => (
+                <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
+              ))}
+            </select>
+            {statusFilter && (
+              <button
+                onClick={() => setStatusFilter("")}
+                className="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-400 hover:text-slate-700"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <ActionGroup
+            actions={actions}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            dateRangePlaceholder="Filtrer par date"
           />
+        </div>
 
-          {/* Erreur globale */}
-          {error && (
-            <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-2xl text-sm font-medium">
-              <AlertCircle size={15} className="shrink-0" /> {error}
-            </div>
-          )}
+        {/* Table */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-800">Liste des devis</h3>
+            <span className="text-xs text-slate-400">{quotes.length} devis</span>
+          </div>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {statsLoading
-              ? Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 animate-pulse h-28" />
-                ))
-              : kpis.map((k, i) => <StatsCard key={i} {...k} />)
+          <div className="px-6 py-4">
+            {loading
+              ? <div className="space-y-3 animate-pulse">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-12 bg-gray-100 rounded-xl" />
+                ))}
+              </div>
+              : <DataTable title="Liste des devis" columns={columns} data={filteredQuotes} onViewAll={() => { }} />
             }
           </div>
+        </div>
 
-          {/* Toolbar : filtre SELECT + ActionGroup */}
-          <div className="shrink-0 flex justify-between items-center gap-4">
+      </main>
 
-            {/* Filtre par statut — select standard */}
-            <div className="flex items-center gap-2">
-              <Filter size={15} className="text-slate-400 shrink-0" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="border border-slate-200 bg-white text-slate-700 text-sm font-semibold rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900 transition cursor-pointer"
-              >
-                <option value="">Tous les statuts</option>
-                {ALL_STATUSES.map((s) => (
-                  <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
-                ))}
-              </select>
-              {statusFilter && (
-                <button
-                  onClick={() => setStatusFilter("")}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-400 hover:text-slate-700"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            <ActionGroup actions={actions} />
-          </div>
-
-          {/* Table */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">Liste des devis</h3>
-              <span className="text-xs text-slate-400">{quotes.length} devis</span>
-            </div>
-
-            <div className="px-6 py-4">
-              {loading
-                ? <div className="space-y-3 animate-pulse">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-12 bg-gray-100 rounded-xl" />
-                    ))}
-                  </div>
-                : <DataTable columns={columns} data={quotes} onViewAll={() => {}} />
-              }
-            </div>
-          </div>
-
-        </main>
-      </div>
-
-      {/* Toasts */}
-      {submitSuccess && <Toast msg={submitSuccess} type="success" />}
-      {submitError   && <Toast msg={submitError}   type="error"   />}
-
-      {/* Panel aperçu — slide droite */}
+      {/* Panel aperçu - slide droite */}
       {isPanelOpen && selectedQuote && (
         <QuotePreviewPanel quote={selectedQuote} onClose={closePanel} />
       )}
 
-      {/* ReusableForm — slide droite, même pattern admin */}
+      {/* ReusableForm - slide droite, même pattern admin */}
       <ReusableForm
         isOpen={isCreateOpen}
         onClose={closeCreate}
@@ -525,6 +552,7 @@ export default function ProviderDevisPage() {
         subtitle="Les informations ci-dessous permettront de créer un nouveau devis."
         fields={quoteFields}
         onSubmit={handleCreate}
+        isSubmitting={submitting}
         submitLabel={submitting ? "Soumission en cours..." : "Soumettre le devis"}
       />
 

@@ -2,20 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import {
   ChevronLeft, CheckCircle2, XCircle, Clock,
   FileText, Eye, Download, X, User, AlertCircle,
-  RefreshCw, MapPin, Tag,
+  RefreshCw, MapPin, Tag, Pencil,
 } from "lucide-react";
+
+import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 
 import {
   providerQuoteService, Quote, QuoteHistory,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
-  formatCurrency, formatDate, getPdfUrl,
+  getPdfUrl,
 } from "../../../../services/provider/providerQuoteService";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 
@@ -63,18 +65,18 @@ function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; on
 
 function TimelineItem({ event, isLast }: { event: QuoteHistory; isLast: boolean }) {
   const actionLabels: Record<string, { label: string; color: string; bg: string }> = {
-    created:            { label: "Devis créé",             color: "text-blue-500",   bg: "bg-blue-50 border-blue-200" },
-    submitted:          { label: "Soumis pour validation", color: "text-cyan-500",   bg: "bg-cyan-50 border-cyan-200" },
-    approved:           { label: "Approuvé",               color: "text-green-500",  bg: "bg-green-50 border-green-200" },
-    rejected:           { label: "Rejeté",                 color: "text-red-500",    bg: "bg-red-50 border-red-200" },
-    revision_requested: { label: "Révision demandée",      color: "text-orange-500", bg: "bg-orange-50 border-orange-200" },
-    updated:            { label: "Mis à jour",             color: "text-purple-500", bg: "bg-purple-50 border-purple-200" },
+    created: { label: "Devis créé", color: "text-blue-500", bg: "bg-blue-50 border-blue-200" },
+    submitted: { label: "Soumis pour validation", color: "text-cyan-500", bg: "bg-cyan-50 border-cyan-200" },
+    approved: { label: "Approuvé", color: "text-green-500", bg: "bg-green-50 border-green-200" },
+    rejected: { label: "Rejeté", color: "text-red-500", bg: "bg-red-50 border-red-200" },
+    revision_requested: { label: "Révision demandée", color: "text-orange-500", bg: "bg-orange-50 border-orange-200" },
+    updated: { label: "Mis à jour", color: "text-purple-500", bg: "bg-purple-50 border-purple-200" },
   };
 
   const cfg = actionLabels[event.action] ?? {
     label: event.action,
     color: "text-slate-500",
-    bg:    "bg-slate-50 border-slate-200",
+    bg: "bg-slate-50 border-slate-200",
   };
 
   return (
@@ -116,65 +118,103 @@ function TimelineItem({ event, isLast }: { event: QuoteHistory; isLast: boolean 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProviderQuoteDetailPage() {
-  const params   = useParams();
-  const router   = useRouter();
-  const quoteId  = Number(params?.id);
+  const params = useParams();
+  const router = useRouter();
+  const quoteId = Number(params?.id);
 
-  const [quote,      setQuote]      = useState<Quote | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState("");
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
 
-  useEffect(() => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [flash, setFlash] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const showFlash = (type: "success" | "error", msg: string) => {
+    setFlash({ type, msg });
+    setTimeout(() => setFlash(null), 5000);
+  };
+
+  const loadQuoteData = async () => {
     if (!quoteId) return;
-    const load = async () => {
-      setLoading(true); setError("");
-      try {
-        const data = await providerQuoteService.getQuoteById(quoteId);
-        setQuote(data);
-      } catch (e: any) {
-        setError(
-          e.response?.data?.message ??
-          e.response?.data?.error   ??
-          "Impossible de charger ce devis."
-        );
-      } finally { setLoading(false); }
-    };
-    load();
+    setLoading(true); setError("");
+    try {
+      const data = await providerQuoteService.getQuoteById(quoteId);
+      setQuote(data);
+    } catch (e: any) {
+      setError(e.response?.data?.message ?? "Impossible de charger ce devis.");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    loadQuoteData();
   }, [quoteId]);
 
+  const handleEditSubmit = async (formData: any) => {
+    if (!quote) return;
+    try {
+      await providerQuoteService.updateQuote(quote.id, {
+        ticket_id: quote.ticket_id!,
+        description: formData.description,
+        tax_rate: 18,
+        items: formData.items || quote.items || [],
+        pdf_file: formData.quote_pdf?.[0],
+      });
+      showFlash("success", "Devis mis à jour avec succès.");
+      setIsEditModalOpen(false);
+      loadQuoteData();
+    } catch (err: any) {
+      showFlash("error", err?.response?.data?.message ?? "Erreur lors de la mise à jour.");
+    }
+  };
+
+  const quoteFields: FieldConfig[] = [
+    { name: "items", label: "Articles du devis", type: "quote-items", required: true, gridSpan: 2 },
+    { name: "description", label: "Description / Détails", type: "rich-text", required: true, gridSpan: 2 },
+    { name: "quote_pdf", label: "Devis PDF ou Image (optionnel)", type: "pdf-upload", accept: "application/pdf,image/*", maxPDFs: 1, gridSpan: 2 },
+  ];
+
+  const canEdit = quote && !["approved", "approuvé", "apprové", "validated"].includes((quote.status || "").toLowerCase());
+
   // ── Calculs ────────────────────────────────────────────────────────────────
-  const totalHT   = quote?.amount_ht    ?? 0;
-  const taxAmount = quote?.tax_amount   ?? 0;
-  const totalTTC  = quote?.amount_ttc   ?? 0;
-  const pdfFiles  = (quote?.pdf_paths ?? []).map(p => ({
-    name: p.split("/").pop() ?? "devis.pdf",
-    url:  getPdfUrl(p),
+  const totalHT = quote?.amount_ht ?? 0;
+  const taxAmount = quote?.tax_amount ?? 0;
+  const totalTTC = quote?.amount_ttc ?? 0;
+  const pdfFiles = (quote?.attachments ?? []).map(a => ({
+    name: a.url.split("/").pop() ?? "document",
+    url: a.url,
   }));
   const history = quote?.history ?? [];
 
   // ── KPIs ───────────────────────────────────────────────────────────────────
   const kpis = [
-    { label: "Ticket",        value: quote?.ticket?.subject ?? `#${quote?.ticket_id}`,  delta: "", trend: "up" as const },
-    { label: "Site",          value: quote?.site?.nom ?? quote?.site?.name ?? "—",             delta: "", trend: "up" as const },
-    { label: "Nb. articles",  value: quote?.items?.length ?? 0,                                delta: "", trend: "up" as const },
-    { label: "Montant TTC",   value: formatCurrency(totalTTC),                                 delta: "", trend: "up" as const },
+    { label: "Ticket", value: quote?.ticket?.code_ticket ?? `${quote?.ticket_id}`, delta: "", trend: "up" as const },
+    { label: "Site", value: quote?.site?.nom ?? quote?.site?.name ?? "-", delta: "", trend: "up" as const },
+    { label: "Nb. articles", value: quote?.items?.length ?? 0, delta: "", trend: "up" as const },
+    { label: "Montant TTC", value: formatCurrency(totalTTC), delta: "", trend: "up" as const },
   ];
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="ml-64 mt-20 p-8 space-y-8">
+        <main className="mt-4 p-8 space-y-8">
 
           {/* Retour */}
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
-          >
-            <ChevronLeft size={16} /> Retour
-          </button>
+          <div className="flex items-center justify-between gap-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-slate-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
+            >
+              <ChevronLeft size={16} /> Retour
+            </button>
+
+            {flash && (
+              <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${flash.type === "success" ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-100 border-red-300"}`}>
+                {flash.msg}
+              </div>
+            )}
+          </div>
 
           {/* Erreur */}
           {error && (
@@ -189,7 +229,7 @@ export default function ProviderQuoteDetailPage() {
               <div className="h-10 w-64 bg-slate-100 rounded-2xl" />
               <div className="h-36 bg-slate-100 rounded-3xl" />
               <div className="grid grid-cols-4 gap-6">
-                {[0,1,2,3].map(i => <div key={i} className="h-28 bg-slate-100 rounded-3xl" />)}
+                {[0, 1, 2, 3].map(i => <div key={i} className="h-28 bg-slate-100 rounded-3xl" />)}
               </div>
               <div className="h-64 bg-slate-100 rounded-3xl" />
             </div>
@@ -221,17 +261,26 @@ export default function ProviderQuoteDetailPage() {
                 </div>
 
                 {/* Dates */}
-                <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100 min-w-[260px] space-y-2.5">
-                  {[
-                    { label: "Créé le",     value: formatDate(quote.created_at),  show: true },
-                    { label: "Approuvé le", value: formatDate(quote.approved_at), show: !!quote.approved_at },
-                    { label: "Rejeté le",   value: formatDate(quote.rejected_at), show: !!quote.rejected_at },
-                  ].filter(r => r.show).map((r, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 font-medium">{r.label}</span>
-                      <span className="font-bold text-slate-900">{r.value}</span>
-                    </div>
-                  ))}
+                <div className="flex flex-col md:flex-row items-center gap-6 shrink-0">
+                  <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100 min-w-[260px] space-y-2.5">
+                    {[
+                      { label: "Créé le", value: formatDate(quote.created_at), show: true },
+                      { label: "Approuvé le", value: formatDate(quote.approved_at), show: !!quote.approved_at },
+                      { label: "Rejeté le", value: formatDate(quote.rejected_at), show: !!quote.rejected_at },
+                    ].filter(r => r.show).map((r, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-slate-400 font-medium">{r.label}</span>
+                        <span className="font-bold text-slate-900">{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    disabled={!canEdit}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm ${canEdit ? "bg-slate-900 text-white hover:bg-black" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+                  >
+                    <Pencil size={14} /> Modifier le devis
+                  </button>
                 </div>
               </div>
 
@@ -250,7 +299,7 @@ export default function ProviderQuoteDetailPage() {
                   <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Description</h3>
                     {quote.description
-                      ? <p className="text-sm text-slate-700 leading-relaxed">{quote.description}</p>
+                      ? <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: quote.description }} />
                       : <p className="text-slate-400 text-sm italic">Aucune description renseignée.</p>
                     }
                   </div>
@@ -319,36 +368,36 @@ export default function ProviderQuoteDetailPage() {
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Documents</h3>
                     {pdfFiles.length > 0
                       ? <div className="space-y-3">
-                          {pdfFiles.map((file, i) => (
-                            <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
-                                  <FileText size={16} className="text-red-500" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-slate-900 truncate">{file.name}</p>
-                                  <p className="text-[10px] text-slate-400">PDF</p>
-                                </div>
+                        {pdfFiles.map((file, i) => (
+                          <div key={i} className="flex flex-col gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                                <FileText size={16} className="text-red-500" />
                               </div>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => setPdfPreview({ url: file.url, name: file.name })}
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
-                                >
-                                  <Eye size={13} /> Aperçu
-                                </button>
-                                <a href={file.url} download target="_blank" rel="noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition">
-                                  <Download size={13} /> Télécharger
-                                </a>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-slate-900 truncate">{file.name}</p>
+                                <p className="text-[10px] text-slate-400">PDF</p>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setPdfPreview({ url: file.url, name: file.name })}
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
+                              >
+                                <Eye size={13} /> Aperçu
+                              </button>
+                              <a href={file.url} download target="_blank" rel="noreferrer"
+                                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition">
+                                <Download size={13} /> Télécharger
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                       : <div className="border border-dashed border-slate-200 rounded-xl px-4 py-5 flex items-center gap-3 text-slate-400">
-                          <FileText size={16} className="shrink-0" />
-                          <p className="text-sm font-medium">Aucun document attaché</p>
-                        </div>
+                        <FileText size={16} className="shrink-0" />
+                        <p className="text-sm font-medium">Aucun document attaché</p>
+                      </div>
                     }
                   </div>
 
@@ -400,17 +449,17 @@ export default function ProviderQuoteDetailPage() {
                     </h3>
                     {history.length === 0
                       ? <div className="flex flex-col items-center py-8 text-center">
-                          <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-3">
-                            <Clock size={20} className="text-slate-300" />
-                          </div>
-                          <p className="text-sm font-bold text-slate-500">Aucun mouvement</p>
-                          <p className="text-xs text-slate-400 mt-1">L'historique s'affichera ici</p>
+                        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mb-3">
+                          <Clock size={20} className="text-slate-300" />
                         </div>
+                        <p className="text-sm font-bold text-slate-500">Aucun mouvement</p>
+                        <p className="text-xs text-slate-400 mt-1">L'historique s'affichera ici</p>
+                      </div>
                       : <div>
-                          {history.map((event, i) => (
-                            <TimelineItem key={event.id} event={event} isLast={i === history.length - 1} />
-                          ))}
-                        </div>
+                        {history.map((event, i) => (
+                          <TimelineItem key={event.id} event={event} isLast={i === history.length - 1} />
+                        ))}
+                      </div>
                     }
                   </div>
                 </div>
@@ -420,9 +469,26 @@ export default function ProviderQuoteDetailPage() {
         </main>
       </div>
 
-      {/* PDF Preview Modal — centre */}
+      {/* PDF Preview Modal - centre */}
       {pdfPreview && (
         <PdfPreviewModal url={pdfPreview.url} name={pdfPreview.name} onClose={() => setPdfPreview(null)} />
+      )}
+
+      {/* Modifier Modal */}
+      {quote && (
+        <ReusableForm
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Modifier le devis"
+          subtitle="Mettez à jour les informations de votre devis"
+          fields={quoteFields}
+          initialValues={{
+            items: quote.items,
+            description: quote.description,
+          }}
+          onSubmit={handleEditSubmit}
+          submitLabel="Enregistrer les modifications"
+        />
       )}
     </div>
   );

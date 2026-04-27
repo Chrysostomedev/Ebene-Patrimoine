@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Eye, Filter, Download, Upload, X, CheckCircle2,
   XCircle, Clock, Copy, FileText, ExternalLink,
@@ -10,44 +10,38 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
-import DataTable from "@/components/DataTable";
+import { useToast } from "@/contexts/ToastContext";
+import DataTable, { ColumnConfig } from "@/components/DataTable";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
-import ReusableForm from "@/components/ReusableForm";
+import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 
 import { useQuotes } from "../../../hooks/admin/useQuotes";
-import { Quote } from "../../../services/admin/quote.service";
+import { Quote, QuoteService } from "../../../services/admin/quote.service";
+import { exportToXlsx } from "../../../core/export";
+import { resolveStorageUrl } from "../../../lib/url";
+import { formatDate, formatCurrency } from "@/lib/utils";
+import axiosInstance from "../../../core/axios";
 
-// ═══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════
 // HELPERS
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
-const formatMontant = (v?: number): string => {
-  if (!v && v !== 0) return "—";
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M FCFA`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}K FCFA`;
-  return `${v.toLocaleString("fr-FR")} FCFA`;
-};
+// local formatMontant and formatDate removed - using @/lib/utils
 
-const formatDate = (iso?: string): string => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("fr-FR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-};
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // STATUTS
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
 const STATUS_STYLES: Record<string, string> = {
-  pending:  "border-slate-300 bg-slate-100 text-slate-700",
-  approved: "border-green-600 bg-green-50 text-green-700",
-  rejected: "border-red-500 bg-red-100 text-red-600",
-  revision: "border-blue-400 bg-blue-50 text-blue-700",
+  pending:  "border-amber-200 bg-amber-50 text-amber-600",
+  approved: "border-emerald-200 bg-emerald-50 text-emerald-600",
+  rejected: "border-rose-200 bg-rose-50 text-rose-600",
+  revision: "border-sky-200 bg-sky-50 text-sky-600",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -65,9 +59,9 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ═══════════════════════════════════════════════
-// PDF PREVIEW MODAL — plein écran
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// PDF PREVIEW MODAL - plein écran
+// ══════════════════════════════════════════════
 
 function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   return (
@@ -101,9 +95,9 @@ function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; on
   );
 }
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // FILTER DROPDOWN
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
 function FilterDropdown({
   isOpen, onClose, filters, onApply,
@@ -137,7 +131,7 @@ function FilterDropdown({
           {options.map(({ val, label }) => (
             <button
               key={val}
-              onClick={() => setLocal({ ...local, status: val || undefined })}
+              onClick={() => setLocal({ ...local, status: val || "non renseigné" })}
               className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${
                 (local.status ?? "") === val
                   ? "bg-slate-900 text-white"
@@ -163,11 +157,11 @@ function FilterDropdown({
   );
 }
 
-// ═══════════════════════════════════════════════
-// SIDE PANEL DEVIS — exact comme la capture
+// ══════════════════════════════════════════════
+// SIDE PANEL DEVIS - exact comme la capture
 // Croix haut gauche, champs label/valeur, statut
-// avec boutons ✓ ✗ inline, pièces jointes PDF
-// ═══════════════════════════════════════════════
+// avec boutons inline, pièces jointes PDF
+// ══════════════════════════════════════════════
 
 function QuoteSidePanel({
   quote, onClose, onApprove, onReject,
@@ -179,11 +173,14 @@ function QuoteSidePanel({
   const [rejectMode,    setRejectMode]    = useState(false);
   const [rejectReason,  setRejectReason]  = useState("");
   const [pdfPreview,    setPdfPreview]    = useState<{ url: string; name: string } | null>(null);
+  const [approveModal,  setApproveModal]  = useState(false);
+  const [approving,     setApproving]     = useState(false);
 
   useEffect(() => {
     setRejectMode(false);
     setRejectReason("");
     setPdfPreview(null);
+    setApproveModal(false);
   }, [quote?.id]);
 
   if (!quote) return null;
@@ -197,15 +194,28 @@ function QuoteSidePanel({
   const taxAmount = quote.tax_amount ?? totalHT * 0.18;
   const totalTTC  = quote.amount_ttc ?? totalHT + taxAmount;
 
-  const providerName = quote.provider?.name ?? "—";
-  const siteName     = quote.site?.nom ?? quote.site?.name ?? "—";
-  const ticketRef    = quote.ticket?.reference ?? quote.ticket?.title ?? `#${quote.ticket_id}`;
+  const providerName = quote.provider?.company_name ?? quote.provider?.name ?? "-";
+  const siteName     = quote.site?.nom ?? quote.site?.name ?? "-";
 
-  // Fichiers PDF liés au devis (quote.pdf_paths si dispo, sinon mock vide)
+  // Manager du site
+  const siteManager  = quote.site?.manager;
+  const managerName  = siteManager
+    ? `${siteManager.first_name ?? ""} ${siteManager.last_name ?? ""}`.trim() || "Manager"
+    : null;
+  const managerPhone = siteManager?.phone_number ?? siteManager?.phone ?? null;
+  const managerEmail = siteManager?.email ?? null;
+
+  const handleConfirmApprove = async () => {
+    setApproving(true);
+    try { await onApprove(quote.id); setApproveModal(false); }
+    finally { setApproving(false); }
+  };
+
+  // Fichiers PDF liés au devis
   const pdfFiles: Array<{ name: string; url: string; size?: string }> =
     (quote as any).pdf_paths?.map((p: string) => ({
       name: p.split("/").pop() ?? "document.pdf",
-      url:  `${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? ""}/storage/${p}`,
+      url:  resolveStorageUrl(p),
     })) ?? [];
 
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
@@ -251,9 +261,10 @@ function QuoteSidePanel({
               },
               { label: "Référence",   value: quote.reference },
               { label: "Prestataire", value: providerName },
-              { label: "Date",        value: formatDate(quote.created_at) },
+               { label: "Date",        value: formatDate(quote.created_at) },
               { label: "Site",        value: siteName },
-              { label: "Montant HT",  value: formatMontant(totalHT) },
+              { label: "Montant HT",  value: formatCurrency(totalHT) },
+
             ].map((f, i) => (
               <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <p className="text-xs text-slate-400 font-medium">{f.label}</p>
@@ -261,7 +272,7 @@ function QuoteSidePanel({
               </div>
             ))}
 
-            {/* Statut — avec boutons ✓ ✗ inline si pending */}
+            {/* Statut - avec boutons inline si pending */}
             <div className="flex items-center justify-between py-3">
               <p className="text-xs text-slate-400 font-medium">Statut</p>
               <div className="flex items-center gap-2">
@@ -280,7 +291,7 @@ function QuoteSidePanel({
                       className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center hover:bg-red-100 transition"
                       title="Rejeter"
                     >
-                      <span className="text-red-500 font-black text-sm">✗</span>
+                      <span className="text-red-500 font-black text-sm">✕</span>
                     </button>
                   </>
                 )}
@@ -337,7 +348,7 @@ function QuoteSidePanel({
           {quote.description && (
             <div>
               <p className="text-xs text-slate-400 font-medium mb-2">Description</p>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <p className="text-sm text-blackk leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">
                 {quote.description}
               </p>
             </div>
@@ -362,31 +373,32 @@ function QuoteSidePanel({
                         <td className="px-4 py-3 text-xs font-medium text-slate-900">{item.designation}</td>
                         <td className="px-2 py-3 text-center text-xs text-slate-500">{item.quantity}</td>
                         <td className="px-4 py-3 text-right text-xs font-bold text-slate-900">
-                          {formatMontant(item.total_price ?? item.quantity * item.unit_price)}
+                          {formatCurrency(item.total_price ?? item.quantity * item.unit_price)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <div className="bg-slate-50 border-t border-slate-100 px-4 py-3 space-y-1">
-                  <div className="flex justify-between text-xs">
+                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">Total HT</span>
-                    <span className="font-bold text-slate-900">{formatMontant(totalHT)}</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(totalHT)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500">TVA (18%)</span>
-                    <span className="font-bold text-slate-900">{formatMontant(taxAmount)}</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(taxAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm border-t border-slate-200 pt-1.5">
                     <span className="font-black text-slate-900">Total TTC</span>
-                    <span className="font-black text-slate-900">{formatMontant(totalTTC)}</span>
+                    <span className="font-black text-slate-900">{formatCurrency(totalTTC)}</span>
                   </div>
+
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── Pièce(s) jointe(s) — style exact de la capture ── */}
+          {/* ── Pièce(s) jointe(s) - style exact de la capture ── */}
           {pdfFiles.length > 0 && (
             <div>
               <p className="text-xs text-slate-400 font-medium mb-3">Pièce jointe</p>
@@ -424,7 +436,7 @@ function QuoteSidePanel({
             </div>
           )}
 
-          {/* Statut final — approuvé */}
+          {/* Statut final - approuvé */}
           {isApproved && (
             <div className="flex items-center gap-2 py-3.5 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold">
               <CheckCircle2 size={16} />
@@ -432,24 +444,119 @@ function QuoteSidePanel({
             </div>
           )}
         </div>
+
+        {/* Footer CTA Valider + Rejeter + Révision */}
+        {isPending && !rejectMode && (
+          <div className="px-6 py-4 border-t border-slate-100 shrink-0 space-y-2">
+            <button
+              onClick={() => setApproveModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
+            >
+              <CheckCircle2 size={15} /> Valider ce devis
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRejectMode(true)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100 transition"
+              >
+                <XCircle size={14} /> Rejeter
+              </button>
+              <button
+                onClick={() => {
+                  const reason = prompt("Motif de révision (optionnel) :");
+                  if (reason !== null) {
+                    // requestRevision via onApprove workaround — handled in page
+                    (window as any).__quoteRevision?.(quote.id, reason);
+                  }
+                }}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-sky-200 bg-sky-50 text-sky-600 text-sm font-bold hover:bg-sky-100 transition"
+              >
+                <Clock size={14} /> Révision
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Preview PDF fullscreen */}
+      {/* PDF fullscreen */}
       {pdfPreview && (
-        <PdfPreviewModal
-          url={pdfPreview.url}
-          name={pdfPreview.name}
-          onClose={() => setPdfPreview(null)}
-        />
+        <PdfPreviewModal url={pdfPreview.url} name={pdfPreview.name} onClose={() => setPdfPreview(null)} />
+      )}
+
+      {/* Modale confirmation approbation */}
+      {approveModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setApproveModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-7 py-6 border-b border-slate-100">
+              <div>
+                <h2 className="text-xl font-black text-slate-900">Valider le devis</h2>
+                <p className="text-xs text-slate-400 mt-0.5">{quote.reference}</p>
+              </div>
+              <button onClick={() => setApproveModal(false)} className="p-2 hover:bg-slate-100 rounded-xl transition">
+                <X size={18} className="text-slate-500" />
+              </button>
+            </div>
+            <div className="px-7 py-6 space-y-4">
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Prestataire</span>
+                  <span className="font-bold text-slate-900">{providerName}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Site</span>
+                  <span className="font-bold text-slate-900">{siteName}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t border-slate-200 pt-2">
+                  <span className="font-black text-slate-900">Montant TTC</span>
+                  <span className="font-black text-slate-900">{formatCurrency(totalTTC)}</span>
+                </div>
+              </div>
+              {managerName ? (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                  <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Manager du site notifié</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
+                      <span className="text-white text-xs font-black">
+                        {managerName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{managerName}</p>
+                      {managerEmail && <a href={`mailto:${managerEmail}`} className="text-xs text-slate-500 hover:underline">{managerEmail}</a>}
+                      {managerPhone && <p className="text-xs text-slate-500">{managerPhone}</p>}
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2 font-medium">Une notification sera envoyée au manager lors de la validation.</p>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-xs text-amber-700 font-medium">Aucun manager assigné à ce site.</p>
+                </div>
+              )}
+            </div>
+            <div className="px-7 py-5 border-t border-slate-100 flex gap-3">
+              <button onClick={() => setApproveModal(false)}
+                className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition">
+                Annuler
+              </button>
+              <button onClick={handleConfirmApprove} disabled={approving}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition disabled:opacity-60">
+                {approving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={15} />}
+                Confirmer la validation
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
 }
 
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // PAGE PRINCIPALE
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
 export default function DevisPage() {
   const filterRef = useRef<HTMLDivElement>(null);
@@ -457,7 +564,7 @@ export default function DevisPage() {
 
   const {
     quotes, stats, isLoading, statsLoading,
-    fetchQuotes, fetchStats, approveQuote, rejectQuote,
+    fetchQuotes, fetchStats, approveQuote, rejectQuote, requestRevision,
   } = useQuotes();
 
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
@@ -465,17 +572,41 @@ export default function DevisPage() {
   const [filtersOpen,   setFiltersOpen]   = useState(false);
   const [filters,       setFilters]       = useState<{ status?: string }>({});
   const [currentPage,   setCurrentPage]   = useState(1);
-  const [flashMessage,  setFlashMessage]  = useState<{ type: "success"|"error"; message: string } | null>(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const { toast } = useToast();
+
+  // ── Données pour le formulaire de création ─────────────────────────────────
+  const [tickets,   setTickets]   = useState<{ label: string; value: string; site_id?: number; provider_id?: number }[]>([]);
+  const [providers, setProviders] = useState<{ label: string; value: string }[]>([]);
+  const [formInitialValues, setFormInitialValues] = useState<Record<string, any>>({});
+
+  // Charge tickets et prestataires au montage
+  useEffect(() => {
+    axiosInstance.get("/admin/ticket", { params: { per_page: 200 } }).then(res => {
+      const d = res.data?.data ?? res.data;
+      const items: any[] = d?.items ?? d?.data ?? (Array.isArray(d) ? d : []);
+      setTickets(items.map((t: any) => ({
+        label:       `${t.code_ticket ?? `#${t.id}`} — ${t.subject ?? t.site?.nom ?? ""}`.trim(),
+        value:       String(t.id),
+        site_id:     t.site_id,
+        provider_id: t.provider_id,
+      })));
+    }).catch(() => {});
+
+    axiosInstance.get("/admin/providers", { params: { per_page: 200 } }).then(res => {
+      const d = res.data?.data ?? res.data;
+      const items: any[] = d?.items ?? (Array.isArray(d) ? d : []);
+      setProviders(items.map((p: any) => ({
+        label: (p.company_name ?? `${p.user?.first_name ?? ""} ${p.user?.last_name ?? ""}`.trim()) || `Prestataire #${p.id}`,
+        value: String(p.id),
+      })));
+    }).catch(() => {});
+  }, []);
 
   const PER_PAGE = 10;
 
   useEffect(() => { fetchQuotes(); fetchStats(); }, []);
 
-  useEffect(() => {
-    if (!flashMessage) return;
-    const t = setTimeout(() => setFlashMessage(null), 5000);
-    return () => clearTimeout(t);
-  }, [flashMessage]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -486,7 +617,6 @@ export default function DevisPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const showFlash = (type: "success"|"error", message: string) => setFlashMessage({ type, message });
 
   const applyFilters = (f: { status?: string }) => { setFilters(f); setCurrentPage(1); };
 
@@ -499,9 +629,9 @@ export default function DevisPage() {
     try {
       await approveQuote(id);
       setSelectedQuote(prev => prev?.id === id ? { ...prev, status: "approved" as const } : prev);
-      showFlash("success", "Devis approuvé avec succès.");
+      toast.success("Devis approuvé avec succès.");
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message ?? "Erreur lors de l'approbation.");
+      toast.error(err?.response?.data?.message ?? "Erreur lors de l'approbation.");
     }
   };
 
@@ -511,9 +641,60 @@ export default function DevisPage() {
       setSelectedQuote(prev =>
         prev?.id === id ? { ...prev, status: "rejected" as const, rejection_reason: reason } : prev
       );
-      showFlash("success", "Devis rejeté.");
+      toast.success("Devis rejeté.");
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message ?? "Erreur lors du rejet.");
+      toast.error(err?.response?.data?.message ?? "Erreur lors du rejet.");
+    }
+  };
+
+  const handleRevision = async (id: number, reason: string) => {
+    try {
+      await requestRevision(id, reason);
+      setSelectedQuote(prev =>
+        prev?.id === id ? { ...prev, status: "revision" as const } : prev
+      );
+      toast.success("Révision demandée.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Erreur lors de la demande de révision.");
+    }
+  };
+
+  // Expose handleRevision pour le SidePanel via window (workaround prop drilling)
+  useEffect(() => {
+    (window as any).__quoteRevision = handleRevision;
+    return () => { delete (window as any).__quoteRevision; };
+  }, [handleRevision]);
+
+  const handleExport = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      const dataToExport = filtered.length > 0 ? filtered : quotes;
+      const rows = dataToExport.map(q => ({
+        reference:   q.reference,
+        ticket:      q.ticket?.reference ?? q.ticket?.title ?? `#${q.ticket_id}`,
+        prestataire: q.provider?.company_name ?? q.provider?.name ?? "-",
+        site:        q.site?.nom ?? q.site?.name ?? "-",
+        montant_ht:  q.amount_ht  ?? 0,
+        montant_ttc: q.amount_ttc ?? 0,
+        statut:      { pending: "En attente", approved: "Approuvé", rejected: "Rejeté", revision: "En révision" }[q.status] ?? q.status,
+        date:        formatDate(q.created_at),
+      }));
+      exportToXlsx(rows, [
+        { header: "Référence",    key: "reference",   width: 18 },
+        { header: "Ticket",       key: "ticket",      width: 20 },
+        { header: "Prestataire",  key: "prestataire", width: 24 },
+        { header: "Site",         key: "site",        width: 20 },
+        { header: "Montant HT",   key: "montant_ht",  width: 16 },
+        { header: "Montant TTC",  key: "montant_ttc", width: 16 },
+        { header: "Statut",       key: "statut",      width: 14 },
+        { header: "Date",         key: "date",        width: 16 },
+      ], { filename: "devis", sheetName: "Devis", title: "Export Devis - CANAL+" });
+      toast.success("Export téléchargé avec succès.");
+    } catch {
+      toast.error("Erreur lors de l'exportation.");
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -521,53 +702,115 @@ export default function DevisPage() {
     { label: "Total des devis",   value: statsLoading ? 0 : (stats?.total ?? 0),    delta: "+3%",  trend: "up" as const },
     { label: "Devis en attente",  value: statsLoading ? 0 : (stats?.pending ?? 0),  delta: "+0%",  trend: "up" as const },
     { label: "Devis approuvés",   value: statsLoading ? 0 : (stats?.approved ?? 0), delta: "+15%", trend: "up" as const },
-    { label: "Montant approuvé",  value: statsLoading ? 0 : (stats?.total_approved_amount ?? 0), delta: "+20%", trend: "up" as const, isCurrency: true },
+    { label: "Montant approuvé",  value: statsLoading ? 0 : formatCurrency(stats?.total_approved_amount ?? 0), delta: "+20%", trend: "up" as const, isCurrency: true },
   ];
 
-    // ── Champs formulaire création ─────────────────────────────────────────────
-  const quoteFields = [
-    { name: "ticket_id", label: "Ticket",        type: "text",  required: true },
-    { name: "provider_id",  label: "Prestataire",            type: "text",  required: true },
-    { name: "site_id",      label: "Site",          type: "text", required: true },
-    { name: "amount_ttc",      label: "Téléphone",      type: "number"                  },
-    { name: "created_at", label: "Date ", type: "date", required: true, icon: CalendarDays },
-    { name: "status",   label: "Statut",   type: "select", required: true,
-      options: [
-       
-        { label: "en attente", value: "pending" },   
-        { label: "Revisé", value: "revision" },  
-      ],
+  // ── Champs formulaire création ─────────────────────────────────────────────
+  const quoteFields: FieldConfig[] = [
+    {
+      name: "ticket_id",
+      label: "Ticket (codification)",
+      type: "select",
+      required: true,
+      options: tickets,
+    },
+    {
+      name: "provider_id",
+      label: "Prestataire",
+      type: "select",
+      required: true,
+      options: providers,
+    },
+    {
+      name: "site_id",
+      label: "Site",
+      type: "text", 
+      required: false,
+      disabled: true,
+      placeholder: "Sélectionnez un ticket",
+    },
+    
+    {
+      name: "amount_ht",
+      label: "Montant HT (FCFA)",
+      type: "number",
+      required: true,
+      placeholder: "Ex: 150000",
+    },
+    {
+      name: "amount_ht",
+      label: "Montant TVA",
+      type: "number",
+      required: false,
+      placeholder: "Ex: 150000",
+    },
+    {
+      name: "description",
+      label: "Description",
+      type: "rich-text",
+      required: true,
+      placeholder: "Décrivez les prestations à réaliser...",
+      gridSpan: 2,
     },
   ];
+
+  // Quand le ticket change → auto-remplir site et prestataire
+  const handleFormFieldChange = (name: string, value: any) => {
+    if (name === "ticket_id") {
+      const ticket = tickets.find(t => t.value === String(value));
+      if (ticket) {
+        setFormInitialValues(prev => ({
+          ...prev,
+          ticket_id:   value,
+          site_id:     ticket.site_id ? String(ticket.site_id) : "",
+          provider_id: ticket.provider_id ? String(ticket.provider_id) : prev.provider_id ?? "",
+        }));
+      }
+    }
+  };
 
   // ── Création ───────────────────────────────────────────────────────────────
   const handleCreate = async (formData: any) => {
     try {
-      await QuoteService.createQuote({
-        reference: formData.first_name,
-        ticket_id:  formData.ticket_id,
-        provider:      formData.provider_id,
-        montant: formData.amount_ttc,
-        status: formData.status,
-        site:      formData.site_id,
+      // Récupère site_id depuis formInitialValues si non fourni directement
+      const siteId = formInitialValues.site_id
+        ? Number(formInitialValues.site_id)
+        : Number(formData.site_id);
 
-        date:   formData.created_at || undefined,
+      if (!siteId) {
+        toast.error("Impossible de déterminer le site. Vérifiez le ticket sélectionné.");
+        return;
+      }
+
+      await QuoteService.createQuote({
+        ticket_id:   Number(formData.ticket_id),
+        provider_id: Number(formData.provider_id),
+        site_id:     siteId,
+        description: formData.description,
+        items: [
+          {
+            designation: "Prestation générale",
+            quantity:    1,
+            unit_price:  Number(formData.amount_ht),
+          },
+        ],
       });
-      showFlash("success", "Gestionnaire créé avec succès");
+      toast.success("Devis créé avec succès");
       setIsCreateModalOpen(false);
+      setFormInitialValues({});
       fetchQuotes();
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message || "Erreur lors de la création");
+      toast.error(err?.response?.data?.message || "Erreur lors de la création");
     }
   };
 
   
-  const columns = [
+  const columns: ColumnConfig<Quote>[] = [
     { header: "Référence",   key: "reference",  render: (_: any, row: Quote) => <span className="font-black text-slate-900 text-sm">{row.reference}</span> },
-    { header: "Ticket",      key: "ticket",     render: (_: any, row: Quote) => row.ticket?.reference ?? row.ticket?.title ?? `#${row.ticket_id}` },
-    { header: "Prestataire", key: "provider",   render: (_: any, row: Quote) => row.provider?.name ?? "—" },
-    { header: "Site",        key: "site",       render: (_: any, row: Quote) => row.site?.nom ?? row.site?.name ?? "—" },
-    { header: "Montant TTC", key: "amount_ttc", render: (_: any, row: Quote) => <span className="font-bold">{formatMontant(row.amount_ttc)}</span> },
+    // { header: "Ticket",      key: "ticket",     render: (_: any, row: Quote) => row.ticket?.reference ?? row.ticket?.title ?? `${row.ticket_code_ticket}` },
+    { header: "Prestataire", key: "provider",   render: (_: any, row: Quote) => row.provider?.company_name ?? row.provider?.name ?? "-" },
+    { header: "Site",        key: "site",       render: (_: any, row: Quote) => row.site?.nom ?? row.site?.name ?? "-" },
+    { header: "Montant TTC", key: "amount_ttc", render: (_: any, row: Quote) => <span className="font-bold">{formatCurrency(row.amount_ttc)}</span> },
     { header: "Date",        key: "created_at", render: (_: any, row: Quote) => formatDate(row.created_at) },
     { header: "Statut",      key: "status",     render: (_: any, row: Quote) => <StatusBadge status={row.status} /> },
    
@@ -577,16 +820,16 @@ export default function DevisPage() {
       header: "Actions", key: "actions",
       render: (_: any, row: Quote) => (
         <div className="flex items-center gap-3">
-          {/* Aperçu side panel */}
+          {/* Aperçu side panel
           <button onClick={() => { setSelectedQuote(row); setIsDetailsOpen(true); }}
             className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
             <Eye size={18} />
-          </button>
+          </button> */}
           
           {/* Redirection vers page détails */}
           <Link href={`/admin/devis/details/${row.id}`}
-            className="group p-2 rounded-xl bg-white hover:bg-black transition flex items-center justify-center">
-            <ArrowUpRight size={16} className="group-hover:rotate-45 transition-transform" />
+            className="group p-2 rounded-xl bg-white transition flex items-center justify-center">
+            <Eye size={16} />
           </Link>
         </div>
       ),
@@ -594,11 +837,10 @@ export default function DevisPage() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
+    <>
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="ml-64 mt-20 p-6 space-y-8">
+        <main className="mt-20 p-6 space-y-8">
           <PageHeader title="Devis" subtitle="Ce menu vous permet de consulter et gérer les devis des prestataires" />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -625,14 +867,18 @@ export default function DevisPage() {
               <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition">
               <Download size={16} /> Importer
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
-                onChange={() => showFlash("error", "Fonctionnalité d'import en cours de développement.")} />
+                onChange={() => toast.error("Fonctionnalité d'import en cours de développement.")} />
             </label> */}
             {/* Exporter */}
             <button
-              onClick={() => showFlash("error", "Fonctionnalité d'export en cours de développement.")}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition"
+              onClick={handleExport}
+              disabled={exportLoading}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-60 disabled:cursor-wait"
             >
-              <Upload size={16} /> Exporter
+              {exportLoading
+                ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                : <Upload size={16} />}
+              Exporter
             </button>
             
   {/* ── Ajouter ──────────────────────────────────────────── */}
@@ -656,7 +902,7 @@ export default function DevisPage() {
           )}
 
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={isLoading ? [] : paginated} onViewAll={() => {}} />
+            <DataTable title="Liste des devis" columns={columns} data={isLoading ? [] : paginated} onViewAll={() => {}} />
             <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
               <Paginate currentPage={currentPage} totalPages={totalPages || 1} onPageChange={setCurrentPage} />
             </div>
@@ -664,12 +910,14 @@ export default function DevisPage() {
   {/* ── Modal création ─────────────────────────────────────────── */}
   <ReusableForm
             isOpen={isCreateModalOpen}
-            onClose={() => setIsCreateModalOpen(false)}
+            onClose={() => { setIsCreateModalOpen(false); setFormInitialValues({}); }}
             title="Ajouter un devis"
-            subtitle="Les informations ci-dessous permettront de faire un nouveau devis."
+            subtitle="Sélectionnez le ticket — le site sera auto-rempli."
             fields={quoteFields}
             onSubmit={handleCreate}
-            submitLabel="Créer le gestionnaire"
+            onFieldChange={handleFormFieldChange}
+            initialValues={formInitialValues}
+            submitLabel="Créer le devis"
           />
 
           <QuoteSidePanel
@@ -682,6 +930,6 @@ export default function DevisPage() {
         
         </main>
       </div>
-    </div>
+    </>
   );
 }

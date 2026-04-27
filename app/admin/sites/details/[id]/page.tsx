@@ -5,18 +5,18 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Filter, Download, Upload, Building2,
-  Eye, ChevronLeft, MapPin, Phone, Mail, CalendarClock, X, Copy, CheckCheck,
+  Eye, ChevronLeft, MapPin, Phone, Mail, CalendarClock, X, Copy, CheckCheck, Pencil,
 } from "lucide-react";
 
-import Navbar      from "@/components/Navbar";
-import Sidebar     from "@/components/Sidebar";
-import Paginate    from "@/components/Paginate";
-import StatsCard   from "@/components/StatsCard";
+import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
+import Paginate from "@/components/Paginate";
+import StatsCard from "@/components/StatsCard";
 import ReusableForm from "@/components/ReusableForm";
-import DataTable   from "@/components/DataTable";
+import DataTable, { ColumnConfig } from "@/components/DataTable";
 import { FieldConfig } from "@/components/ReusableForm";
 
-import { useTypes }         from "../../../../../hooks/admin/useTypes";
+import { useTypes } from "../../../../../hooks/admin/useTypes";
 import { useSubTypeAssets } from "../../../../../hooks/admin/useSubTypeAssets";
 import { AssetService, CompanyAsset } from "../../../../../services/admin/asset.service";
 import {
@@ -25,27 +25,31 @@ import {
   resolveManagerName,
   resolveManagerPhone,
   resolveManagerEmail,
+  updateSite,
 } from "../../../../../services/admin/site.service";
+import { useToast } from "../../../../../contexts/ToastContext";
+import { parseApiError } from "../../../../../core/error";
+import { useSites } from "../../../../../hooks/admin/useSites";
 import axiosInstance from "../../../../../core/axios";
+import { formatDate, formatCurrency } from "@/lib/utils";
+
 
 // ═══════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════
 
-const formatMontant = (v: number | null | undefined): string => {
-  if (!v && v !== 0) return "—";
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v % 1_000_000 !== 0 ? 1 : 0)}M FCFA`;
-  if (v >= 1_000)     return `${(v / 1_000).toFixed(v % 1_000 !== 0 ? 1 : 0)}K FCFA`;
-  return `${v} FCFA`;
-};
+// local formatMontant and formatDate removed - using @/lib/utils
 
-const formatDate = (iso?: string | null): string => {
-  if (!iso) return "—";
+
+/**
+ * Formate une date ISO pour l'attribut 'value' d'un <input type="date">
+ * Indispensable pour le pré-remplissage du formulaire de modification.
+ */
+const fmtDateForInput = (iso?: string | null) => {
+  if (!iso) return "";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const date = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const time = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  return time === "00:00" ? date : `${date} à ${time}`;
+  if (isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
 };
 
 // ═══════════════════════════════════════════════
@@ -73,8 +77,8 @@ function CopyButton({ text }: { text: string }) {
 // ═══════════════════════════════════════════════
 
 const ASSET_STATUS_STYLES: Record<string, string> = {
-  actif:      "border-green-500 bg-green-50  text-green-700",
-  inactif:    "border-red-400   bg-red-50    text-red-600",
+  actif: "border-green-500 bg-green-50  text-green-700",
+  inactif: "border-red-400   bg-red-50    text-red-600",
   hors_usage: "border-slate-400 bg-slate-100 text-slate-700",
 };
 const ASSET_STATUS_LABELS: Record<string, string> = {
@@ -105,9 +109,8 @@ function AssetFilterDropdown({
 
   const Pill = ({ val, current, onClick, label }: { val: string; current?: string; onClick: () => void; label: string }) => (
     <button onClick={onClick}
-      className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${
-        (current ?? "") === val ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-      }`}
+      className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${(current ?? "") === val ? "bg-slate-900 text-white" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+        }`}
     >
       {label}
     </button>
@@ -127,9 +130,9 @@ function AssetFilterDropdown({
           <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Statut</p>
           <div className="flex flex-col gap-1.5">
             {[
-              { val: "",           label: "Tous" },
-              { val: "actif",      label: "Actif" },
-              { val: "inactif",    label: "Inactif" },
+              { val: "", label: "Tous" },
+              { val: "actif", label: "Actif" },
+              { val: "inactif", label: "Inactif" },
               { val: "hors_usage", label: "Hors usage" },
             ].map(o => (
               <Pill key={o.val} val={o.val} current={local.status ?? ""} label={o.label}
@@ -138,7 +141,7 @@ function AssetFilterDropdown({
           </div>
         </div>
 
-        {/* Type — sélection efface le sous-type si incompatible */}
+        {/* Type - sélection efface le sous-type si incompatible */}
         {types.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Type / Famille</p>
@@ -153,7 +156,7 @@ function AssetFilterDropdown({
           </div>
         )}
 
-        {/* Sous-type — filtré selon le type sélectionné */}
+        {/* Sous-type - filtré selon le type sélectionné */}
         {filteredSubTypes.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
@@ -196,18 +199,19 @@ function AssetSidePanel({
 }) {
   if (!patrimoine) return null;
 
-  const typeName    = patrimoine.type?.name    ?? "—";
-  const subTypeName = patrimoine.subType?.name ?? "—";
-  const siteName    = patrimoine.site?.nom     ?? "—";
+  const typeName = patrimoine.type?.name ?? "-";
+  const subTypeName = (patrimoine as any).sub_type?.name ?? patrimoine.subType?.name ?? "-";
+  const siteName = patrimoine.site?.nom ?? "-";
 
   const infoRows = [
-    { label: "Famille / Type",  value: typeName    },
-    { label: "Sous-type",       value: subTypeName },
-    { label: "Codification",    value: patrimoine.codification },
-    { label: "Désignation",     value: patrimoine.designation  },
-    { label: "Site",            value: siteName    },
-    { label: "Date d'entrée",   value: formatDate(patrimoine.date_entree) },
-    { label: "Valeur d'entrée", value: formatMontant(patrimoine.valeur_entree) },
+    { label: "Famille / Type", value: typeName },
+    { label: "Sous-type", value: subTypeName },
+    { label: "Codification", value: patrimoine.codification },
+    { label: "Désignation", value: patrimoine.designation },
+    { label: "Site", value: siteName },
+    { label: "Date d'entrée", value: formatDate(patrimoine.date_entree) },
+    { label: "Valeur d'entrée", value: formatCurrency(patrimoine.valeur_entree) },
+
   ];
 
   return (
@@ -272,27 +276,33 @@ function AssetSidePanel({
 const PER_PAGE = 10;
 
 export default function SiteDetailsPage() {
-  const params  = useParams();
-  const siteId  = Number(params?.id);
+  const params = useParams();
+  const siteId = Number(params?.id);
 
-  const { types }    = useTypes();
+  const { types } = useTypes();
   const { subTypes } = useSubTypeAssets();
 
-  const [site,               setSite]               = useState<any>(null);
-  const [siteStats,          setSiteStats]          = useState<any>(null);
-  const [loadingSite,        setLoadingSite]        = useState(true);
-  const [isModalOpen,        setIsModalOpen]        = useState(false);
-  const [editingData,        setEditingData]        = useState<CompanyAsset | null>(null);
+  const [site, setSite] = useState<any>(null);
+  const [siteStats, setSiteStats] = useState<any>(null);
+  const [loadingSite, setLoadingSite] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingData, setEditingData] = useState<CompanyAsset | null>(null);
   const [selectedPatrimoine, setSelectedPatrimoine] = useState<CompanyAsset | null>(null);
-  const [isDetailsOpen,      setIsDetailsOpen]      = useState(false);
-  const [patrimoines,        setPatrimoines]        = useState<CompanyAsset[]>([]);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [patrimoines, setPatrimoines] = useState<CompanyAsset[]>([]);
   const [loadingPatrimoines, setLoadingPatrimoines] = useState(false);
-  const [filtersOpen,        setFiltersOpen]        = useState(false);
-  const [filters,            setFilters]            = useState<AssetFilters>({});
-  const [currentPage,        setCurrentPage]        = useState(1);
-  const [flashMessage,       setFlashMessage]       = useState<{ type: "success"|"error"; message: string } | null>(null);
-  const [importLoading,      setImportLoading]      = useState(false);
-  const [exportLoading,      setExportLoading]      = useState(false);
+  const [isEditSiteModalOpen, setIsEditSiteModalOpen] = useState(false);
+  const { managers, managersLoading, fetchManagers } = useSites();
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<AssetFilters>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTypeId, setSelectedTypeId] = useState<string>("");
+  const { toast } = useToast();
+  const [modalError, setModalError] = useState<string | null>(null); // Erreur spécifique à la modale
+  const [isSubmitting, setIsSubmitting] = useState(false);               // État de soumission global
+  const [importLoading, setImportLoading] = useState(false);
+
+  const [exportLoading, setExportLoading] = useState(false);
 
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -312,9 +322,10 @@ export default function SiteDetailsPage() {
       .then(data => setSite(data))
       .catch(() => setSite(null))
       .finally(() => setLoadingSite(false));
+    fetchManagers();
   }, [siteId]);
 
-  // ── Fetch stats — comparaison en Number pour éviter string vs number
+  // ── Fetch stats - comparaison en Number pour éviter string vs number
   useEffect(() => {
     if (!siteId) return;
     getSiteStats()
@@ -324,7 +335,7 @@ export default function SiteDetailsPage() {
         );
         setSiteStats({
           tickets_en_cours: perSite?.tickets_en_cours ?? 0,
-          tickets_clos:     perSite?.tickets_clos     ?? 0,
+          tickets_clos: perSite?.tickets_clos ?? 0,
           cout_loyer_moyen: data?.cout_loyer_moyen_par_site ?? null,
         });
       })
@@ -346,11 +357,6 @@ export default function SiteDetailsPage() {
 
   useEffect(() => { fetchPatrimoines(); }, [siteId, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!flashMessage) return;
-    const t = setTimeout(() => setFlashMessage(null), 5000);
-    return () => clearTimeout(t);
-  }, [flashMessage]);
 
   // ── Pagination côté client
   const totalPages = Math.ceil(patrimoines.length / PER_PAGE) || 1;
@@ -365,25 +371,52 @@ export default function SiteDetailsPage() {
   const handleEdit = () => {
     if (!selectedPatrimoine) return;
     setEditingData(selectedPatrimoine);
+    setSelectedTypeId(String((selectedPatrimoine as any).type_company_asset_id ?? ""));
     setIsDetailsOpen(false);
     setIsModalOpen(true);
+    setModalError(null);
   };
+
 
   // ── Create / Update
   const handleCreateOrUpdate = async (formData: any) => {
+    setModalError(null);
+    setIsSubmitting(true);
     try {
       if (editingData) {
         await AssetService.updateAsset(editingData.id, formData);
-        setFlashMessage({ type: "success", message: "Patrimoine mis à jour avec succès." });
+        toast.success("Patrimoine mis à jour avec succès.");
       } else {
         await AssetService.createAsset({ ...formData, site_id: siteId });
-        setFlashMessage({ type: "success", message: "Patrimoine créé avec succès." });
+        toast.success("Patrimoine créé avec succès.");
       }
       await fetchPatrimoines();
       setIsModalOpen(false);
       setEditingData(null);
     } catch (err: any) {
-      setFlashMessage({ type: "error", message: err?.response?.data?.message ?? err?.message ?? "Erreur serveur." });
+      const msg = parseApiError(err);
+      toast.error(msg);
+      setModalError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+
+  const handleUpdateSite = async (formData: any) => {
+    try {
+      const payload = {
+        ...formData,
+        manager_id: formData.manager_id ? Number(formData.manager_id) : undefined,
+      };
+      await updateSite(siteId, payload);
+      setFlashMessage({ type: "success", message: "Site mis à jour avec succès." });
+      setIsEditSiteModalOpen(false);
+      // Refresh site data
+      const data = await getSiteById(siteId);
+      setSite(data);
+    } catch (err: any) {
+      setFlashMessage({ type: "error", message: err?.response?.data?.message ?? "Erreur lors de la mise à jour." });
     }
   };
 
@@ -396,12 +429,12 @@ export default function SiteDetailsPage() {
         params: { site_id: siteId, ...filters },
         responseType: "blob",
       });
-      const blob  = new Blob([response.data], { type: response.headers["content-type"] ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const url   = URL.createObjectURL(blob);
-      const link  = document.createElement("a");
-      link.href   = url;
-      const cd    = (response.headers["content-disposition"] as string) ?? "";
-      const m     = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      const blob = new Blob([response.data], { type: response.headers["content-type"] ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const cd = (response.headers["content-disposition"] as string) ?? "";
+      const m = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
       link.download = m?.[1]?.replace(/['"]/g, "") ?? `patrimoines_site_${siteId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       document.body.appendChild(link);
       link.click();
@@ -437,35 +470,36 @@ export default function SiteDetailsPage() {
     }
   };
 
-  // ── Colonnes DataTable — clés exactes du back (type, subType, site.nom)
-  const columns = [
-    {
-      header: "ID", key: "id",
-      render: (_: any, row: CompanyAsset) => (
-        <div className="flex items-center">
-          <span className="font-black text-slate-900 text-sm">#{row.id}</span>
-          <CopyButton text={String(row.id)} />
-        </div>
-      ),
-    },
-    {
-      header: "Type", key: "type",
-      render: (_: any, row: CompanyAsset) => (
-        <span className="text-sm text-slate-700">{row.type?.name ?? "—"}</span>
-      ),
-    },
-    {
-      header: "Sous-type", key: "subType",
-      render: (_: any, row: CompanyAsset) => (
-        <span className="text-sm text-slate-700">{row.subType?.name ?? "—"}</span>
-      ),
-    },
+  // ── Colonnes DataTable - clés exactes du back (type, subType, site.nom)
+  // Utilisation de as keyof CompanyAsset pour satisfaire TypeScript sur les clés imbriquées ou calculées
+  const columns: ColumnConfig<CompanyAsset>[] = [
     {
       header: "Codification", key: "codification",
       render: (_: any, row: CompanyAsset) => (
         <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">
           {row.codification}
         </span>
+      ),
+    },
+    // {
+    //   header: "ID", key: "id" as any,
+    //   render: (_: any, row: CompanyAsset) => (
+    //     <div className="flex items-center">
+    //       <span className="font-black text-slate-900 text-sm">#{row.id}</span>
+    //       <CopyButton text={String(row.id)} />
+    //     </div>
+    //   ),
+    // },
+    {
+      header: "Type", key: "type",
+      render: (_: any, row: CompanyAsset) => (
+        <span className="text-sm text-slate-700">{row.type?.name ?? "-"}</span>
+      ),
+    },
+    {
+      header: "Sous-type", key: "subType",
+      render: (_: any, row: CompanyAsset) => (
+        <span className="text-sm text-slate-700">{(row as any).sub_type?.name ?? row.subType?.name ?? "-"}</span>
       ),
     },
     {
@@ -489,9 +523,10 @@ export default function SiteDetailsPage() {
     {
       header: "Valeur", key: "valeur_entree",
       render: (_: any, row: CompanyAsset) => (
-        <span className="text-sm font-bold text-slate-900">{formatMontant(row.valeur_entree)}</span>
+        <span className="text-sm font-bold text-slate-900">{formatCurrency(row.valeur_entree)}</span>
       ),
     },
+
     {
       header: "Actions", key: "actions",
       render: (_: any, row: CompanyAsset) => (
@@ -503,7 +538,12 @@ export default function SiteDetailsPage() {
     },
   ];
 
-  // ── Champs formulaire — codification retirée (générée auto par le back)
+  // ── Champs formulaire - codification retirée (générée auto par le back)
+  // Sous-types filtrés selon le type sélectionné dans le formulaire
+  const filteredSubTypesForForm = selectedTypeId
+    ? subTypes.filter((st: any) => String(st.type_company_asset_id) === selectedTypeId)
+    : subTypes;
+
   const assetFields: FieldConfig[] = [
     {
       name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true,
@@ -511,14 +551,14 @@ export default function SiteDetailsPage() {
     },
     {
       name: "sub_type_company_asset_id", label: "Sous-type", type: "select", required: true,
-      options: subTypes.map((st: any) => ({ label: st.name, value: String(st.id) })),
+      options: filteredSubTypesForForm.map((st: any) => ({ label: st.name, value: String(st.id) })),
     },
-    { name: "designation",  label: "Désignation",  type: "text",   required: true },
+    { name: "designation", label: "Désignation", type: "text", required: true },
     {
       name: "status", label: "Statut", type: "select", required: true,
       options: [
-        { label: "Actif",      value: "actif"      },
-        { label: "Inactif",    value: "inactif"    },
+        { label: "Actif", value: "actif" },
+        { label: "Inactif", value: "inactif" },
         { label: "Hors usage", value: "hors_usage" },
       ],
     },
@@ -526,39 +566,34 @@ export default function SiteDetailsPage() {
       name: "criticite", label: "Criticité", type: "select",
       options: [
         { label: "Non critique", value: "non_critique" },
-        { label: "Critique",     value: "critique"     },
+        { label: "Critique", value: "critique" },
       ],
     },
-    { name: "date_entree",   label: "Date d'entrée",   type: "date",   required: true, icon: CalendarClock },
+    { name: "date_entree", label: "Date d'entrée", type: "date", required: true, icon: CalendarClock },
     { name: "valeur_entree", label: "Valeur d'entrée", type: "number", required: true },
-    { name: "description",   label: "Description",     type: "rich-text", gridSpan: 2,
-      placeholder: "Décrivez plus en détail le patrimoine" },
+    { name: "images", label: "Photos du patrimoine", type: "image-upload", gridSpan: 2, maxImages: 3 },
+    {
+      name: "description", label: "Description", type: "rich-text", gridSpan: 2,
+      placeholder: "Décrivez plus en détail le patrimoine"
+    },
   ];
 
+
   // ── Infos du site via helpers robustes
-  const siteName    = site?.nom        ?? "—";
-  const location    = site?.localisation ?? "—";
+  const siteName = site?.nom ?? "-";
+  const location = site?.localisation ?? "-";
   const responsible = resolveManagerName(site);
-  const phone       = resolveManagerPhone(site);
-  const email       = resolveManagerEmail(site);
+  const phone = resolveManagerPhone(site);
+  const email = resolveManagerEmail(site);
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-64">
+      {/* suppression de pl-64 car déjà géré par AppShell dans le layout admin */}
+      <div className="flex-1 flex flex-col">
         <Navbar />
 
-        <main className="mt-20 p-8 space-y-8">
+        <main className="mt-4 p-8 space-y-8">
 
-          {flashMessage && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${
-              flashMessage.type === "success"
-                ? "text-green-700 bg-green-50 border-green-200"
-                : "text-red-600 bg-red-100 border-red-300"
-            }`}>
-              {flashMessage.message}
-            </div>
-          )}
 
           {/* ── Header site ── */}
           <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -592,27 +627,36 @@ export default function SiteDetailsPage() {
                   </div>
                 ) : (
                   <>
-                    {responsible !== "—" && <h3 className="text-xl font-bold text-slate-900">{responsible}</h3>}
+                    {responsible !== "-" && <h3 className="text-xl font-bold text-slate-900">{responsible}</h3>}
                     <div className="flex items-center gap-3 text-slate-600 font-semibold text-[15px]">
                       <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"><Phone size={16} className="text-slate-900" /></div>
                       {phone}
                     </div>
-                    <div className="flex items-center gap-3 text-slate-600 font-semibold text-[15px]">
+                    {/* <div className="flex items-center gap-3 text-slate-600 font-semibold text-[15px]">
                       <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100"><Mail size={16} className="text-slate-900" /></div>
                       {email}
-                    </div>
+                    </div> */}
                   </>
                 )}
               </div>
+
+              {/* Bouton modifier le site */}
+              <button
+                onClick={() => setIsEditSiteModalOpen(true)}
+                className="flex items-center justify-center gap-2 bg-slate-900 text-white py-3 px-6 rounded-2xl font-bold hover:bg-black transition-colors"
+              >
+                <Pencil size={16} /> Modifier le site
+              </button>
             </div>
           </div>
 
           {/* ── KPIs ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatsCard label="Coût moyen / site"  value={formatMontant(siteStats?.cout_loyer_moyen)} delta="+0%" trend="up" />
-            <StatsCard label="Tickets en cours"   value={siteStats?.tickets_en_cours ?? 0}           delta="+0%" trend="up" />
-            <StatsCard label="Tickets clôturés"   value={siteStats?.tickets_clos     ?? 0}           delta="+0%" trend="up" />
-            <StatsCard label="Total patrimoines"  value={patrimoines.length}                         delta="+0%" trend="up" />
+            <StatsCard label="Coût moyen / site" value={formatCurrency(siteStats?.cout_loyer_moyen)} delta="+0%" trend="up" />
+
+            <StatsCard label="Tickets en cours" value={siteStats?.tickets_en_cours ?? 0} delta="+0%" trend="up" />
+            <StatsCard label="Tickets clôturés" value={siteStats?.tickets_clos ?? 0} delta="+0%" trend="up" />
+            <StatsCard label="Total patrimoines" value={patrimoines.length} delta="+0%" trend="up" />
           </div>
 
           {/* ── Barre d'actions ── */}
@@ -642,14 +686,6 @@ export default function SiteDetailsPage() {
 
             <div className="flex items-center gap-3 shrink-0">
 
-              {/* Template import */}
-              <button
-                onClick={() => AssetService.downloadImportTemplate()}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-500 text-sm font-medium hover:bg-slate-50 transition"
-                title="Télécharger le modèle d'import"
-              >
-                <Download size={14} /> Modèle
-              </button>
 
               {/* Importer */}
               <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition ${importLoading ? "opacity-60 cursor-wait" : ""}`}>
@@ -672,11 +708,10 @@ export default function SiteDetailsPage() {
               {/* Filtrer */}
               <div className="relative" ref={filterRef}>
                 <button onClick={() => setFiltersOpen(!filtersOpen)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${
-                    filtersOpen || activeFiltersCount > 0
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}>
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${filtersOpen || activeFiltersCount > 0
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}>
                   <Filter size={16} /> Filtrer
                   {activeFiltersCount > 0 && (
                     <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
@@ -694,10 +729,11 @@ export default function SiteDetailsPage() {
                 />
               </div>
 
-              <button onClick={() => { setEditingData(null); setIsModalOpen(true); }}
+              <button onClick={() => { setEditingData(null); setSelectedTypeId(""); setIsModalOpen(true); setModalError(null); }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm">
                 <Building2 size={16} /> Ajouter un patrimoine
               </button>
+
             </div>
           </div>
 
@@ -713,7 +749,7 @@ export default function SiteDetailsPage() {
                 Aucun patrimoine{activeFiltersCount > 0 ? " pour ces filtres" : ""}.
               </div>
             ) : (
-              <DataTable columns={columns} data={paginatedPatrimoines} title="Patrimoines du site" onViewAll={() => {}} />
+              <DataTable columns={columns} data={paginatedPatrimoines} title="Patrimoines du site" onViewAll={() => { }} />
             )}
             <div className="p-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
               <p className="text-xs text-slate-400">
@@ -733,22 +769,78 @@ export default function SiteDetailsPage() {
 
       <ReusableForm
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingData(null); }}
+        onClose={() => { setIsModalOpen(false); setEditingData(null); setSelectedTypeId(""); }}
         title={editingData ? "Modifier le patrimoine" : "Ajouter un patrimoine"}
         subtitle="Renseignez les informations du patrimoine"
         fields={assetFields}
         initialValues={editingData ? {
-          type_company_asset_id:     String((editingData as any).type_company_asset_id     ?? ""),
+          type_company_asset_id: String((editingData as any).type_company_asset_id ?? ""),
           sub_type_company_asset_id: String((editingData as any).sub_type_company_asset_id ?? ""),
-          designation:   editingData.designation,
-          status:        editingData.status,
-          criticite:     editingData.criticite ?? "non_critique",
-          date_entree:   editingData.date_entree ?? "",
+          site_id: String(siteId), // On force l'ID du site actuel
+          designation: editingData.designation,
+          status: editingData.status,
+          criticite: editingData.criticite ?? "non_critique",
+          date_entree: fmtDateForInput(editingData.date_entree),
           valeur_entree: editingData.valeur_entree ?? "",
-          description:   editingData.description ?? "",
+          images: (editingData as any).attachments ?? [], // Transformation des attachments en images pour ImageUpload
+          description: editingData.description ?? "",
         } : {}}
+        onFieldChange={(name, value, setter) => {
+          if (name === "type_company_asset_id") {
+            setSelectedTypeId(String(value));
+            setter("sub_type_company_asset_id", "");
+          }
+        }}
         onSubmit={handleCreateOrUpdate}
         submitLabel={editingData ? "Mettre à jour" : "Enregistrer"}
+        error={modalError}
+        isSubmitting={isSubmitting}
+      />
+
+
+      <ReusableForm
+        isOpen={isEditSiteModalOpen}
+        onClose={() => setIsEditSiteModalOpen(false)}
+        title="Modifier le site"
+        subtitle="Modifiez les informations de ce site"
+        fields={[
+          { name: "nom", label: "Nom du site", type: "text", required: true },
+          { name: "ref_contrat", label: "Référence contrat", type: "text", required: true },
+          {
+            name: "manager_id",
+            label: managersLoading ? "Gestionnaire (chargement...)" : "Gestionnaire",
+            type: "select",
+            disabled: managersLoading,
+            options: managers.map((m: any) => ({
+              label: resolveManagerName(m) || `Manager #${m.id}`,
+              value: String(m.id),
+            })),
+          },
+          {
+            name: "status", label: "Statut", type: "select", required: true,
+            options: [{ label: "Actif", value: "active" }, { label: "Inactif", value: "inactive" }],
+          },
+          { name: "effectifs", label: "Effectifs", type: "number" },
+          { name: "loyer", label: "Loyer mensuel (FCFA)", type: "number" },
+          { name: "superficie", label: "Superficie (m²)", type: "number" },
+          { name: "localisation", label: "Localisation", type: "text", gridSpan: 2 },
+          { name: "date_deb_contrat", label: "Date de début de contrat", type: "date" },
+          { name: "date_fin_contrat", label: "Date de fin de contrat", type: "date" },
+        ]}
+        initialValues={{
+          nom: site?.nom ?? "",
+          ref_contrat: site?.ref_contrat ?? "",
+          manager_id: String(site?.manager_id ?? site?.manager?.id ?? ""),
+          status: site?.status ?? "active",
+          effectifs: site?.effectifs ?? "",
+          loyer: site?.loyer ?? "",
+          superficie: site?.superficie ?? "",
+          localisation: site?.localisation ?? "",
+          date_deb_contrat: fmtDateForInput(site?.date_deb_contrat),
+          date_fin_contrat: fmtDateForInput(site?.date_fin_contrat),
+        }}
+        onSubmit={handleUpdateSite}
+        submitLabel="Mettre à jour le site"
       />
     </div>
   );

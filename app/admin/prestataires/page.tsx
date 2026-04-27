@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 
 import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
 import SearchInput from "@/components/SearchInput";
 import ReusableForm from "@/components/ReusableForm";
 import StatsCard from "@/components/StatsCard";
@@ -19,10 +18,14 @@ import PageHeader from "@/components/PageHeader";
 import { useProviders } from "../../../hooks/admin/useProviders";
 import { ProviderService, Provider } from "../../../services/admin/provider.service";
 import { useServices } from "../../../hooks/admin/useServices";
+import { exportToXlsx } from "../../../core/export";
+import { useLanguage } from "../../../contexts/LanguageContext";
+import { useToast } from "@/contexts/ToastContext";
+import { formatDate } from "@/lib/utils";
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // FILTER DROPDOWN
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
 interface ProviderFilters { is_active?: boolean; service_id?: number; }
 
@@ -40,18 +43,17 @@ function ProviderFilterDropdown({
 
   const currentStatus =
     local.is_active === undefined ? "" :
-    local.is_active ? "true" : "false";
+      local.is_active ? "true" : "false";
 
   const Pill = ({
     val, current, onClick, label,
   }: { val: string; current: string; onClick: () => void; label: string }) => (
     <button
       onClick={onClick}
-      className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${
-        current === val
-          ? "bg-slate-900 text-white"
-          : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-      }`}
+      className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${current === val
+        ? "bg-slate-900 text-white"
+        : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+        }`}
     >
       {label}
     </button>
@@ -72,9 +74,9 @@ function ProviderFilterDropdown({
           <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Statut</p>
           <div className="flex flex-col gap-1.5">
             {[
-              { val: "",      label: "Tous les prestataires" },
-              { val: "true",  label: "Actifs seulement"      },
-              { val: "false", label: "Inactifs seulement"    },
+              { val: "", label: "Tous les prestataires" },
+              { val: "true", label: "Actifs seulement" },
+              { val: "false", label: "Inactifs seulement" },
             ].map(o => (
               <Pill
                 key={o.val} val={o.val} current={currentStatus} label={o.label}
@@ -128,9 +130,9 @@ function ProviderFilterDropdown({
   );
 }
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 // PAGE
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 
 export default function PrestatairesPage() {
   const router = useRouter();
@@ -143,11 +145,13 @@ export default function PrestatairesPage() {
   } = useProviders();
 
   const { services } = useServices();
+  const { t } = useLanguage();
 
-  const [isModalOpen,      setIsModalOpen]      = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<any | null>(null);
-  const [filtersOpen,      setFiltersOpen]      = useState(false);
-  const [flash,            setFlash]            = useState<{ type: "success"|"error"; message: string } | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const { toast } = useToast();
+  const [exportLoading, setExportLoading] = useState(false);
 
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -160,18 +164,11 @@ export default function PrestatairesPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => {
-    if (!flash) return;
-    const t = setTimeout(() => setFlash(null), 5000);
-    return () => clearTimeout(t);
-  }, [flash]);
 
-  const showFlash = (type: "success"|"error", message: string) =>
-    setFlash({ type, message });
 
   const activeCount = [
     filters.is_active !== undefined ? "1" : "",
-    filters.service_id              ? "1" : "",
+    filters.service_id ? "1" : "",
   ].filter(Boolean).length;
 
   const handleOpenProfil = async (p: Provider) => {
@@ -183,56 +180,99 @@ export default function PrestatairesPage() {
     }
   };
 
-  const handleExport = () =>
-    showFlash("error", "Fonctionnalité d'export en cours de développement.");
+  const handleExport = async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      // Récupère TOUS les prestataires (pas seulement la page courante)
+      let allProviders = providers;
+      try {
+        const res = await ProviderService.getProviders({ per_page: 1000, page: 1 });
+        const items = Array.isArray(res) ? res : (res as any)?.items ?? providers;
+        if (items.length > 0) allProviders = items;
+      } catch { /* fallback sur la page courante */ }
+
+      const rows = allProviders.map(p => ({
+        id: p.id,
+        nom: p.company_name ?? "-",
+        service: p.service?.name ?? "-",
+        ville: p.city ?? "-",
+        email: p.email ?? "-",
+        telephone: "-",
+        statut: p.is_active ? "Actif" : "Inactif",
+        note: p.rating ? `${typeof p.rating === "string" ? parseFloat(p.rating) : p.rating}/5` : "-",
+        date_entree: formatDate(p.date_entree),
+      }));
+
+      exportToXlsx(rows, [
+        { header: "ID", key: "id", width: 8 },
+        { header: "Nom", key: "nom", width: 28 },
+        { header: "Service", key: "service", width: 20 },
+        { header: "Ville", key: "ville", width: 16 },
+        { header: "Responsable", key: "responsable", width: 24 },
+        { header: "Email", key: "email", width: 28 },
+        { header: "Téléphone", key: "telephone", width: 16 },
+        { header: "Statut", key: "statut", width: 12 },
+        { header: "Note", key: "note", width: 10 },
+        { header: "Date entrée", key: "date_entree", width: 14 },
+      ], { filename: "prestataires", sheetName: "Prestataires", title: "Export Prestataires - CANAL+" });
+
+      toast.success(`${rows.length} prestataire${rows.length > 1 ? "s" : ""} exporté${rows.length > 1 ? "s" : ""} avec succès.`);
+    } catch {
+      toast.error("Erreur lors de l'exportation.");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   const handleImport = () =>
-    showFlash("error", "Fonctionnalité d'import en cours de développement.");
+    toast.error("L'import de prestataires n'est pas disponible via fichier Excel.");
 
   const handleToggleStatus = async (p: Provider) => {
     try {
       if (p.is_active) {
         await ProviderService.desactivateProvider(p.id);
-        showFlash("success", `${p.company_name} désactivé.`);
+        toast.success(`${p.company_name} désactivé.`);
       } else {
         await ProviderService.activateProvider(p.id);
-        showFlash("success", `${p.company_name} activé.`);
+        toast.success(`${p.company_name} activé.`);
       }
       fetchProviders();
     } catch {
-      showFlash("error", "Erreur lors du changement de statut.");
+      toast.error("Erreur lors du changement de statut.");
     }
   };
 
   // ── Champs formulaire création prestataire ──
-  // Structure : Infos société → Responsable → Médias (logo + photos)
+  // Structure : Infos société ...Responsable ...Médias (logo + photos)
   const prestFields = [
 
     // ── BLOC 1 : Informations société ──
-    { name: "company_name", label: "Nom du prestataire", type: "text",   required: true },
+    { name: "company_name", label: "Nom du prestataire", type: "text", required: true, placeholder: "CANAL+" },
     {
-      name: "service_id",   label: "Service",             type: "select", required: true,
+      name: "service_id", label: "Service", type: "select", required: true,
       options: services.map(s => ({ label: s.name, value: String(s.id) })),
     },
-    { name: "city",         label: "Ville",               type: "text",   required: true },
-    { name: "street",       label: "Rue / Adresse",       type: "text"                   },
-    { name: "date_entree",  label: "Date d'entrée",       type: "date",   required: true },
-    { name: "users.password",   label: "Mot de passe",        type: "password", required: true },
+    { name: "city", label: "Ville", type: "text", required: true, placeholder: "Abidjan" },
+    { name: "street", label: "Rue / Adresse", type: "text", placeholder: "Rue 200" },
+    { name: "date_entree", label: "Date d'entrée", type: "date", required: true },
+    { name: "users.password", label: "Mot de passe", type: "password", required: true },
 
     // ── BLOC 2 : Responsable compte ──
-    { name: "users.last_name",  label: "Nom du responsable", type: "text",     required: true },
-    { name: "users.first_name", label: "Prénom",              type: "text",     required: true },
-    { name: "users.email",      label: "Email du responsable",type: "email",    required: true },
-    { name: "users.phone",      label: "Téléphone",           type: "text",     required: true },
-    
-    // Description pleine largeur
-    { name: "description",  label: "Description",         type: "rich-text", gridSpan: 2 },
+    { name: "users.last_name", label: "Nom du responsable", type: "text", required: true },
+    { name: "users.first_name", label: "Prénom", type: "text", required: true },
+    { name: "users.email", label: "Email du responsable", type: "email", required: true },
+    { name: "users.phone", label: "Téléphone", type: "tel", required: true, placeholder: "00101454545" },
 
-    
+    // Description pleine largeur
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, placeholder: "Description du prestataire" },
+
+
 
     // ── BLOC 3 : Médias ──
     // Logo : 1 seule image carrée (identité visuelle du prestataire)
     {
-      name: "logo",   label: "Logo du prestataire",
+      name: "logo", label: "Logo du prestataire",
       type: "image-upload", gridSpan: 1, maxImages: 1,
     },
     // Photos : jusqu'à 3 images supplémentaires (locaux, équipe, etc.)
@@ -246,192 +286,178 @@ export default function PrestatairesPage() {
     try {
       await ProviderService.createProvider({
         company_name: formData.company_name,
-        city:         formData.city,
-        neighborhood: formData.neighborhood  || undefined,
-        street:       formData.street        || undefined,
-        service_id:   Number(formData.service_id),
-        date_entree:  formData.date_entree   || undefined,
-        description:  formData.description   || undefined,
+        city: formData.city,
+        neighborhood: formData.neighborhood || "non renseigné",
+        street: formData.street || "non renseigné",
+        service_id: Number(formData.service_id),
+        date_entree: formData.date_entree || "non renseigné",
+        description: formData.description || "non renseigné",
         users: {
           first_name: formData["users.first_name"],
-          last_name:  formData["users.last_name"],
-          email:      formData["users.email"],
-          phone:      formData["users.phone"],
-          password:   formData["users.password"],
+          last_name: formData["users.last_name"],
+          email: formData["users.email"],
+          phone: formData["users.phone"],
+          password: formData["users.password"],
         },
         // logo & images transmis séparément si ton backend supporte multipart
         // logo:   formData.logo,
         // images: formData.images,
       });
-      showFlash("success", "Prestataire créé avec succès.");
+      toast.success("Prestataire créé avec succès.");
       setIsModalOpen(false);
       fetchProviders();
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message ?? err?.message ?? "Erreur lors de la création.");
+      toast.error(err?.response?.data?.message ?? err?.message ?? "Erreur lors de la création.");
     }
   };
 
   // ── KPIs ──
   const kpis = [
-    { label: "Total prestataires",       value: stats?.total_providers           ?? 0,  delta: "+0%", trend: "up"   as const },
-    { label: "Prestataires actifs",      value: stats?.active_providers          ?? 0,  delta: "+0%", trend: "up"   as const },
-    { label: "Prestataires inactifs",    value: stats?.inactive_providers        ?? 0,  delta: "+0%", trend: "down" as const },
-    { label: "Délai moyen intervention", value: stats?.average_intervention_time ?? "—",              delta: "+0%", trend: "up"   as const },
+    { label: t("prestataires.totalProviders"), value: stats?.total_providers ?? 0, delta: "+0%", trend: "up" as const },
+    { label: t("prestataires.activeProviders"), value: stats?.active_providers ?? 0, delta: "+0%", trend: "up" as const },
+    { label: t("prestataires.inactiveProviders"), value: stats?.inactive_providers ?? 0, delta: "+0%", trend: "down" as const },
+    { label: t("prestataires.avgInterventionTime"), value: stats?.average_intervention_time ?? "", delta: "+0%", trend: "up" as const },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
+    <div className="flex-1 flex flex-col">
+      <Navbar />
 
-        <main className="ml-64 mt-20 p-6 space-y-8">
-          <PageHeader
-            title="Prestataires"
-            subtitle="Gérez tous vos prestataires de services"
-          />
+      <main className="mt-20 p-6 space-y-8">
+        <PageHeader title={t("prestataires.title")} subtitle={t("prestataires.subtitle")} />
 
-          {/* Flash */}
-          {flash && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${
-              flash.type === "success"
-                ? "text-green-700 bg-green-50 border-green-200"
-                : "text-red-600 bg-red-100 border-red-300"
-            }`}>
-              {flash.message}
-            </div>
-          )}
 
-          {/* KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
-          </div>
+        {/* KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        </div>
 
-          {/* ── Barre d'actions ── */}
-          <div className="flex items-center justify-between gap-3">
+        {/* ── Barre d'actions ── */}
+        <div className="flex items-center justify-between gap-3">
 
-            {/* Gauche : badges filtres actifs */}
-            <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
-              {activeCount === 0 && (
-                <p className="text-xs text-slate-400 font-medium">Aucun filtre actif</p>
-              )}
-              {filters.is_active !== undefined && (
-                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  {filters.is_active ? "Actifs" : "Inactifs"}
-                  <button onClick={() => applyFilters({ ...filters, is_active: undefined })} className="hover:opacity-70 transition">
-                    <X size={11} />
-                  </button>
-                </span>
-              )}
-              {filters.service_id && (
-                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  {services.find(s => s.id === filters.service_id)?.name ?? `Service #${filters.service_id}`}
-                  <button onClick={() => applyFilters({ ...filters, service_id: undefined })} className="hover:opacity-70 transition">
-                    <X size={11} />
-                  </button>
-                </span>
-              )}
-            </div>
-
-            {/* Droite : boutons d'action */}
-            <div className="flex items-center gap-3 shrink-0">
-              <button
-                onClick={handleImport}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition"
-              >
-                <Download size={16} /> Importer
-              </button>
-
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition"
-              >
-                <Upload size={16} /> Exporter
-              </button>
-
-              <div className="relative" ref={filterRef}>
-                <button
-                  onClick={() => setFiltersOpen(o => !o)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${
-                    filtersOpen || activeCount > 0
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <Filter size={16} /> Filtrer
-                  {activeCount > 0 && (
-                    <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                      {activeCount}
-                    </span>
-                  )}
+          {/* Gauche : badges filtres actifs */}
+          <div className="flex items-center gap-2 flex-wrap min-h-[36px]">
+            {activeCount === 0 && (
+              <p className="text-xs text-slate-400 font-medium">Aucun filtre actif</p>
+            )}
+            {filters.is_active !== undefined && (
+              <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                {filters.is_active ? "Actifs" : "Inactifs"}
+                <button onClick={() => applyFilters({ ...filters, is_active: undefined })} className="hover:opacity-70 transition">
+                  <X size={11} />
                 </button>
-                <ProviderFilterDropdown
-                  isOpen={filtersOpen}
-                  onClose={() => setFiltersOpen(false)}
-                  filters={filters}
-                  onApply={(f) => { applyFilters(f); setFiltersOpen(false); }}
-                  services={services}
-                />
-              </div>
-
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm"
-              >
-                <PlusCircle size={16} /> Ajouter un prestataire
-              </button>
-            </div>
+              </span>
+            )}
+            {filters.service_id && (
+              <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                {services.find(s => s.id === filters.service_id)?.name ?? `Service #${filters.service_id}`}
+                <button onClick={() => applyFilters({ ...filters, service_id: undefined })} className="hover:opacity-70 transition">
+                  <X size={11} />
+                </button>
+              </span>
+            )}
           </div>
 
-          {/* ── Liste + Search ── */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
-            <div className="w-80">
-              <SearchInput
-                onSearch={applySearch}
-                placeholder="Rechercher un prestataire..."
+          {/* Droite : boutons d'action */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={handleImport}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition"
+            >
+              <Download size={16} /> Importer
+            </button>
+
+            <button
+              onClick={handleExport}
+              disabled={exportLoading}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-60 disabled:cursor-wait"
+            >
+              {exportLoading
+                ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
+                : <Upload size={16} />}
+              Exporter
+            </button>
+
+            <div className="relative" ref={filterRef}>
+              <button
+                onClick={() => setFiltersOpen(o => !o)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${filtersOpen || activeCount > 0
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                <Filter size={16} /> Filtrer
+                {activeCount > 0 && (
+                  <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                    {activeCount}
+                  </span>
+                )}
+              </button>
+              <ProviderFilterDropdown
+                isOpen={filtersOpen}
+                onClose={() => setFiltersOpen(false)}
+                filters={filters}
+                onApply={(f) => { applyFilters(f); setFiltersOpen(false); }}
+                services={services}
               />
             </div>
 
-            {isLoading ? (
-              <div className="py-20 text-center">
-                <span className="inline-block w-6 h-6 border-2 border-slate-200 border-t-slate-700 rounded-full animate-spin mb-3" />
-                <p className="text-slate-400 text-sm">Chargement des prestataires...</p>
-              </div>
-            ) : providers.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {providers.map(p => (
-                  <PrestCard
-                    key={p.id}
-                    id={p.id}
-                    name={p.company_name ?? "Prestataire"}
-                    location={p.city ?? "—"}
-                    category={p.service?.name ?? "—"}
-                    phone={p.user?.phone ?? "—"}
-                    email={p.user?.email ?? "—"}
-                    rating={p.rating ?? 0}
-                    status={p.is_active ? "Actif" : "Inactif"}
-                    logo={p.logoUrl}
-                    onProfilClick={() => handleOpenProfil(p)}
-                    onTicketsClick={() => router.push(`/admin/prestataires/details/${p.id}`)}
-                    detailUrl={`/admin/prestataires/details/${p.id}`}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="py-20 text-center text-slate-400 italic">
-                Aucun prestataire trouvé{activeCount > 0 ? " pour ces filtres" : ""}.
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-              <p className="text-xs text-slate-400">
-                Page {page} sur {meta.last_page} · {meta.total} prestataire{meta.total > 1 ? "s" : ""}
-              </p>
-              <Paginate currentPage={page} totalPages={meta.last_page} onPageChange={setPage} />
-            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm"
+            >
+              <PlusCircle size={16} /> Ajouter un prestataire
+            </button>
           </div>
-        </main>
-      </div>
+        </div>
+
+        {/* ── Liste + Search ── */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
+          <div className="w-80">
+            <SearchInput
+              onSearch={applySearch}
+              placeholder="Rechercher un prestataire..."
+            />
+          </div>
+
+          {isLoading ? (
+            <div className="py-20 text-center">
+              <span className="inline-block w-6 h-6 border-2 border-slate-200 border-t-slate-700 rounded-full animate-spin mb-3" />
+              <p className="text-slate-400 text-sm">Chargement des prestataires...</p>
+            </div>
+          ) : providers.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {providers.map(p => (
+                <PrestCard
+                  key={p.id}
+                  id={p.id}
+                  name={p.company_name ?? "Prestataire"}
+                  location={p.city ?? ""}
+                  category={p.service?.name ?? ""}
+                  phone={""}
+                  email={p.email ?? ""}
+                  rating={typeof p.rating === "string" ? parseFloat(p.rating) : (p.rating ?? 0)}
+                  status={p.is_active ? "Actif" : "Inactif"}
+                  logo={p.logoUrl}
+                  onProfilClick={() => handleOpenProfil(p)}
+                  onTicketsClick={() => router.push(`/admin/prestataires/details/${p.id}`)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="py-20 text-center text-slate-400 italic">
+              Aucun prestataire trouvé{activeCount > 0 ? " pour ces filtres" : ""}.
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+            <p className="text-xs text-slate-400">
+              Page {page} sur {meta.last_page} · {meta.total} prestataire{meta.total > 1 ? "s" : ""}
+            </p>
+            <Paginate currentPage={page} totalPages={meta.last_page} onPageChange={setPage} />
+          </div>
+        </div>
+      </main>
 
       {/* ── Formulaire création ── */}
       <ReusableForm
@@ -449,19 +475,19 @@ export default function PrestatairesPage() {
         isOpen={!!selectedProvider}
         onClose={() => setSelectedProvider(null)}
         provider={selectedProvider ? {
-          name:       selectedProvider.company_name  ?? "Prestataire",
-          location:   selectedProvider.city          ?? "—",
-          phone:      selectedProvider.user?.phone   ?? "—",
-          email:      selectedProvider.user?.email   ?? "—",
-          category:   selectedProvider.service?.name ?? "—",
-          dateEntree: selectedProvider.date_entree   ?? "—",
-          status:     selectedProvider.is_active ? "Actif" : "Inactif",
-          logo:       selectedProvider.logoUrl,
+          name: selectedProvider.company_name ?? "Prestataire",
+          location: selectedProvider.city ?? "",
+          phone: "",
+          email: selectedProvider.email ?? "",
+          category: selectedProvider.service?.name ?? "",
+          dateEntree: selectedProvider.date_entree ?? "",
+          status: selectedProvider.is_active ? "Actif" : "Inactif",
+          logo: selectedProvider.logoUrl,
           stats: {
-            totalBillets:   { value: selectedProvider.loadedStats?.total_tickets       ?? 0, delta: "+0%" },
+            totalBillets: { value: selectedProvider.loadedStats?.total_tickets ?? 0, delta: "+0%" },
             ticketsEnCours: { value: selectedProvider.loadedStats?.in_progress_tickets ?? 0, delta: "+0%" },
-            ticketsTraites: { value: selectedProvider.loadedStats?.closed_tickets      ?? 0, delta: "+0%" },
-            noteObtenue:    selectedProvider.loadedStats?.rating
+            ticketsTraites: { value: selectedProvider.loadedStats?.closed_tickets ?? 0, delta: "+0%" },
+            noteObtenue: selectedProvider.loadedStats?.rating
               ? `${selectedProvider.loadedStats.rating}/5`
               : (selectedProvider.rating ? `${selectedProvider.rating}/5` : "N/A"),
           },

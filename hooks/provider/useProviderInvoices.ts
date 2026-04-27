@@ -28,6 +28,7 @@ export interface UseProviderInvoicesReturn {
   closeCreate:     () => void;
   setStatusFilter: (s: string) => void;
   setPage:         (p: number) => void;
+  setDateRange:    (debut?: string, fin?: string) => void;
   createInvoice:   (p: CreateInvoicePayload) => Promise<boolean>;
   exportXlsx:      () => Promise<void>;
   refresh:         () => void;
@@ -52,6 +53,8 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
 
   const [statusFilter, setStatusFilterState] = useState("");
   const [currentPage,  setCurrentPage]       = useState(1);
+  const [dateDebut,    setDateDebut]          = useState<string | undefined>(undefined);
+  const [dateFin,      setDateFin]            = useState<string | undefined>(undefined);
 
   // ── flash helpers ─────────────────────────────────────────────────────────
   const flash = (type: "success" | "error", msg: string) => {
@@ -70,21 +73,19 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
     setError("");
     try {
       const params: InvoiceFilters = { page: currentPage, per_page: 10 };
-      if (statusFilter) params.status = statusFilter;
+      if (statusFilter) params.payment_status = statusFilter;
+      if (dateDebut)    params.date_debut      = dateDebut;
+      if (dateFin)      params.date_fin        = dateFin;
 
       const res = await providerInvoiceService.getInvoices(params);
       setInvoices(res.items);
       setMeta(res.meta);
     } catch (e: any) {
-      setError(
-        e.response?.data?.message ??
-        e.response?.data?.error   ??
-        "Erreur lors du chargement des factures."
-      );
+      setError(e.response?.data?.message ?? e.response?.data?.error ?? "Erreur lors du chargement des factures.");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, dateDebut, dateFin]);
 
   // ── Fetch stats ───────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
@@ -108,6 +109,12 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
   };
 
   const setPage = (p: number) => setCurrentPage(p);
+
+  const setDateRange = (debut?: string, fin?: string) => {
+    setDateDebut(debut);
+    setDateFin(fin);
+    setCurrentPage(1);
+  };
 
   // ── Panel ─────────────────────────────────────────────────────────────────
   const openPanel  = (inv: Invoice) => { setSelectedInvoice(inv); setIsPanelOpen(true); };
@@ -159,7 +166,7 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
     statusFilter, currentPage,
     openPanel, closePanel,
     openCreate, closeCreate,
-    setStatusFilter, setPage,
+    setStatusFilter, setPage, setDateRange,
     createInvoice, exportXlsx,
     refresh: fetchInvoices,
   };

@@ -17,9 +17,9 @@
  * En cas de succès → redirection vers /login.
  *
  * Props :
- *   email      — email saisi à l'étape 1 (passé par password/page.tsx)
- *   onSuccess  — callback optionnel après succès (analytics, toast global...)
- *   backHref   — lien "Retour" (généralement "/login")
+ *   email      - email saisi à l'étape 1 (passé par password/page.tsx)
+ *   onSuccess  - callback optionnel après succès (analytics, toast global...)
+ *   backHref   - lien "Retour" (généralement "/login")
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -57,6 +57,8 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [success, setSuccess]   = useState("");
+  const [resetAttempts, setResetAttempts] = useState(0);
+  const MAX_RESET_ATTEMPTS = 3;
 
   // ── Email masqué ────────────────────────────────────────────────────────────
   const maskedEmail = email
@@ -139,8 +141,9 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
       setSuccess("Mot de passe réinitialisé avec succès !");
       onSuccess?.();
 
-      // Redirection vers /login après 1.5s
-      setTimeout(() => router.replace(backHref), 1500);
+      // Redirection vers /login après 1.5s - window.location pour éviter
+      // les problèmes de composant démonté avec router.replace dans setTimeout
+      setTimeout(() => { window.location.href = backHref; }, 1500);
 
     } catch (err: unknown) {
       console.error("Erreur resetPassword:", err);
@@ -148,18 +151,28 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
       const status   = axiosErr?.response?.status;
       const message  = axiosErr?.response?.data?.message;
 
-      if (status === 400) {
-        // Code OTP invalide / expiré — message précis retourné par Laravel
-        setError(message || "Code invalide ou expiré. Recommencez la procédure.");
-      } else if (status === 429) {
-        setError("Trop de tentatives. Réessayez dans quelques minutes.");
-      } else {
-        setError(message || "Une erreur est survenue. Réessayez.");
-      }
+      const newAttempts = resetAttempts + 1;
+      setResetAttempts(newAttempts);
 
-      // Reset du code OTP pour une nouvelle tentative
-      setOtp(Array(OTP_LENGTH).fill(""));
-      setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
+      if (status === 429) {
+        setError("Trop de tentatives. Réessayez dans quelques minutes.");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setResetAttempts(0);
+        setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
+      } else if (newAttempts >= MAX_RESET_ATTEMPTS) {
+        setError("Code invalide ou expiré. Recommencez la procédure depuis le début.");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setResetAttempts(0);
+        setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
+      } else {
+        const remaining = MAX_RESET_ATTEMPTS - newAttempts;
+        setError(
+          message
+            ? `${message} (${remaining} tentative${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""})`
+            : `Code incorrect. ${remaining} tentative${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}.`
+        );
+        // Ne pas reset les champs OTP - laisser corriger
+      }
 
     } finally {
       setLoading(false);
@@ -171,23 +184,23 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
   return (
     <div
       className="min-h-screen flex items-center justify-center relative bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-poste.png')" }}
+      style={{ backgroundImage: "url('/assets/bg_login.png')" }}
     >
-      <div className="absolute inset-0" />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="h-1 w-full bg-theme-primary rounded-xl" />
+        <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo-poste.png" alt="Laposte" width={160} height={40} priority />
+            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
               <ShieldCheck size={26} className="text-white" />
             </div>
           </div>
@@ -209,7 +222,7 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
           >
             {/* ── Code OTP ─────────────────────────────────────────────────── */}
             <div>
-              <label className="block text-xs font-semibold text-theme-primary mb-2 ml-1">
+              <label className="block text-xs font-semibold text-gray-600 mb-2 ml-1">
                 Code de vérification
               </label>
               <div className="flex justify-center gap-2.5" onPaste={handlePaste}>
@@ -257,7 +270,7 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading || !!success}
-                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-theme-base text-theme-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-all text-sm disabled:opacity-50"
+                  className="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-all text-sm disabled:opacity-50 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                   required
                   minLength={8}
                   autoComplete="new-password"
@@ -293,6 +306,7 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
                     "w-full pl-11 pr-12 py-3 rounded-xl border bg-gray-50 text-gray-900 placeholder-gray-400",
                     "focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white",
                     "transition-all text-sm disabled:opacity-50",
+                    "[&::-ms-reveal]:hidden [&::-ms-clear]:hidden",
                     confirmPassword && password !== confirmPassword
                       ? "border-red-300"
                       : confirmPassword && password === confirmPassword
@@ -346,7 +360,7 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
             >
               {loading ? (
                 <>
-                  <svg className="animate-spin h-4 w-4 text-theme-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
@@ -368,7 +382,7 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
           </div>
 
           <div className="mt-4 text-center text-xs text-gray-400">
-            © {new Date().getFullYear()} La poste • Accès sécurisé
+            © {new Date().getFullYear()} CANAL+ • Accès sécurisé
           </div>
         </div>
       </div>

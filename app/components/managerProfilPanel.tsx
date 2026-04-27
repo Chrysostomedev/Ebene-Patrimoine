@@ -1,28 +1,25 @@
 "use client";
 
-/**
- * ManagerProfilPanel.tsx
- * ─────────────────────────────────────────────────────────────────────────────
- * Side panel profil gestionnaire — s'ouvre à droite en overlay
- * Affiche toutes les infos du manager sélectionné
- * Design : blanc / noir / gris — cohérent avec GestCard
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
-import { X, Mail, Phone, ShieldCheck, User, Hash, Calendar } from "lucide-react";
+import React from "react";
+import { X, Mail, Phone, ShieldCheck, User, Hash } from "lucide-react";
 import { Manager } from "../../services/admin/manager.service";
+import { ManagerService } from "../../services/admin/manager.service";
 
 interface ManagerProfilPanelProps {
   isOpen: boolean;
   onClose: () => void;
   manager: Manager | null;
+  onStatusChanged?: () => void;
 }
 
 export default function ManagerProfilPanel({
   isOpen,
   onClose,
   manager,
+  onStatusChanged,
 }: ManagerProfilPanelProps) {
+
+  const [toggling, setToggling] = React.useState(false);
 
   const fullName = [manager?.first_name, manager?.last_name]
     .filter(Boolean).join(" ") || "Gestionnaire";
@@ -34,13 +31,29 @@ export default function ManagerProfilPanel({
 
   const isActive = manager?.is_active !== false;
 
+  const handleToggleStatus = async () => {
+    if (!manager || toggling) return;
+    setToggling(true);
+    try {
+      if (isActive) {
+        await ManagerService.desactivateManager(manager.id);
+      } else {
+        await ManagerService.activateManager(manager.id);
+      }
+      onStatusChanged?.();
+    } catch (err) {
+      console.error("Erreur toggle statut gestionnaire", err);
+    } finally {
+      setToggling(false);
+    }
+  };
+
   return (
     <>
       {/* ── Overlay sombre ──────────────────────────────────────────────── */}
       <div
-        className={`fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-300 ${
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
         onClick={onClose}
       />
 
@@ -102,8 +115,8 @@ export default function ManagerProfilPanel({
                 Coordonnées
               </p>
 
-              <InfoRow icon={<Mail size={13} className="text-slate-400" />} label="Email" value={manager.email} />
-              <InfoRow icon={<Phone size={13} className="text-slate-400" />} label="Téléphone" value={manager.phone || "—"} />
+              <InfoRow icon={<Mail size={13} className="text-slate-400" />} label="Email" value={manager.email} href={`mailto:${manager.email}`} />
+              <InfoRow icon={<Phone size={13} className="text-slate-400" />} label="Téléphone" value={manager.phone ?? (manager as any).phone_number ?? "-"} href={manager.phone ?? (manager as any).phone_number ? `tel:${(manager.phone ?? (manager as any).phone_number)?.replace(/\s/g, "")}` : undefined} />
             </div>
 
             {/* ── Infos système ────────────────────────────────────────── */}
@@ -112,18 +125,16 @@ export default function ManagerProfilPanel({
                 Informations système
               </p>
 
-              <InfoRow icon={<Hash size={13} className="text-slate-400" />} label="ID Utilisateur" value={`#${manager.id}`} />
-              <InfoRow icon={<Hash size={13} className="text-slate-400" />} label="ID Manager" value={manager.manager?.id ? `#${manager.manager.id}` : "—"} />
               <InfoRow icon={<User size={13} className="text-slate-400" />} label="Rôle" value={manager.role?.name ?? "MANAGER"} />
 
               {/*
-               * ── Site géré — COMMENTÉ, préparé pour future API ────────────
+               * ── Site géré - COMMENTÉ, préparé pour future API ────────────
                * TODO: décommenter quand l'API retournera managed_site
                *
                * <InfoRow
                *   icon={<MapPin size={13} className="text-slate-400" />}
                *   label="Site assigné"
-               *   value={manager.managed_site?.nom || "—"}
+               *   value={manager.managed_site?.nom || "-"}
                * />
                */}
             </div>
@@ -137,7 +148,19 @@ export default function ManagerProfilPanel({
         )}
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
-        <div className="px-6 py-4 border-t border-slate-100">
+        <div className="px-6 py-4 border-t border-slate-100 space-y-2">
+          {manager && (
+            <button
+              onClick={handleToggleStatus}
+              disabled={toggling}
+              className={`w-full py-3 rounded-xl text-[13px] font-bold transition-colors disabled:opacity-50 ${isActive
+                ? "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                : "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
+                }`}
+            >
+              {toggling ? "En cours..." : isActive ? "Désactiver le gestionnaire" : "Activer le gestionnaire"}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-full py-3 rounded-xl border border-slate-200 text-slate-600 text-[13px] font-bold hover:bg-slate-50 transition-colors"
@@ -155,17 +178,25 @@ function InfoRow({
   icon,
   label,
   value,
+  href,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  href?: string;
 }) {
   return (
     <div className="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
       <div className="mt-0.5 flex-shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-[10px] text-slate-400 font-medium mb-0.5">{label}</p>
-        <p className="text-[13px] text-slate-700 font-semibold truncate">{value}</p>
+        {href ? (
+          <a href={href} className="text-[13px] text-slate-700 font-semibold truncate hover:underline hover:text-slate-900 transition-colors block">
+            {value}
+          </a>
+        ) : (
+          <p className="text-[13px] text-slate-700 font-semibold truncate">{value}</p>
+        )}
       </div>
     </div>
   );

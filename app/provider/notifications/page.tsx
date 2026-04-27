@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import PageHeader from "@/components/PageHeader";
 import {
@@ -10,6 +9,7 @@ import {
   FileText, Receipt, Users, Settings,
 } from "lucide-react";
 import { useNotifications, Notification, NotifSource } from "../../../hooks/provider/useNotifications";
+import { formatDate } from "@/lib/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,10 +19,10 @@ function timeAgo(iso: string): string {
   if (diff < 3600)      return `il y a ${Math.floor(diff / 60)} min`;
   if (diff < 86400)     return `il y a ${Math.floor(diff / 3600)} h`;
   if (diff < 86400 * 7) return `il y a ${Math.floor(diff / 86400)} j`;
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+  return formatDate(iso, { day: "2-digit", month: "short" });
 }
 
-// ─── Config source — identique à NotificationPanel ───────────────────────────
+// ─── Config source - identique à NotificationPanel ───────────────────────────
 
 const SOURCE_CONFIG: Record<string, {
   label: string; Icon: React.ElementType;
@@ -176,11 +176,7 @@ function NotifDetailPanel({ notif, onClose, onDelete }: {
               <div>
                 <SourceBadge source={notif.source} />
                 <p className="text-[11px] text-slate-400 font-medium mt-1.5">
-                  {timeAgo(notif.createdAt)} ·{" "}
-                  {new Date(notif.createdAt).toLocaleDateString("fr-FR", {
-                    day: "2-digit", month: "long", year: "numeric",
-                    hour: "2-digit", minute: "2-digit",
-                  } as any)}
+                  {timeAgo(notif.createdAt)} · {formatDate(notif.createdAt)}
                 </p>
               </div>
             </div>
@@ -208,8 +204,8 @@ function NotifDetailPanel({ notif, onClose, onDelete }: {
               {[
                 { label: "Source",  value: cfg.label },
                 { label: "Statut",  value: notif.read ? "Lu" : "Non lu" },
-                { label: "Reçu le", value: new Date(notif.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) },
-                { label: "À",       value: new Date(notif.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) },
+                { label: "Reçu le", value: formatDate(notif.createdAt, { day: "2-digit", month: "long", year: "numeric" }) },
+                { label: "Heure",   value: formatDate(notif.createdAt).split(" à ")[1] ?? "-" },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <p className="text-xs text-slate-400 font-medium">{row.label}</p>
@@ -264,10 +260,7 @@ export default function NotificationsPage() {
   const read   = notifications.filter((n) =>  n.read);
 
   return (
-    <div className="flex min-h-screen bg-zinc-50">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col pl-64">
+    <div className="flex-1 flex flex-col ">
         <Navbar />
 
         <main className="flex-1 p-8 pt-24">
@@ -365,8 +358,7 @@ export default function NotificationsPage() {
             </div>
           )}
         </main>
-      </div>
-
+      
       {/* ── Panel détail slide ────────────────────────────────────────── */}
       {activeNotif && (
         <div

@@ -4,10 +4,11 @@ import {
   Ticket,
   TicketStats,
   TicketMeta,
-  ProviderUpdatableStatus,
+  canStartIntervention,
+  canSubmitReport,
+  canRequestDevis,
+  isAlreadyReported,
 } from "../../services/provider/providerTicketService";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface TicketFilters {
   page?:      number;
@@ -18,32 +19,35 @@ export interface TicketFilters {
 }
 
 interface UseProviderTicketsReturn {
-  // Data
-  tickets:       Ticket[];
-  stats:         TicketStats | null;
-  meta:          TicketMeta | null;
+  tickets:        Ticket[];
+  stats:          TicketStats | null;
+  meta:           TicketMeta | null;
   selectedTicket: Ticket | null;
 
-  // States
-  loading:       boolean;
-  statsLoading:  boolean;
-  updateLoading: boolean;
-  error:         string;
-  updateError:   string;
-  updateSuccess: string;
+  loading:        boolean;
+  statsLoading:   boolean;
+  updateLoading:  boolean;
+  error:          string;
+  updateError:    string;
+  updateSuccess:  string;
 
-  // Filters
-  filters:       TicketFilters;
-  setFilters:    (f: Partial<TicketFilters>) => void;
+  filters:        TicketFilters;
+  setFilters:     (f: Partial<TicketFilters>) => void;
 
-  // Actions
-  openTicket:    (ticket: Ticket) => void;
-  closeTicket:   () => void;
-  updateStatus:  (id: number, status: ProviderUpdatableStatus) => Promise<void>;
-  refresh:       () => void;
+  openTicket:     (ticket: Ticket) => void;
+  closeTicket:    () => void;
+
+  // Actions métier — endpoints dédiés
+  startIntervention: (id: number) => Promise<void>;
+  requestDevis:      (id: number) => Promise<void>;
+  refresh:           () => void;
+
+  // Helpers UX
+  canStart:       (t: Ticket) => boolean;
+  canReport:      (t: Ticket) => boolean;
+  canDevis:       (t: Ticket) => boolean;
+  alreadyReported:(t: Ticket) => boolean;
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useProviderTickets(): UseProviderTicketsReturn {
   const [tickets,        setTickets]        = useState<Ticket[]>([]);
@@ -51,109 +55,99 @@ export function useProviderTickets(): UseProviderTicketsReturn {
   const [meta,           setMeta]           = useState<TicketMeta | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
 
-  const [loading,        setLoading]        = useState(true);
-  const [statsLoading,   setStatsLoading]   = useState(true);
-  const [updateLoading,  setUpdateLoading]  = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [statsLoading,  setStatsLoading]  = useState(true);
+  const [updateLoading, setUpdateLoading] = useState(false);
 
-  const [error,          setError]          = useState("");
-  const [updateError,    setUpdateError]    = useState("");
-  const [updateSuccess,  setUpdateSuccess]  = useState("");
+  const [error,         setError]         = useState("");
+  const [updateError,   setUpdateError]   = useState("");
+  const [updateSuccess, setUpdateSuccess] = useState("");
 
-  const [filters, setFiltersState] = useState<TicketFilters>({ page: 1, per_page: 15 });
+  // Filtre type=curatif envoyé directement à l'API — le back filtre côté serveur
+  const [filters, setFiltersState] = useState<TicketFilters>({ page: 1, per_page: 15, type: "curatif" });
 
-  // ── Fetch tickets ──────────────────────────────────────────────────────────
   const fetchTickets = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     try {
       const result = await providerTicketService.getTickets(filters);
       setTickets(result.items);
       setMeta(result.meta);
     } catch (err: any) {
       setError(err.response?.data?.message || "Erreur lors du chargement des tickets.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [filters]);
 
-  // ── Fetch stats ────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
-    try {
-      const result = await providerTicketService.getStats();
-      setStats(result);
-    } catch {
-      // Stats non bloquantes — on ignore silencieusement
-    } finally {
-      setStatsLoading(false);
-    }
+    try { setStats(await providerTicketService.getStats()); }
+    catch { /* non bloquant */ }
+    finally { setStatsLoading(false); }
   }, []);
 
-  // ── Re-fetch quand les filtres changent ───────────────────────────────────
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
   useEffect(() => { fetchStats();   }, [fetchStats]);
 
-  // ── Mise à jour filtres ───────────────────────────────────────────────────
   const setFilters = (partial: Partial<TicketFilters>) => {
-    setFiltersState((prev) => ({
-      ...prev,
-      ...partial,
-      // Reset page à 1 si on change un filtre autre que page
+    setFiltersState(prev => ({
+      ...prev, ...partial,
       page: partial.page !== undefined ? partial.page : 1,
     }));
   };
 
-  // ── Ouvrir / fermer panel ─────────────────────────────────────────────────
   const openTicket  = (ticket: Ticket) => setSelectedTicket(ticket);
   const closeTicket = () => setSelectedTicket(null);
 
-  // ── Update statut ─────────────────────────────────────────────────────────
-  const updateStatus = async (id: number, status: ProviderUpdatableStatus) => {
-    setUpdateLoading(true);
-    setUpdateError("");
-    setUpdateSuccess("");
-
-    try {
-      const updated = await providerTicketService.updateTicketStatus(id, status);
-
-      // Mise à jour optimiste dans la liste
-      setTickets((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status: updated.status } : t))
-      );
-
-      // Mise à jour du ticket sélectionné si ouvert
-      if (selectedTicket?.id === id) {
-        setSelectedTicket((prev) => prev ? { ...prev, status: updated.status } : prev);
-      }
-
-      setUpdateSuccess("Statut mis à jour avec succès.");
+  const flash = (ok: boolean, successMsg: string, errMsg?: string) => {
+    if (ok) {
+      setUpdateSuccess(successMsg);
       setTimeout(() => setUpdateSuccess(""), 3000);
-
-    } catch (err: any) {
-      const msg = err.response?.data?.message || "Erreur lors de la mise à jour.";
-      setUpdateError(msg);
+    } else {
+      setUpdateError(errMsg ?? "Erreur.");
       setTimeout(() => setUpdateError(""), 4000);
-    } finally {
-      setUpdateLoading(false);
     }
   };
 
+  const updateLocal = (id: number, patch: Partial<Ticket>) => {
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
+    if (selectedTicket?.id === id) setSelectedTicket(prev => prev ? { ...prev, ...patch } : prev);
+  };
+
+  /** POST /provider/ticket/:id/start — PLANIFIÉ/ASSIGNÉ/DEVIS_APPROUVÉ → EN_COURS/EN_TRAITEMENT */
+  const startIntervention = async (id: number) => {
+    setUpdateLoading(true); setUpdateError(""); setUpdateSuccess("");
+    try {
+      const updated = await providerTicketService.startIntervention(id);
+      updateLocal(id, { status: updated.status });
+      flash(true, "Intervention démarrée avec succès.");
+    } catch (err: any) {
+      flash(false, "", err.response?.data?.message || "Erreur lors du démarrage.");
+    } finally { setUpdateLoading(false); }
+  };
+
+  /** POST /provider/ticket/:id/request-devis — ASSIGNÉ → DEVIS_EN_ATTENTE */
+  const requestDevis = async (id: number) => {
+    setUpdateLoading(true); setUpdateError(""); setUpdateSuccess("");
+    try {
+      const updated = await providerTicketService.requestDevis(id);
+      updateLocal(id, { status: updated.status });
+      flash(true, "Demande de devis envoyée.");
+    } catch (err: any) {
+      flash(false, "", err.response?.data?.message || "Erreur lors de la demande de devis.");
+    } finally { setUpdateLoading(false); }
+  };
+
   return {
-    tickets,
-    stats,
-    meta,
-    selectedTicket,
-    loading,
-    statsLoading,
-    updateLoading,
-    error,
-    updateError,
-    updateSuccess,
-    filters,
-    setFilters,
-    openTicket,
-    closeTicket,
-    updateStatus,
+    tickets, stats, meta, selectedTicket,
+    loading, statsLoading, updateLoading,
+    error, updateError, updateSuccess,
+    filters, setFilters,
+    openTicket, closeTicket,
+    startIntervention, requestDevis,
     refresh: fetchTickets,
+    // Helpers UX
+    canStart:        canStartIntervention,
+    canReport:       canSubmitReport,
+    canDevis:        canRequestDevis,
+    alreadyReported: isAlreadyReported,
   };
 }

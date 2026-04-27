@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import PageHeader from "@/components/PageHeader";
 import {
@@ -22,7 +21,7 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
-// ─── Config source — identique à NotificationPanel ───────────────────────────
+// ─── Config source - identique à NotificationPanel ───────────────────────────
 
 const SOURCE_CONFIG: Record<string, {
   label: string; Icon: React.ElementType;
@@ -264,10 +263,7 @@ export default function NotificationsPage() {
   const read   = notifications.filter((n) =>  n.read);
 
   return (
-    <div className="flex min-h-screen bg-zinc-50">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col pl-64">
+    <div className="flex-1 flex flex-col ">
         <Navbar />
 
         <main className="flex-1 p-8 pt-24">
@@ -365,8 +361,7 @@ export default function NotificationsPage() {
             </div>
           )}
         </main>
-      </div>
-
+      
       {/* ── Panel détail slide ────────────────────────────────────────── */}
       {activeNotif && (
         <div

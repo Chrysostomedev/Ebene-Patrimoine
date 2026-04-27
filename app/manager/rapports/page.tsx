@@ -1,97 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
-  Eye, Filter, Upload, Download, X,
+  Eye, Filter, Download, X,
   CheckCircle2, Clock, FileText, Star,
   ArrowUpRight,
 } from "lucide-react";
 
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
-import DataTable from "@/components/DataTable";
+import DataTable, { ColumnConfig } from "@/components/DataTable";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 
-// ─────────────── MOCK TYPES & DATA ───────────────
-type InterventionReport = {
-  id: number;
-  ticket_id: number;
-  description?: string;
-  status?: "pending" | "validated";
-  intervention_type?: "curatif" | "preventif";
-  start_date?: string;
-  end_date?: string;
-  created_at?: string;
-  validated_at?: string;
-  rating?: number | null;
-  manager_comment?: string | null;
-  provider?: { company_name?: string; name?: string };
-  site?: { nom?: string; name?: string };
-  ticket?: { subject?: string };
-  attachments?: { id: number; file_type: "document" | "photo"; file_path: string }[];
-};
-
-// ❌ API & Services supprimés, données statiques
-const mockReports: InterventionReport[] = [
-  {
-    id: 1,
-    ticket_id: 101,
-    status: "pending",
-    intervention_type: "curatif",
-    start_date: "2026-03-01",
-    end_date: "2026-03-02",
-    created_at: "2026-03-01",
-    description: "Problème électrique dans le bâtiment A.",
-    provider: { company_name: "ÉlecCorp" },
-    site: { nom: "Site Alpha" },
-    ticket: { subject: "Panne générale" },
-    attachments: [
-      { id: 1, file_type: "document", file_path: "/docs/rapport1.pdf" },
-      { id: 2, file_type: "photo", file_path: "/images/photo1.jpg" },
-    ],
-  },
-  {
-    id: 2,
-    ticket_id: 102,
-    status: "validated",
-    intervention_type: "preventif",
-    start_date: "2026-03-03",
-    end_date: "2026-03-03",
-    created_at: "2026-03-02",
-    validated_at: "2026-03-04",
-    rating: 4,
-    manager_comment: "Intervention satisfaisante",
-    provider: { name: "MaintenancePro" },
-    site: { name: "Site Beta" },
-    ticket: { subject: "Contrôle annuel" },
-    attachments: [],
-  },
-];
-
-const mockStats = {
-  total_reports: mockReports.length,
-  validated_reports: mockReports.filter(r => r.status === "validated").length,
-  pending_reports: mockReports.filter(r => r.status === "pending").length,
-  average_rating: 4,
-};
+import { useReports } from "../../../hooks/manager/useReports";
+import { InterventionReport } from "../../../types/manager.types";
 
 // ─────────────── HELPERS ───────────────
 const formatDate = (iso?: string | null): string => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 };
 
 // ─────────────── STATUS & TYPE BADGES ───────────────
 const STATUS_STYLES: Record<string, string> = {
-  validated: "border-black bg-black text-white",
-  pending:   "border-slate-300 bg-slate-100 text-slate-700",
+  validated: "border-emerald-200 bg-emerald-50 text-emerald-600",
+  pending: "border-amber-200 bg-amber-50 text-amber-600",
+  submitted: "border-blue-200 bg-blue-50 text-blue-600",
+  rejected: "border-rose-200 bg-rose-50 text-rose-600",
 };
 const STATUS_LABELS: Record<string, string> = {
   validated: "Validé",
-  pending:   "En attente",
+  pending: "En attente",
+  submitted: "Soumis",
+  rejected: "Rejeté",
 };
 
 function StatusBadge({ status }: { status?: string }) {
@@ -114,7 +57,7 @@ function TypeBadge({ type }: { type?: string }) {
 }
 
 function StarRating({ value }: { value?: number | null }) {
-  if (!value) return <span className="text-slate-400 text-xs">—</span>;
+  if (!value) return <span className="text-slate-400 text-xs">-</span>;
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
@@ -124,65 +67,30 @@ function StarRating({ value }: { value?: number | null }) {
   );
 }
 
-// ─────────────── PDF MODAL ───────────────
-function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[300] flex flex-col bg-black/95">
-      <div className="flex items-center justify-between px-6 py-4 bg-black border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-red-600 flex items-center justify-center">
-            <FileText size={14} className="text-white" />
-          </div>
-          <p className="text-white font-bold text-sm">{name}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <a href={url} download target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">
-            <Download size={14} /> Télécharger
-          </a>
-          <button onClick={onClose} className="p-2 rounded-xl bg-white/10 hover:bg-white/20 transition">
-            <X size={18} className="text-white" />
-          </button>
-        </div>
-      </div>
-      <div className="flex-1">
-        <iframe src={`${url}#toolbar=0`} className="w-full h-full border-0" title={name} />
-      </div>
-    </div>
-  );
-}
-
-// ─────────────── REPORT SIDE PANEL ───────────────
+// ─────────────── SIDE PANEL ───────────────
 function ReportSidePanel({ report, onClose }: { report: InterventionReport | null; onClose: () => void }) {
-  const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
-
   if (!report) return null;
 
-  const isValidated = report.status === "validated";
-  const pdfs = (report.attachments ?? []).filter(a => a.file_type === "document");
-  const photos = (report.attachments ?? []).filter(a => a.file_type === "photo");
-  const providerName = report.provider?.company_name ?? report.provider?.name ?? "—";
-  const siteName = report.site?.nom ?? report.site?.name ?? "—";
+  const providerName = report.provider?.company_name ?? report.provider?.name ?? "-";
+  const siteName = report.site?.nom ?? report.site?.name ?? "-";
   const ticketSubject = report.ticket?.subject ?? `Ticket #${report.ticket_id}`;
 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
-
       <div className="fixed right-0 top-0 h-full w-[440px] bg-white z-50 shadow-2xl flex flex-col rounded-l-3xl overflow-hidden">
         <div className="flex items-start px-6 pt-6 pb-0 shrink-0">
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl transition -ml-1">
             <X size={18} className="text-slate-500" />
           </button>
         </div>
-
         <div className="px-6 pt-4 pb-5 shrink-0">
           <div className="flex items-center gap-3 mb-1">
-            <h2 className="text-2xl font-black text-slate-900">Rapport #{report.id}</h2>
+            <h2 className="text-2xl font-black text-slate-900">Rapport {report.reference}</h2>
             <StatusBadge status={report.status} />
           </div>
           <p className="text-slate-400 text-xs">{ticketSubject}</p>
         </div>
-
         <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
           <div className="space-y-0">
             {[
@@ -199,192 +107,170 @@ function ReportSidePanel({ report, onClose }: { report: InterventionReport | nul
               </div>
             ))}
           </div>
-
-          {report.description && (
-            <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
-              <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">{report.description}</p>
-            </div>
-          )}
-
-          {isValidated && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
-                <CheckCircle2 size={16} />
-                Validé le {formatDate(report.validated_at)}
-              </div>
-              {report.rating && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium">Note :</span>
-                  <StarRating value={report.rating} />
-                  <span className="text-xs font-bold text-slate-700">{report.rating}/5</span>
-                </div>
-              )}
-              {report.manager_comment && (
-                <p className="text-xs text-slate-600 bg-white rounded-xl p-3 border border-emerald-100">{report.manager_comment}</p>
-              )}
-            </div>
-          )}
-
-          {pdfs.length > 0 && (
-            <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Documents ({pdfs.length})</p>
-              <div className="space-y-2">
-                {pdfs.map(att => {
-                  const url = att.file_path;
-                  const name = att.file_path.split("/").pop() ?? "document.pdf";
-                  return (
-                    <div key={att.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-white">
-                      <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
-                        <FileText size={16} className="text-red-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-900 truncate">{name}</p>
-                        <p className="text-[10px] text-slate-400">PDF</p>
-                      </div>
-                      <button onClick={() => setPdfPreview({ url, name })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition shrink-0">
-                        <Eye size={13} /> Aperçu
-                      </button>
-                      <a href={url} download target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition shrink-0">
-                        <Download size={13} />
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {photos.length > 0 && (
-            <div>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Photos ({photos.length})</p>
-              <div className="grid grid-cols-3 gap-2">
-                {photos.map(att => (
-                  <a key={att.id} href={att.file_path} target="_blank" rel="noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-100 hover:opacity-80 transition">
-                    <img src={att.file_path} alt="photo" className="w-full h-full object-cover" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {!pdfs.length && !photos.length && (
-            <div className="border border-dashed border-slate-200 rounded-2xl px-5 py-5 flex items-center gap-3 text-slate-400">
-              <FileText size={18} className="shrink-0" />
-              <p className="text-sm font-medium">Aucune pièce jointe</p>
-            </div>
-          )}
+        </div>
+        <div className="px-6 py-5 border-t border-slate-100 shrink-0">
+          <Link
+            href={`/manager/rapports/details/${report.id}`}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
+          >
+            <Eye size={15} /> Voir les détails
+          </Link>
         </div>
       </div>
-
-      {pdfPreview && <PdfPreviewModal url={pdfPreview.url} name={pdfPreview.name} onClose={() => setPdfPreview(null)} />}
     </>
   );
 }
 
 // ─────────────── MAIN PAGE ───────────────
 export default function RapportsPage() {
+  const {
+    reports, stats, meta, filters, isLoading, error: apiError,
+    setFilters, exportReports
+  } = useReports();
+
   const [selectedReport, setSelectedReport] = useState<InterventionReport | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<{ status?: string; type?: string }>({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [flashMessage, setFlashMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
   const filterRef = useRef<HTMLDivElement>(null);
 
-  const PER_PAGE = 10;
+  const activeCount = Object.values(filters).filter((v, i) => i > 1 && !!v).length;
 
-  const showFlash = (type: "success" | "error", message: string) => setFlashMessage({ type, message });
-
-  const applyFilters = (f: { status?: string; type?: string }) => { setFilters(f); setCurrentPage(1); };
-
-  const filtered = mockReports.filter(r => {
-    if (filters.status && r.status !== filters.status) return false;
-    if (filters.type && r.intervention_type !== filters.type) return false;
-    return true;
-  });
-
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-  const activeCount = Object.values(filters).filter(Boolean).length;
-
-  // ─────────────── KPIS ───────────────
   const kpis = [
-    { label: "Total rapports", value: mockStats.total_reports, delta: "+3%", trend: "up" as const },
-    { label: "Rapports validés", value: mockStats.validated_reports, delta: "+8%", trend: "up" as const },
-    { label: "En attente", value: mockStats.pending_reports, delta: "+0%", trend: "up" as const },
-    { label: "Note moyenne", value: mockStats.average_rating ? `${mockStats.average_rating}/5` : "—", delta: "+0%", trend: "up" as const },
+    { label: "Total rapports", value: stats?.total ?? 0, delta: "", trend: "up" as const },
+    { label: "Rapports validés", value: stats?.validated ?? 0, delta: "", trend: "up" as const },
+    { label: "En attente", value: stats?.pending ?? 0, delta: "", trend: "up" as const },
+    { label: "Note moyenne", value: stats?.average_rating ? `${stats.average_rating}/5` : "-", delta: "", trend: "up" as const },
   ];
 
-  // ─────────────── COLUMNS ───────────────
-  const columns = [
-    { header: "ID", key: "id", render: (_: any, row: InterventionReport) => <span className="font-black text-slate-900 text-sm">#{row.id}</span> },
-    { header: "Ticket", key: "ticket", render: (_: any, row: InterventionReport) => row.ticket?.subject ?? `#${row.ticket_id}` },
-    { header: "Prestataire", key: "provider", render: (_: any, row: InterventionReport) => row.provider?.company_name ?? row.provider?.name ?? "—" },
-    { header: "Site", key: "site", render: (_: any, row: InterventionReport) => row.site?.nom ?? row.site?.name ?? "—" },
-    { header: "Type", key: "type", render: (_: any, row: InterventionReport) => <TypeBadge type={row.intervention_type} /> },
+  const columns: ColumnConfig<InterventionReport>[] = [
+    { header: "Reference", key: "reference", render: (_: any, row: InterventionReport) => <span className="font-black text-slate-900 text-sm">{row.reference}</span> },
+    { header: "Ticket", key: "ticket" as any, render: (_: any, row: InterventionReport) => row.ticket?.code_ticket ?? `${row.ticket_code_ticket}` },
+    { header: "Prestataire", key: "provider" as any, render: (_: any, row: InterventionReport) => row.provider?.company_name ?? row.provider?.name ?? "-" },
+    { header: "Type", key: "intervention_type" as any, render: (_: any, row: InterventionReport) => <TypeBadge type={row.intervention_type} /> },
     { header: "Date", key: "created_at", render: (_: any, row: InterventionReport) => formatDate(row.created_at) },
-    { header: "Note", key: "rating", render: (_: any, row: InterventionReport) => <StarRating value={row.rating} /> },
     { header: "Statut", key: "status", render: (_: any, row: InterventionReport) => <StatusBadge status={row.status} /> },
-    { header: "Actions", key: "actions", render: (_: any, row: InterventionReport) => (
-      <div className="flex items-center gap-3">
-        <button onClick={() => { setSelectedReport(row); setIsDetailsOpen(true); }} className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"><Eye size={18} /></button>
-        <Link href={`/admin/rapports/details/${row.id}`} className="group p-2 rounded-xl bg-white hover:bg-black transition flex items-center justify-center">
-          <ArrowUpRight size={16} className="group-hover:rotate-45 transition-transform" />
-        </Link>
-      </div>
-    )},
+    {
+      header: "Actions", key: "actions" as any, render: (_: any, row: InterventionReport) => (
+        <div className="flex items-center gap-3">
+
+          <Link href={`/manager/rapports/details/${row.id}`} className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 transition flex items-center justify-center">
+            <Eye size={16} className="text-slate-600 group-hover:text-white group-hover:rotate-45 transition-all" />
+          </Link>
+        </div>
+      )
+    },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="ml-64 mt-20 p-6 space-y-8">
-          <PageHeader title="Rapports d'intervention" subtitle="Visualisez et validez les rapports soumis par vos prestataires" />
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <Navbar />
+      <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
+        <PageHeader
+          title="Rapports d'intervention"
+          subtitle="Analysez et validez les rapports techniques soumis par vos prestataires."
+        />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        {apiError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl text-sm font-semibold flex items-center gap-3">
+            <FileText size={18} /> {apiError}
           </div>
+        )}
 
-          <div className="shrink-0 flex justify-end items-center gap-3">
-            <div className="relative" ref={filterRef}>
-              <button onClick={() => setFiltersOpen(!filtersOpen)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${filtersOpen || activeCount > 0 ? "bg-slate-900 text-white border-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}>
-                <Filter size={16} /> Filtrer par
-                {activeCount > 0 && <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">{activeCount}</span>}
-              </button>
-            </div>
-            <button onClick={() => showFlash("error", "Fonctionnalité d'export en cours de développement.")} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition">
-              <Upload size={16} /> Exporter
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        </div>
+
+        <div className="flex justify-between items-center gap-4">
+          <div className="relative" ref={filterRef}>
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl border text-sm font-bold transition shadow-sm
+                ${filtersOpen || activeCount > 0 ? "bg-slate-900 text-white border-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              <Filter size={16} /> Filtrer les rapports
+              {activeCount > 0 && <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">{activeCount}</span>}
             </button>
+            
+            {filtersOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
+                <div className="absolute top-full mt-2 left-0 w-72 bg-white rounded-3xl shadow-2xl border border-slate-100 p-6 z-20 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Statut</label>
+                      <select
+                        value={filters.status || ""}
+                        onChange={(e) => setFilters({ status: e.target.value || undefined })}
+                        className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all cursor-pointer"
+                      >
+                        <option value="">Tous les statuts</option>
+                        {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                          <option key={val} value={val}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Type d'intervention</label>
+                      <select
+                        value={filters.intervention_type || ""}
+                        onChange={(e) => setFilters({ intervention_type: e.target.value || undefined })}
+                        className="w-full bg-slate-50 border-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/5 transition-all cursor-pointer"
+                      >
+                        <option value="">Tous les types</option>
+                        <option value="curatif">Curatif</option>
+                        <option value="preventif">Préventif</option>
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setFilters({ page: 1 });
+                        setFiltersOpen(false);
+                      }}
+                      className="w-full py-3 rounded-2xl bg-rose-50 text-rose-600 text-xs font-black uppercase tracking-widest hover:bg-rose-100 transition-all"
+                    >
+                      Réinitialiser
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
+          <button
+            onClick={exportReports}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-800 text-sm font-black hover:border-slate-900 transition shadow-sm"
+          >
+            <Download size={16} /> Exporter (.xlsx)
+          </button>
+        </div>
 
-          {activeCount > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
-              {filters.status && <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">{STATUS_LABELS[filters.status] ?? filters.status}<button onClick={() => applyFilters({ ...filters, status: undefined })} className="hover:opacity-70"><X size={12} /></button></span>}
-              {filters.type && <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">{filters.type === "curatif" ? "Curatif" : "Préventif"}<button onClick={() => applyFilters({ ...filters, type: undefined })} className="hover:opacity-70"><X size={12} /></button></span>}
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[500px]">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+              <div className="w-10 h-10 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Chargement en cours</p>
             </div>
+          ) : (
+            <>
+              <div className="p-2">
+                <DataTable
+                  title="Liste des rapports soumis"
+                  columns={columns}
+                  data={reports}
+                  onViewAll={() => { }}
+                />    </div>
+              {meta && meta.last_page > 1 && (
+                <div className="px-8 py-6 border-t border-slate-50 flex justify-end bg-slate-50/20">
+                  <Paginate currentPage={meta.current_page} totalPages={meta.last_page} onPageChange={(p) => setFilters({ page: p })} />
+                </div>
+              )}
+            </>
           )}
+        </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={paginated} onViewAll={() => {}} />
-            <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-              <Paginate currentPage={currentPage} totalPages={totalPages || 1} onPageChange={setCurrentPage} />
-            </div>
-          </div>
-
-          <ReportSidePanel report={isDetailsOpen ? selectedReport : null} onClose={() => { setIsDetailsOpen(false); setSelectedReport(null); }} />
-
-          {flashMessage && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${flashMessage.type === "success" ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-100 border-red-300"}`}>
-              {flashMessage.message}
-            </div>
-          )}
-        </main>
-      </div>
+        <ReportSidePanel report={isDetailsOpen ? selectedReport : null} onClose={() => setIsDetailsOpen(false)} />
+      </main>
     </div>
   );
 }

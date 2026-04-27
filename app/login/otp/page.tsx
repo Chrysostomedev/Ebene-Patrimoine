@@ -1,9 +1,9 @@
 /**
  * app/login/otp/page.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Page de vérification OTP — utilisée pour les deux flux :
+ * Page de vérification OTP - utilisée pour les deux flux :
  *   - "login"  : connexion 2FA → après succès, redirection vers le dashboard
- *   - "reset"  : (non utilisé ici — le flux reset passe par ForgetPassword)
+ *   - "reset"  : (non utilisé ici - le flux reset passe par ForgetPassword)
  *
  * Fonctionnement :
  *   1. Guard au mount : vérifie que PENDING_EMAIL_KEY existe → sinon /login
@@ -28,7 +28,8 @@ import { Mail, ArrowLeft, ShieldCheck } from "lucide-react";
 import { authService, getDashboardRoute, UserRole } from "../../../services/AuthService";
 
 const OTP_LENGTH   = 6;
-const RESEND_DELAY = 30; // secondes avant de pouvoir renvoyer
+const RESEND_DELAY = 300; // 5 minutes - aligné sur le backend
+const MAX_ATTEMPTS = 3;   // 3 tentatives avant reset des champs
 
 export default function OtpPage() {
   const router = useRouter();
@@ -41,14 +42,18 @@ export default function OtpPage() {
   const [error, setError]         = useState("");
   const [success, setSuccess]     = useState("");
   const [email, setEmail]         = useState("");
+  const [attempts, setAttempts]   = useState(0); // compteur tentatives OTP
 
   const inputsRef    = useRef<(HTMLInputElement | null)[]>([]);
-  // Levé dès qu'on a un OTP valide — bloque le guard de mount pendant
-  // la fenêtre entre clearPendingEmail() et router.replace()
   const isNavigating = useRef(false);
+  // Guard exécuté une seule fois au mount - évite les re-runs sur re-render
+  const guardRan     = useRef(false);
 
   // ── Guard : récupère l'email pending, redirige si absent ──────────────────
   useEffect(() => {
+    if (guardRan.current) return;
+    guardRan.current = true;
+
     if (isNavigating.current) return;
 
     const pending = authService.getPendingEmail();
@@ -57,7 +62,8 @@ export default function OtpPage() {
       return;
     }
     setEmail(pending);
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Focus premier champ ───────────────────────────────────────────────────
   useEffect(() => {
@@ -123,7 +129,7 @@ export default function OtpPage() {
 
   // ── Submit OTP ────────────────────────────────────────────────────────────
   const submitOtp = async (code: string) => {
-    // Lecture directe localStorage — évite le stale closure sur le state email
+    // Lecture directe localStorage - évite le stale closure sur le state email
     const currentEmail = authService.getPendingEmail() || email;
     if (code.length !== OTP_LENGTH || !currentEmail) return;
 
@@ -131,15 +137,13 @@ export default function OtpPage() {
     setError("");
 
     try {
-      // POST /{prefix}/verify-otp — le préfixe est déterminé automatiquement
-      // par authService._prefix() depuis ce qui a été stocké en step 1
       const data = await authService.verifyOtp(currentEmail, code);
 
       if (data?.token && data?.user) {
         const role  = data.user.role as UserRole;
         const route = getDashboardRoute(role);
 
-        // ORDRE CRITIQUE — voir JSDoc en haut de fichier
+        // ORDRE CRITIQUE - voir JSDoc en haut de fichier
         isNavigating.current = true;
         authService.clearPendingEmail();
         setSuccess("Code validé ! Redirection en cours…");
@@ -150,19 +154,34 @@ export default function OtpPage() {
       console.error("Erreur OTP:", err);
       const axiosErr = err as { response?: { status?: number; data?: { message?: string } } };
       const status   = axiosErr?.response?.status;
-      const message  = axiosErr?.response?.data?.message;
+      const message  = axiosErr?.response?.data?.message ?? "";
+
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
 
       if (status === 429) {
-        setError("Trop de tentatives. Compte temporairement bloqué. Réessayez plus tard.");
-      } else if (status === 401) {
-        setError(message || "Code incorrect. Vérifiez et réessayez.");
+        setError("Trop de tentatives. Compte temporairement bloqué. Réessayez dans 5 minutes.");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
+      } else if (status === 401 && (message.toLowerCase().includes("expiré") || message.toLowerCase().includes("expired"))) {
+        // OTP expiré — cas fréquent pour les prestataires (bug fillable backend)
+        setError("Le code OTP a expiré ou n'a pas pu être enregistré. Veuillez vous reconnecter pour recevoir un nouveau code.");
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setAttempts(0);
+        setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
+      } else if (newAttempts >= MAX_ATTEMPTS) {
+        setError(`Code incorrect. ${MAX_ATTEMPTS} tentatives épuisées. Vérifiez votre email et réessayez.`);
+        setOtp(Array(OTP_LENGTH).fill(""));
+        setAttempts(0);
+        setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
       } else {
-        setError(message || "Erreur lors de la vérification. Réessayez.");
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        setError(
+          message
+            ? `${message} (${remaining} tentative${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""})`
+            : `Code incorrect. ${remaining} tentative${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}.`
+        );
       }
-
-      // Reset des champs OTP
-      setOtp(Array(OTP_LENGTH).fill(""));
-      setTimeout(() => { inputsRef.current[0]?.focus(); setActive(0); }, 100);
 
     } finally {
       setLoading(false);
@@ -182,23 +201,23 @@ export default function OtpPage() {
   return (
     <div
       className="min-h-screen flex items-center justify-center relative bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-poste.png')" }}
+      style={{ backgroundImage: "url('/assets/bg_login.png')" }}
     >
-      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute " />
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="h-1 w-full rounded-2xl" />
+        <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-2xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo-poste.png" alt="La Poste" width={160} height={40} priority />
+            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
               <ShieldCheck size={26} className="text-white" />
             </div>
           </div>
@@ -264,7 +283,7 @@ export default function OtpPage() {
             onClick={handleSubmit}
             disabled={loading || !isComplete || !!success}
             className="w-full py-3.5 rounded-xl bg-theme-primary text-white font-semibold text-sm
-                       hover:bg-green disabled:bg-gray-300 disabled:cursor-not-allowed
+                       hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed
                        transition-all duration-200 shadow-lg shadow-gray-900/20
                        flex items-center justify-center gap-2"
           >
@@ -291,7 +310,7 @@ export default function OtpPage() {
                 Vous n'avez pas reçu le code ?{" "}
                 <button
                   onClick={() => router.push("/login")}
-                  className="font-semibold text-theme-primary hover:text-black underline transition-colors"
+                  className="font-semibold text-gray-700 hover:text-black underline transition-colors"
                 >
                   Reconnectez-vous
                 </button>{" "}
@@ -300,7 +319,11 @@ export default function OtpPage() {
             ) : (
               <p className="text-xs text-gray-400">
                 Nouveau code disponible dans{" "}
-                <span className="font-semibold text-gray-600">{timer}s</span>
+                <span className="font-semibold text-gray-600">
+                  {timer >= 60
+                    ? `${Math.floor(timer / 60)}min ${timer % 60}s`
+                    : `${timer}s`}
+                </span>
               </p>
             )}
           </div>

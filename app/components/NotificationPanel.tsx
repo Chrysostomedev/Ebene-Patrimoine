@@ -7,6 +7,7 @@ import {
   Trash2, ExternalLink, ArrowLeft,
 } from "lucide-react";
 import { useNotifications, Notification, NotifSource } from "../../hooks/admin/useNotifications";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 // ── Helpers temps relatif ────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ interface NotificationPanelProps {
 
 export default function NotificationPanel({ isOpen, onClose, initialNotif }: NotificationPanelProps) {
   const { notifications, unreadCount, markAsRead, markAllAsRead, remove } = useNotifications();
+  const { t } = useLanguage();
 
   const [activeNotif, setActiveNotif] = useState<Notification | null>(null);
   const [detailOpen,  setDetailOpen]  = useState(false);
@@ -155,9 +157,11 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
                 <Bell size={16} className="text-white" />
               </div>
               <div>
-                <h2 className="text-base font-black text-slate-900 leading-none">Notifications</h2>
+                <h2 className="text-base font-black text-slate-900 leading-none">{t("notifications.title")}</h2>
                 <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                  {unreadCount > 0 ? `${unreadCount} non lue${unreadCount > 1 ? "s" : ""}` : "Tout est à jour"}
+                  {unreadCount > 0
+                    ? `${unreadCount} ${unreadCount > 1 ? t("notifications.unreads") : t("notifications.unread")}`
+                    : t("notifications.upToDate")}
                 </p>
               </div>
             </div>
@@ -167,7 +171,7 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
                   onClick={markAllAsRead}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-500 text-xs font-bold hover:bg-slate-50 transition"
                 >
-                  <CheckCheck size={13} /> Tout lire
+                  <CheckCheck size={13} /> {t("notifications.markAllRead")}
                 </button>
               )}
               <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition">
@@ -184,8 +188,8 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
                   <Bell size={28} className="text-slate-300" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">Aucune notification</p>
-                  <p className="text-xs text-slate-400 mt-1">Vous êtes à jour sur tout !</p>
+                  <p className="text-sm font-bold text-slate-900">{t("notifications.noNotifications")}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t("notifications.noNotificationsDesc")}</p>
                 </div>
               </div>
             ) : (
@@ -194,7 +198,7 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
                   <div>
                     <div className="px-6 pt-4 pb-2">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Non lues · {unread.length}
+                        {t("notifications.unreads")} · {unread.length}
                       </span>
                     </div>
                     {unread.map(notif => (
@@ -302,12 +306,12 @@ function NotifRow({ notif, isActive, onClick, onDelete }: {
           )}
         </div>
       </div>
-      <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
-        <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition">
-          <Trash2 size={13} />
-        </button>
-        <ChevronRight size={14} className="text-slate-300 mt-1" />
-      </div>
+      {/* Indicateur non-lu */}
+      {!notif.read && (
+        <div className="shrink-0 mt-2">
+          <span className="w-2 h-2 rounded-full bg-slate-900 block" />
+        </div>
+      )}
     </div>
   );
 }
@@ -326,12 +330,7 @@ function NotifDetail({ notif, onBack, onDelete }: {
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-black transition text-sm font-bold">
           <ArrowLeft size={16} /> Retour
         </button>
-        <button
-          onClick={e => onDelete(notif.id, e)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-100 text-red-400 hover:bg-red-50 text-xs font-bold transition"
-        >
-          <Trash2 size={13} /> Supprimer
-        </button>
+       
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
@@ -387,7 +386,7 @@ function NotifDetail({ notif, onBack, onDelete }: {
       </div>
 
       {notif.href && (
-        <div className="px-6 py-5 border-t border-slate-100 shrink-0">
+        <div className="px-6 py-5 border-t border-slate-100 shrink-0 space-y-2">
           <a
             href={notif.href}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"

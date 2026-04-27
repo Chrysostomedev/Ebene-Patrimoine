@@ -1,0 +1,331 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search...",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "view": "View",
+    "actions": "Actions",
+    "status": "Status",
+    "active": "Active",
+    "inactive": "Inactive",
+    "noData": "No data available",
+    "seeAll": "See all",
+    "reference": "Reference or Identifier",
+    "copied": "Copied",
+    "copy": "Copy",
+    "unavailable": "Information unavailable",
+    "enableAll": "Enable all",
+    "disableAll": "Disable all",
+    "savePreferences": "Save preferences",
+    "see": "See →",
+    "reset": "Reset",
+    "apply": "Apply",
+    "preview": "Preview",
+    "addNew": "Add",
+    "details": "Details",
+    "all": "All",
+    "valid": "Valid",
+    "warnings": "Warnings",
+    "errors": "Errors",
+    "lines": "lines",
+    "page": "Page",
+    "of": "of",
+    "noFilter": "No active filter"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "administration": "Administration",
+    "tickets": "Tickets",
+    "sites": "Sites",
+    "patrimoines": "Assets",
+    "types": "Types",
+    "subtypes": "Sub-types",
+    "planning": "Planning",
+    "entretien": "Maintenance",
+    "prestataires": "Providers",
+    "devis": "Quotes",
+    "factures": "Invoices",
+    "rapports": "Reports",
+    "services": "Services",
+    "transfert": "Inter-site Transfer",
+    "gestionnaires": "Managers",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "parametres": "Settings",
+    "logout": "Log out",
+    "roles": "Role Management",
+    "audit": "Audit Trail",
+    "stayConnected": "Stay connected",
+    "disconnect": "Log out",
+    "disconnectTitle": "Log out of your account",
+    "disconnectMessage": "Do you want to log out? You can easily log back in at any time."
+  },
+  "settings": {
+    "title": "Advanced Settings",
+    "subtitle": "Customize your experience",
+    "pageTitle": "Settings",
+    "pageSubtitle": "Manage your account and preferences",
+    "myAccount": "My Account",
+    "notifications": "Notifications",
+    "administration": "Administration",
+    "tracking": "Audit Trail",
+    "language": "Language",
+    "languageTitle": "Choose language",
+    "languageSubtitle": "Interface language",
+    "currentLanguage": "Current language",
+    "applyLanguage": "Apply",
+    "personalInfo": "Personal Information",
+    "personalInfoDesc": "Edit your personal information, profile photo and password from the dedicated page.",
+    "accessProfile": "Access my profile",
+    "notifSubscriptions": "Notification subscriptions",
+    "notifSubtitle": "Choose the events you want to be notified about",
+    "savePreferences": "Save preferences",
+    "access": "Access",
+    "advancedSettings": "Advanced Settings",
+    "advancedSubtitle": "Notifications, language",
+    "advancedSubtitleAdmin": "Notifications, language, audit trail",
+    "trackingGlobal": "Global audit trail",
+    "trackingDesc": "Records all user actions",
+    "trackingActive": "Active",
+    "trackingInactive": "Disabled",
+    "recentActivity": "Recent activity log",
+    "noActivity": "No activity recorded.",
+    "instantChange": "Immediate and persistent change.",
+    "activated": "enabled"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "upToDate": "You're all caught up",
+    "unread": "unread",
+    "unreads": "unread",
+    "markAllRead": "Mark all read",
+    "noNotifications": "No notifications",
+    "noNotificationsDesc": "You're all caught up!",
+    "ticketsNew": "New tickets created",
+    "ticketsLate": "Overdue tickets",
+    "planning": "Schedule changes",
+    "providers": "New providers",
+    "reports": "Weekly reports",
+    "realtime": "Real-time alert via interface and email"
+  },
+  "table": {
+    "noData": "No data available",
+    "search": "Search..."
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "cards": {
+    "siteDetails": "see site details",
+    "tickets": "Tickets",
+    "profile": "Profile",
+    "ratingObtained": "Rating obtained",
+    "managedSite": "Managed site:",
+    "activeStatus": "Active",
+    "inactiveStatus": "Inactive"
+  },
+  "interventions": {
+    "title": "Upcoming interventions",
+    "seeAll": "See all",
+    "none": "No planned interventions",
+    "noneDesc": "Upcoming interventions will appear here",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "planned": "planned",
+    "planneds": "planned"
+  },
+  "form": {
+    "selectPlaceholder": "Click to select",
+    "save": "Save",
+    "cancel": "Cancel",
+    "phoneFormat": "Format: country code + number (e.g. +225 07 00 00 00 00)"
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English",
+    "es": "Español",
+    "ja": "日本語",
+    "ar": "العربية"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Overview of your activity",
+    "totalTickets": "Total tickets",
+    "treatedTickets": "Treated tickets",
+    "untreatedTickets": "Untreated tickets",
+    "activeSites": "Active sites",
+    "inactiveSites": "Inactive sites",
+    "avgCostPerSite": "Average cost per site",
+    "totalMaintenanceCost": "Total maintenance cost",
+    "yearTrend": "Year trend",
+    "mostVisitedSites": "Most visited sites (interventions)",
+    "sitesList": "Sites list",
+    "seeAll": "See all",
+    "recentTickets": "Recent tickets list",
+    "loading": "Loading..."
+  },
+  "administration": {
+    "title": "Administration",
+    "subtitle": "This menu allows you to manage your entire workspace",
+    "totalActiveSites": "Total active sites",
+    "totalInactiveSites": "Total inactive sites",
+    "avgCostPerSite": "Average cost per site",
+    "totalMaintenanceCost": "Total maintenance cost",
+    "totalEquipments": "Total patrimony equipment",
+    "totalProviders": "Total providers",
+    "totalInvoices": "Total invoices",
+    "pendingTickets": "Pending tickets",
+    "ongoingTickets": "Ongoing tickets",
+    "closedTickets": "Closed tickets",
+    "evolutionChart": "Equipment evolution",
+    "equipments": "equipment"
+  },
+  "tickets": {
+    "title": "Tickets",
+    "subtitle": "Management and tracking of all maintenance tickets",
+    "addTicket": "Add ticket",
+    "newTicket": "New ticket",
+    "importTickets": "Import",
+    "exportTickets": "Export",
+    "filterTickets": "Filter",
+    "totalTickets": "Total tickets",
+    "openTickets": "Open tickets",
+    "closedTickets": "Closed tickets",
+    "avgDelay": "Average delay",
+    "minDelay": "Minimum delay",
+    "maxDelay": "Maximum delay",
+    "status": {
+      "all": "All statuses",
+      "SIGNALÉ": "Reported",
+      "VALIDÉ": "Validated",
+      "ASSIGNÉ": "Assigned",
+      "EN_COURS": "In progress",
+      "RAPPORTÉ": "Reported",
+      "ÉVALUÉ": "Evaluated",
+      "CLOS": "Closed"
+    },
+    "type": {
+      "all": "All types",
+      "curatif": "Corrective",
+      "preventif": "Preventive"
+    },
+    "priority": {
+      "all": "All",
+      "faible": "Low",
+      "moyenne": "Medium",
+      "haute": "High",
+      "critique": "Critical"
+    },
+    "columns": {
+      "id": "Ticket ID",
+      "subject": "Subject",
+      "site": "Site",
+      "service": "Service",
+      "type": "Type",
+      "status": "Status",
+      "actions": "Actions"
+    }
+  },
+  "sites": {
+    "title": "Sites",
+    "subtitle": "Tracking and management of all sites",
+    "addSite": "Add site",
+    "activeSites": "Active sites",
+    "inactiveSites": "Inactive sites",
+    "avgDelay": "Average delay / site",
+    "totalSites": "Total sites",
+    "avgCost": "Average cost / site",
+    "ongoingTickets": "Ongoing tickets",
+    "closedTickets": "Closed tickets",
+    "mostVisited": "Most visited site"
+  },
+  "patrimoines": {
+    "title": "Assets",
+    "subtitle": "Equipment and asset management",
+    "addAsset": "Add asset",
+    "types": {
+      "title": "Asset types",
+      "subtitle": "Equipment type management",
+      "addType": "Add type"
+    },
+    "subtypes": {
+      "title": "Asset sub-types",
+      "subtitle": "Equipment sub-type management",
+      "addSubtype": "Add sub-type"
+    }
+  },
+  "planning": {
+    "title": "Planning",
+    "subtitle": "Intervention planning and tracking",
+    "addPlanning": "Add planning",
+    "today": "Today",
+    "month": "Month",
+    "week": "Week"
+  },
+  "entretien": {
+    "title": "Maintenance",
+    "subtitle": "Intervention report management",
+    "addReport": "New report"
+  },
+  "prestataires": {
+    "title": "Providers",
+    "subtitle": "Manage all your service providers",
+    "addProvider": "Add provider",
+    "totalProviders": "Total providers",
+    "activeProviders": "Active providers",
+    "inactiveProviders": "Inactive providers",
+    "avgInterventionTime": "Average intervention time"
+  },
+  "devis": {
+    "title": "Quotes",
+    "subtitle": "Quote and price request management",
+    "addQuote": "New quote"
+  },
+  "factures": {
+    "title": "Invoices",
+    "subtitle": "Invoice and payment management",
+    "addInvoice": "New invoice"
+  },
+  "rapports": {
+    "title": "Reports",
+    "subtitle": "Performance reports and analytics"
+  },
+  "services": {
+    "title": "Services",
+    "subtitle": "Service management for providers",
+    "addService": "Add service"
+  },
+  "transfert": {
+    "title": "Inter-site Transfers",
+    "subtitle": "History and management of equipment relocations between sites",
+    "newTransfer": "New transfer",
+    "totalTransfers": "Total transfers",
+    "completed": "Completed",
+    "ongoing": "Ongoing",
+    "involvedSites": "Involved sites"
+  },
+  "gestionnaires": {
+    "title": "Managers",
+    "subtitle": "Site manager management",
+    "addManager": "Add manager"
+  },
+  "roles": {
+    "title": "Role Management",
+    "subtitle": "Define permissions by role"
+  }
+}

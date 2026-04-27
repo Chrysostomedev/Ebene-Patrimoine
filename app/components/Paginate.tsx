@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 interface PaginationProps {
   currentPage: number;
@@ -9,19 +10,19 @@ interface PaginationProps {
 }
 
 export default function Paginate({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  const { t } = useLanguage();
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   return (
     <div className="flex items-center gap-2">
-      {/* Précédent */}
       <button
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+        aria-label={t("pagination.previous")}
         className="p-4 bg-slate-200/60 text-slate-600 rounded-2xl hover:bg-slate-300 transition-colors"
       >
         <ChevronLeft size={20} />
       </button>
 
-      {/* Numéros */}
       {pages.map(page => (
         <button
           key={page}
@@ -36,9 +37,9 @@ export default function Paginate({ currentPage, totalPages, onPageChange }: Pagi
         </button>
       ))}
 
-      {/* Suivant */}
       <button
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+        aria-label={t("pagination.next")}
         className="p-4 bg-theme-primary text-white rounded-2xl hover:opacity-90 transition-colors"
       >
         <ChevronRight size={20} />

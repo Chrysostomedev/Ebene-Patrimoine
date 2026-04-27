@@ -21,7 +21,7 @@ export default function SideModal({ isOpen, onClose, title, subtitle, children }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-[99999] flex justify-end">
       {/* Overlay sombre avec flou */}
       <div 
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"

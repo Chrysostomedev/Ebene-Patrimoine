@@ -1,88 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
-import ActionGroup from "@/components/ActionGroup";
 import StatsCard from "@/components/StatsCard";
 import ReusableForm from "@/components/ReusableForm";
 import PageHeader from "@/components/PageHeader";
 import MainCard from "@/components/MainCard";
-import { Filter, CalendarClock, Plus, CheckCircle2, XCircle } from "lucide-react";
+import { Filter, CalendarClock, Plus, CheckCircle2, XCircle, Tag, Wrench, AlertTriangle, Clock, CalendarDays } from "lucide-react";
 import type { FieldConfig } from "@/components/ReusableForm";
 
-/* -------------------------------------------------------------------------- */
-/*                              STATIC MOCK DATA                              */
-/* -------------------------------------------------------------------------- */
-
-// STATIC: données simulées pour remplacer l'API
-const mockPlannings = [
-  {
-    id: 1,
-    codification: "PLN-0001",
-    date_debut: "2026-03-10T08:00:00",
-    date_fin: "2026-03-10T16:00:00",
-    responsable_name: "Jean Kouassi",
-    responsable_phone: "0700000000",
-    status: "planifie",
-    provider_id: 1,
-    site_id: 1,
-    description: "Maintenance réseau du site principal",
-    site: { nom: "Siège Canal+" },
-    provider: { company_name: "SOUDOTEC" },
-  },
-  {
-    id: 2,
-    codification: "PLN-0002",
-    date_debut: "2026-03-12T09:00:00",
-    date_fin: "2026-03-12T18:00:00",
-    responsable_name: "Awa Traoré",
-    responsable_phone: "0500000000",
-    status: "en_cours",
-    provider_id: 2,
-    site_id: 2,
-    description: "Inspection technique des installations",
-    site: { nom: "Entrepôt Central" },
-    provider: { company_name: "Tech Services CI" },
-  },
-];
-
-// STATIC: stats simulées
-const mockStats = {
-  total: 2,
-  realise: 0,
-  en_cours: 1,
-  planifie: 1,
-  en_retard: 0,
-  non_realise: 0,
-};
-
-// STATIC: options fixes
-const providers = [
-  { label: "SOUDOTEC", value: 1 },
-  { label: "Tech Services CI", value: 2 },
-];
-
-const sites = [
-  { label: "Siège Canal+", value: 1 },
-  { label: "Entrepôt Central", value: 2 },
-  { label: "Boutique Canal+", value: 3 },
-];
-
-// STATIC: mapping statut
-const STATUS_LABELS: Record<string, string> = {
-  planifie: "Planifié",
-  en_cours: "En cours",
-  en_retard: "En retard",
-  realise: "Réalisé",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  planifie: "blue",
-  en_cours: "orange",
-  en_retard: "red",
-  realise: "green",
-};
+import { usePlannings } from "../../../hooks/manager/usePlannings";
+import { useTicketActions } from "../../../hooks/manager/useTicketActions";
+import { AssetService } from "../../../services/manager/asset.service";
+import { PlanningService } from "../../../services/manager/planning.service";
+import type { Planning, Asset } from "../../../types/manager.types";
 
 /* -------------------------------------------------------------------------- */
 /*                                  TOAST                                     */
@@ -98,8 +30,8 @@ function Toast({ toast }: { toast: ToastType }) {
       className={`fixed bottom-6 right-6 z-[99999] flex items-center gap-3
       px-5 py-4 rounded-2xl shadow-2xl border text-sm font-semibold
       ${toast.type === "success"
-        ? "bg-white border-green-100 text-green-700"
-        : "bg-white border-red-100 text-red-700"}`}
+          ? "bg-white border-green-100 text-green-700"
+          : "bg-white border-red-100 text-red-700"}`}
     >
       {toast.type === "success" ? (
         <CheckCircle2 size={20} className="text-green-500 shrink-0" />
@@ -116,210 +48,246 @@ function Toast({ toast }: { toast: ToastType }) {
 /* -------------------------------------------------------------------------- */
 
 export default function PlanningPage() {
+  const {
+    plannings,
+    stats: apiStats,
+    isLoading,
+    error: apiError,
+    setFilters,
+    refresh
+  } = usePlannings();
 
-  /* ------------------------------ STATIC STATE ----------------------------- */
-
-  // STATIC: remplacement de usePlanning
-  const [plannings] = useState(mockPlannings);
-  const [selectedPlanning, setSelectedPlanning] = useState<any>(null);
-
+  const [selectedPlanning, setSelectedPlanning] = useState<Planning | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
   const [toast, setToast] = useState<ToastType>(null);
+
+  // Tickets integration
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+
+  const { createTicket, isSubmitting: isTicketSubmitting } = useTicketActions({
+    onSuccess: () => {
+      setIsTicketModalOpen(false);
+      showToast("Ticket créé avec succès", "success");
+    }
+  });
+
+  // Charger les actifs pour la modale
+  useState(() => {
+    AssetService.getAssets({ per_page: 100 }).then(data => setAssets(data.items));
+  });
+
+  const ticketFields: FieldConfig[] = [
+    {
+      name: "subject",
+      label: "Sujet du ticket",
+      type: "text",
+      placeholder: "Ex: Panne constatée",
+      required: true,
+      icon: <Tag size={18} />
+    },
+    {
+      name: "type",
+      label: "Type",
+      type: "select",
+      options: [
+        { label: "Curatif", value: "curatif" },
+        { label: "Préventif", value: "preventif" },
+      ],
+      required: true,
+      icon: <Wrench size={18} />
+    },
+    {
+      name: "priority",
+      label: "Priorité",
+      type: "select",
+      options: [
+        { label: "Faible", value: "faible" },
+        { label: "Moyenne", value: "moyenne" },
+        { label: "Haute", value: "haute" },
+        { label: "Critique", value: "critique" },
+      ],
+      required: true,
+      icon: <AlertTriangle size={18} />
+    },
+    {
+      name: "company_asset_id",
+      label: "Patrimoine concerné",
+      type: "select",
+      options: assets.map(a => ({ label: `${a.designation} (${(a as any).codification || a.code || "N/A"})`, value: String(a.id) })),
+      required: true,
+      icon: <CheckCircle2 size={18} />
+    },
+    {
+      name: "planned_at",
+      label: "Début souhaité",
+      type: "date",
+      disablePastDates: true,
+      required: true,
+      icon: <CalendarDays size={18} />
+    },
+    {
+      name: "due_at",
+      label: "Échéance",
+      type: "date",
+      required: true,
+      disablePastDates: true,
+      icon: <Clock size={18} />,
+    },
+    {
+      name: "description",
+      label: "Détails supplémentaires",
+      type: "rich-text",
+      placeholder: "Décrivez précisément le problème constaté...",
+      required: true,
+      gridSpan: 2,
+    },
+  ];
 
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  /* ------------------------------ FORM FIELDS ------------------------------ */
-
-  const planningFields: FieldConfig[] = [
-    {
-      name: "site_id",
-      label: "Site",
-      type: "select",
-      required: true,
-      options: sites, // STATIC
-    },
-    {
-      name: "date_debut",
-      label: "Date de début",
-      type: "date",
-      required: true,
-      icon: CalendarClock,
-    },
-    {
-      name: "date_fin",
-      label: "Date de fin",
-      type: "date",
-      required: true,
-      icon: CalendarClock,
-    },
-    {
-      name: "responsable_name",
-      label: "Nom du responsable",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "responsable_phone",
-      label: "Téléphone du responsable",
-      type: "text",
-    },
-    {
-      name: "provider_id",
-      label: "Prestataire assigné",
-      type: "select",
-      required: true,
-      options: providers, // STATIC
-    },
-    {
-      name: "description",
-      label: "Description / Observations",
-      type: "rich-text",
-      gridSpan: 2,
-    },
-  ];
-
   /* ------------------------------ ACTION GROUP ----------------------------- */
 
-  const siteActions = [
-    {
-      label: "Filtrer par statut",
-      icon: Filter,
-      onClick: () => {
-        // STATIC: aucune logique backend
-        showToast("Filtre statique (désactivé)", "success");
-      },
-      variant: "secondary" as const,
-    },
-    {
-      label: "Nouveau planning",
-      icon: Plus,
-      onClick: () => setIsCreateModalOpen(true),
-      variant: "primary" as const,
-    },
+  const [activeStatus, setActiveStatus] = useState<string>("");
+
+  const STATUS_FILTERS = [
+    { key: "", label: "Tous" },
+    { key: "planifie", label: "Soumis" },
+    { key: "en_cours", label: "En cours" },
+    { key: "realise", label: "Réalisé" },
+    { key: "en_retard", label: "En retard" },
   ];
+
+  const handleStatusFilter = (key: string) => {
+    setActiveStatus(key);
+    setFilters({ status: key || undefined });
+  };
 
   /* ------------------------------ PANEL FORMAT ----------------------------- */
 
   const formattedSelectedEvent = selectedPlanning
     ? {
-        title: selectedPlanning.codification,
-        reference: `#${String(selectedPlanning.id).padStart(7, "0")}`,
-        description: selectedPlanning.description,
-        fields: [
-          { label: "Site", value: selectedPlanning.site.nom },
-          { label: "Prestataire", value: selectedPlanning.provider.company_name },
-          { label: "Responsable", value: selectedPlanning.responsable_name },
-          { label: "Téléphone", value: selectedPlanning.responsable_phone },
-          { label: "Date début", value: selectedPlanning.date_debut },
-          { label: "Date fin", value: selectedPlanning.date_fin },
-          {
-            label: "Statut",
-            value: STATUS_LABELS[selectedPlanning.status],
-            isStatus: true,
-            statusColor: STATUS_COLORS[selectedPlanning.status],
-          },
-        ],
-      }
+      title: selectedPlanning.codification || `Planning #${selectedPlanning.id}`,
+      reference: `#${String(selectedPlanning.id).padStart(7, "0")}`,
+      description: selectedPlanning.description,
+      fields: [
+        { label: "Site", value: selectedPlanning.site?.nom ?? "-" },
+        { label: "Prestataire", value: selectedPlanning.provider?.company_name ?? selectedPlanning.provider?.name ?? "-" },
+        { label: "Responsable", value: selectedPlanning.responsable_name ?? "-" },
+        { label: "Téléphone", value: selectedPlanning.responsable_phone ?? "-" },
+        { label: "Date début", value: new Date(selectedPlanning.date_debut).toLocaleString("fr-FR") },
+        { label: "Date fin", value: new Date(selectedPlanning.date_fin).toLocaleString("fr-FR") },
+        {
+          label: "Statut",
+          value: selectedPlanning.status,
+          isStatus: true,
+          statusColor: "blue", // Simplifié pour le moment
+        },
+      ],
+    }
     : null;
 
-  /* -------------------------------------------------------------------------- */
-  /*                                   RENDER                                   */
-  /* -------------------------------------------------------------------------- */
-
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col">
+    <>
+      <div className="flex flex-col flex-1 overflow-hidden">
         <Navbar />
 
-        <main className="ml-64 mt-20 p-8 space-y-8">
+        <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
+          <PageHeader
+            title="Planning"
+            subtitle="Consultez le calendrier des interventions planifiées sur vos sites."
+          />
 
-          <div className="flex justify-between items-start">
-            <PageHeader
-              title="Planning"
-              subtitle="Ce menu vous permet de voir le calendrier des évènements planifiés"
-            />
-          </div>
+          {apiError && (
+            <div className="bg-red-50 border border-red-100 text-red-700 px-6 py-4 rounded-2xl text-sm font-semibold mb-4">
+              {apiError}
+            </div>
+          )}
 
-          {/* STATIC: stats simulées */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatsCard
-              label="Nombre total de plannings"
-              value={mockStats.total}
-              delta={`${mockStats.realise} réalisé(s)`}
+              label="Total plannings"
+              value={apiStats?.total ?? 0}
+              delta={`${apiStats?.realise ?? 0} réalisé(s)`}
               trend="up"
             />
             <StatsCard
-              label="Plannings en cours"
-              value={mockStats.en_cours}
-              delta={`${mockStats.planifie} planifié(s)`}
+              label="En cours / Planifiés"
+              value={(apiStats?.en_cours ?? 0) + (apiStats?.planifie ?? 0)}
+              delta={`${apiStats?.planifie ?? 0} à venir`}
               trend="up"
             />
             <StatsCard
-              label="Plannings en retard"
-              value={mockStats.en_retard}
-              delta={`${mockStats.non_realise} non réalisé(s)`}
-              trend="up"
+              label="En retard / Non réalisés"
+              value={(apiStats?.en_retard ?? 0) + (apiStats?.non_realise ?? 0)}
+              delta={`${apiStats?.non_realise ?? 0} manquants`}
+              trend="down"
             />
           </div>
 
-          <div className="shrink-0 flex justify-end">
-            <ActionGroup actions={siteActions} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {STATUS_FILTERS.map(f => (
+              <button
+                key={f.key}
+                onClick={() => handleStatusFilter(f.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition border ${activeStatus === f.key
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+              >
+                <Filter size={14} />
+                {f.label}
+              </button>
+            ))}
           </div>
 
-          {/* STATIC: MainCard reçoit les données mock */}
           <MainCard
             plannings={plannings}
-            isLoading={false}
+            isLoading={isLoading}
             selectedEvent={formattedSelectedEvent}
             isPanelOpen={isPanelOpen}
             onEventClick={(event: any) => {
-              setSelectedPlanning(event);
-              setIsPanelOpen(true);
+              router.push(`/manager/planning/${event.id}`);
             }}
             onPanelClose={() => setIsPanelOpen(false)}
-            onEditClick={() => setIsEditModalOpen(true)}
-            onDeleteClick={() => {
-              showToast("Suppression désactivée (mode statique)", "error");
+            onEditClick={undefined}
+            onDeleteClick={undefined}
+            onCellClick={(date) => {
+              setSelectedDate(date.toISOString().split('T')[0]);
+              setIsTicketModalOpen(true);
             }}
           />
         </main>
       </div>
 
-      {/* STATIC: modal création sans backend */}
       <ReusableForm
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Publier un nouveau planning"
-        subtitle="Mode statique — aucune sauvegarde backend"
-        fields={planningFields}
-        onSubmit={() => {
-          showToast("Création désactivée (mode statique)", "error");
+        isOpen={isTicketModalOpen}
+        onClose={() => setIsTicketModalOpen(false)}
+        title="Signaler un Problème"
+        subtitle="Ouvrir un ticket d'intervention pour ce jour"
+        fields={ticketFields}
+        initialValues={{
+          type: 'curatif',
+          priority: 'moyenne',
+          planned_at: selectedDate || undefined
         }}
-        submitLabel="Diffuser"
-      />
-
-      {/* STATIC: modal édition */}
-      <ReusableForm
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Modifier le planning"
-        subtitle="Mode statique — aucune modification sauvegardée"
-        fields={planningFields}
-        onSubmit={() => {
-          showToast("Modification désactivée (mode statique)", "error");
+        isLoading={isTicketSubmitting}
+        onSubmit={(values) => {
+          const asset = assets.find(a => String(a.id) === String(values.company_asset_id));
+          createTicket({
+            ...values,
+            site_id: (asset as any)?.site_id
+          } as any);
         }}
-        submitLabel="Mettre à jour"
+        submitLabel="Envoyer le ticket"
       />
 
       <Toast toast={toast} />
-    </div>
+    </>
   );
 }

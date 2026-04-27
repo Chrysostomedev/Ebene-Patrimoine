@@ -1,232 +1,212 @@
-// app/admin/factures/page.tsx
-// VERSION 100% STATIQUE (aucune API / aucune DB)
 "use client";
-import Link from "next/link";
-import {
-  Eye,
-  Filter,
-  Upload,
-  ArrowUpRight,
-} from "lucide-react";
 
-import Sidebar from "@/components/Sidebar";
+import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable from "@/components/DataTable";
-import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
+import SearchInput from "@/components/SearchInput";
+import { Download, FileText, CheckCircle2, AlertCircle, Clock, XCircle } from "lucide-react";
+import type { ColumnConfig } from "@/components/DataTable";
 
-// ═════════════════════════════════════
-// TYPES
-// ═════════════════════════════════════
+import { useInvoices } from "../../../hooks/manager/useInvoices";
+import type { Invoice, InvoiceStatus } from "../../../types/manager.types";
 
-type Invoice = {
-  id: number;
-  reference: string;
-  provider: { company_name: string };
-  site: { nom: string };
-  invoice_date: string;
-  amount_ttc: number;
-  payment_status: "paid" | "pending" | "overdue" | "cancelled";
+/* -------------------------------------------------------------------------- */
+/*                                  STATUS                                     */
+/* -------------------------------------------------------------------------- */
+
+const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; icon: any }> = {
+  paid:      { label: "Payée",      color: "green",  icon: CheckCircle2 },
+  pending:   { label: "En attente", color: "orange", icon: Clock },
+  unpaid:    { label: "Non payée",  color: "red",    icon: AlertCircle },
+  overdue:   { label: "En retard",  color: "rose",   icon: AlertCircle },
+  cancelled: { label: "Annulée",    color: "slate",  icon: XCircle },
 };
 
-// ═════════════════════════════════════
-// MOCK DATA (statique)
-// ═════════════════════════════════════
-
-const invoices: Invoice[] = [
-  {
-    id: 1,
-    reference: "FAC-2025-001",
-    provider: { company_name: "Tech Maintenance CI" },
-    site: { nom: "Abidjan Plateau" },
-    invoice_date: "2025-01-10",
-    amount_ttc: 350000,
-    payment_status: "paid",
-  },
-  {
-    id: 2,
-    reference: "FAC-2025-002",
-    provider: { company_name: "Clima Services" },
-    site: { nom: "Marcory Zone 4" },
-    invoice_date: "2025-01-18",
-    amount_ttc: 120000,
-    payment_status: "pending",
-  },
-  {
-    id: 3,
-    reference: "FAC-2025-003",
-    provider: { company_name: "ElecPro CI" },
-    site: { nom: "Cocody Riviera" },
-    invoice_date: "2025-02-02",
-    amount_ttc: 540000,
-    payment_status: "overdue",
-  },
-];
-
-// ═════════════════════════════════════
-// HELPERS
-// ═════════════════════════════════════
-
-const formatMontant = (v: number): string => {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M FCFA`;
-  if (v >= 1_000) return `${Math.round(v / 1_000)}K FCFA`;
-  return `${v.toLocaleString("fr-FR")} FCFA`;
-};
-
-const formatDate = (iso: string): string =>
-  new Date(iso).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-
-// ═════════════════════════════════════
-// STATUS BADGE
-// ═════════════════════════════════════
-
-const STATUS_STYLES: Record<string, string> = {
-  paid: "border-black bg-black text-white",
-  pending: "border-slate-300 bg-slate-100 text-slate-700",
-  overdue: "border-red-500 bg-red-100 text-red-600",
-  cancelled: "border-slate-400 bg-slate-100 text-slate-500",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  paid: "Payée",
-  pending: "En attente",
-  overdue: "En retard",
-  cancelled: "Annulée",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span
-      className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${
-        STATUS_STYLES[status] ?? ""
-      }`}
-    >
-      {STATUS_LABELS[status] ?? status}
-    </span>
-  );
-}
-
-// ═════════════════════════════════════
-// PAGE PRINCIPALE
-// ═════════════════════════════════════
+/* -------------------------------------------------------------------------- */
+/*                                   PAGE                                     */
+/* -------------------------------------------------------------------------- */
 
 export default function FacturesPage() {
-  const totalAmount = invoices.reduce((s, i) => s + i.amount_ttc, 0);
-  const avgCost = Math.round(totalAmount / invoices.length);
+  const {
+    invoices,
+    stats,
+    isLoading,
+    error,
+    search,
+    setFilters,
+    exportInvoices
+  } = useInvoices();
 
-  const stats = {
-    total_invoices: invoices.length,
-    total_paid: invoices.filter((i) => i.payment_status === "paid").length,
-    total_unpaid: invoices.filter((i) => i.payment_status === "pending").length,
+  const [activeTab, setActiveTab] = useState<InvoiceStatus | "all">("all");
+
+  const handleTabChange = (status: InvoiceStatus | "all") => {
+    setActiveTab(status);
+    setFilters({ payment_status: status === "all" ? undefined : status });
   };
 
   const kpis = [
-    { label: "Coût moyen par facture", value: avgCost, delta: "+3%", trend: "up" as const, isCurrency: true },
-    { label: "Nombre total de factures", value: stats.total_invoices, delta: "+3%", trend: "up" as const },
-    { label: "Factures en attente", value: stats.total_unpaid, delta: "+0%", trend: "up" as const },
-    { label: "Factures payées", value: stats.total_paid, delta: "+15%", trend: "up" as const },
+    {
+      label: "Total Facturé",
+      value: `${(stats?.total_amount ?? 0).toLocaleString()} FCFA`,
+      delta: `${stats?.total_invoices ?? 0} facture(s)`,
+      trend: "up" as const
+    },
+    {
+      label: "Montant Payé",
+      value: `${(stats?.paid_amount ?? stats?.total_paid_amount ?? 0).toLocaleString()} FCFA`,
+      delta: `${stats?.total_paid ?? 0} payée(s)`,
+      trend: "up" as const
+    },
+    {
+      label: "Reste à Recouvrer",
+      value: `${(stats?.unpaid_amount ?? stats?.total_unpaid_amount ?? 0).toLocaleString()} FCFA`,
+      delta: `${stats?.total_unpaid ?? 0} impayée(s)`,
+      trend: "down" as const
+    }
   ];
 
-  const columns = [
+  /* ------------------------------ COLUMNS ---------------------------------- */
+
+  const columns: ColumnConfig<Invoice>[] = [
     {
-      header: "ID Facture",
+      header: "Référence",
       key: "reference",
-      render: (_: any, row: Invoice) => (
-        <span className="font-black text-slate-900 text-sm">{row.reference}</span>
-      ),
+      render: (_, row) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
+            <FileText size={16} />
+          </div>
+          <span className="font-black text-slate-900">{row.reference}</span>
+        </div>
+      )
     },
     {
       header: "Prestataire",
       key: "provider",
-      render: (_: any, row: Invoice) => row.provider.company_name,
+      render: (_, row) => (
+         <div className="flex flex-col">
+            <span className="font-bold text-slate-700">{row.provider?.company_name || row.provider?.name || "-"}</span>
+            <span className="text-[10px] text-slate-400 uppercase font-black">{row.provider?.phone || "Pas de tel"}</span>
+         </div>
+      )
     },
+   
     {
       header: "Date",
       key: "invoice_date",
-      render: (_: any, row: Invoice) => formatDate(row.invoice_date),
-    },
-    {
-      header: "Site",
-      key: "site",
-      render: (_: any, row: Invoice) => row.site.nom,
+      render: (val) => <span className="text-slate-500">{val ? new Date(val as string).toLocaleDateString() : "-"}</span>
     },
     {
       header: "Montant TTC",
       key: "amount_ttc",
-      render: (_: any, row: Invoice) => (
-        <span className="font-bold">{formatMontant(row.amount_ttc)}</span>
-      ),
+      render: (_, row) => (
+        <span className="font-black text-slate-900">
+          {(row.total_amount_ttc ?? row.amount_ttc ?? 0).toLocaleString()} <small className="text-[10px] text-slate-400">FCFA</small>
+        </span>
+      )
     },
     {
       header: "Statut",
-      key: "payment_status",
-      render: (_: any, row: Invoice) => (
-        <StatusBadge status={row.payment_status} />
-      ),
+      key: "status",
+      render: (_, row) => {
+        const s = row.payment_status || row.status || "pending";
+        const cfg = STATUS_CONFIG[s as InvoiceStatus] || STATUS_CONFIG.pending;
+        const Icon = cfg.icon;
+        return (
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider
+            ${s === "paid" ? "bg-green-50 text-green-600" :
+              s === "pending" ? "bg-orange-50 text-orange-600" :
+              s === "unpaid" || s === "overdue" ? "bg-red-50 text-red-600" :
+              "bg-slate-50 text-slate-600"}`}
+          >
+            <Icon size={12} />
+            {cfg.label}
+          </div>
+        );
+      }
     },
     {
       header: "Actions",
-      key: "actions",
-      render: (_: any, row: Invoice) => (
-        <div className="flex items-center gap-3">
-          <Eye size={18} className="text-slate-700" />
-          <Link
-            href={`/admin/factures/details/${row.id}`}
-            className="group p-2 rounded-xl bg-white hover:bg-black transition flex items-center justify-center"
-          >
-            <ArrowUpRight
-              size={16}
-              className="group-hover:rotate-45 transition-transform"
-            />
-          </Link>
+      key: "id",
+      render: (_, row) => (
+        <div className="flex items-center gap-2">
+          {row.pdf_path && (
+            <button
+              onClick={() => window.open(row.pdf_path, "_blank")}
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition"
+              title="Voir PDF"
+            >
+              <FileText size={18} />
+            </button>
+          )}
         </div>
-      ),
-    },
+      )
+    }
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col">
+    <div className="flex flex-col flex-1 overflow-hidden">
         <Navbar />
 
-        <main className="ml-64 mt-20 p-6 space-y-8">
+        <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
           <PageHeader
             title="Factures"
-            subtitle="Liste statique des factures"
+            subtitle="Suivez les paiements et gérez la facturation de vos sites."
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {kpis.map((k, i) => (
-              <StatsCard key={i} {...k} />
-            ))}
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-700 px-6 py-4 rounded-2xl text-sm font-semibold mb-4">
+              {error}
+            </div>
+          )}
+
+          {/* KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold">
-              <Filter size={16} /> Filtrer
-            </button>
+          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+            {/* Tabs */}
+            <div className="flex items-center justify-between px-8 border-b border-slate-50 bg-slate-50/50">
+              <div className="flex gap-8">
+                {(["all", "paid", "pending", "unpaid"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => handleTabChange(tab)}
+                    className={`py-5 text-xs font-black uppercase tracking-widest transition relative
+                      ${activeTab === tab ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
+                  >
+                    {tab === "all" ? "Toutes" : STATUS_CONFIG[tab as InvoiceStatus].label}
+                    {activeTab === tab && (
+                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900 rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
 
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold">
-              <Upload size={16} /> Exporter
-            </button>
-          </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={exportInvoices}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase text-slate-600 hover:text-slate-900 transition"
+                >
+                  <Download size={14} /> Exporter (.xlsx)
+                </button>
+              </div>
+            </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={invoices} onViewAll={() => {}} />
+            <div className="p-8 space-y-6">
+              
 
-            <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-              <Paginate currentPage={1} totalPages={1} onPageChange={() => {}} />
+               <DataTable
+                 columns={columns}
+                 data={invoices}
+                 title="Liste des factures"
+               />
             </div>
           </div>
         </main>
       </div>
-    </div>
   );
 }

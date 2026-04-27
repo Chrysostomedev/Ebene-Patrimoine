@@ -1,77 +1,80 @@
 "use client";
 import Link from "next/link";
-import { MapPin, Phone, Mail, ArrowUpRight } from "lucide-react";
-import { Site } from "../../services/admin/site.service";
+import { MapPin, Phone, ArrowUpRight, Ticket } from "lucide-react";
+import { Site, resolveManagerName, resolveManagerPhone } from "../../services/admin/site.service";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 interface SiteCardProps {
-  site?: Site | null; // safe : site peut être undefined ou null
+  site?: Site | null;
 }
 
 export default function SiteCard({ site }: SiteCardProps) {
+  const { t } = useLanguage();
+
   if (!site) {
     return (
-      <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-6 flex items-center justify-center text-slate-400 italic">
-        Informations indisponibles
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-center text-slate-400 italic text-sm">
+        {t("common.unavailable")}
       </div>
     );
   }
 
-  const detailUrl = `/admin/sites/details/${site.id}`;
+  const detailUrl    = `/admin/sites/details/${site.id}`;
+  const managerName  = resolveManagerName(site);
+  const managerPhone = resolveManagerPhone(site);
 
   return (
-    <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden p-3 h-full flex flex-col gap-3">
-      <div className="bg-slate-50 rounded-[24px] p-6 relative">
-        <h3 className="text-2xl font-bold text-slate-900 mb-4 pr-16 uppercase tracking-tight leading-tight">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden p-2.5 h-full flex flex-col gap-2">
+
+      {/* Bloc site */}
+      <div className="bg-slate-50 rounded-xl px-4 py-3">
+        <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-tight truncate pr-12">
           {site.nom || "N/A"}
         </h3>
-        <div className="flex items-center gap-2 text-slate-500 font-medium">
-          <MapPin size={18} className="text-slate-900" />
-          <span className="text-sm">{site.localisation || "N/A"}</span>
-          <span
-            className={`ml-2 px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              site.status === "active" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
-            }`}
-          >
-            {site.status === "active" ? "actif" : "inactif"}
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <div className="flex items-center gap-1 text-slate-500 text-[11px] font-medium min-w-0">
+            <MapPin size={11} className="text-slate-700 shrink-0" />
+            <span className="truncate">{site.localisation || "N/A"}</span>
+          </div>
+          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+            site.status === "active" ? "bg-emerald-500 text-white" : "bg-red-500 text-white"
+          }`}>
+            {site.status === "active" ? t("cards.activeStatus") : t("cards.inactiveStatus")}
           </span>
         </div>
       </div>
 
-      <div className="bg-white rounded-[20px] border border-slate-50 p-6 flex-grow">
-        <h4 className="text-2xl font-bold text-slate-900 mb-4">
-          {site.responsable_name || "N/A"}
-        </h4>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 text-slate-500">
-            <div className="p-1.5 bg-slate-50 rounded-lg">
-              <Phone size={16} className="text-slate-900" />
-            </div>
-            <span className="text-sm font-medium">
-              {site.manager?.phone || site.phone_responsable || "N/A"}
-            </span>
+      {/* Bloc manager */}
+      <div className="bg-white rounded-xl border border-slate-100 px-4 py-3 flex-grow">
+        <p className="text-sm font-bold text-slate-900 truncate">
+          {managerName !== "—" ? managerName : "N/A"}
+        </p>
+        <div className="flex items-center gap-2 mt-1.5 text-slate-500 text-[11px] font-medium">
+          <div className="p-1 bg-slate-50 rounded-md shrink-0">
+            <Phone size={11} className="text-slate-700" />
           </div>
-          <div className="flex items-center gap-3 text-slate-600">
-            <div className="p-1.5 bg-slate-30 rounded-lg">
-              <Mail size={16} className="text-slate-900" />
-            </div>
-            <span className="text-sm font-medium">
-              {site.manager?.email || site.email || "N/A"}
-            </span>
-          </div>
+          <span className="truncate">
+            {managerPhone !== "—" ? managerPhone : "N/A"}
+          </span>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <div className="bg-theme-primary text-white rounded-2xl px-6 py-4 text-xl font-bold flex items-center justify-center min-w-[80px]">
-          {site.effectifs ?? 0}
+      {/* Actions */}
+      <div className="flex gap-1.5">
+        <div
+          className="bg-theme-primary text-white rounded-xl px-3 py-2.5 text-sm font-bold flex items-center justify-center gap-1.5 shrink-0"
+          title={t("cards.tickets")}
+        >
+          <Ticket size={14} />
+          <span className="text-xs font-black">{site.tickets_count ?? 0}</span>
         </div>
         <Link
           href={detailUrl}
-          className="flex-grow bg-theme-primary text-white rounded-2xl px-6 py-4 font-bold flex items-center justify-center gap-3 hover:bg-black transition-colors group text-sm"
+          className="flex-grow bg-theme-primary text-white rounded-xl px-3 py-2.5 font-bold flex items-center justify-center gap-2 hover:bg-black transition-colors group text-xs"
         >
-          voir les détails du site
-          <div className="border border-white/30 rounded-full p-1 group-hover:bg-white group-hover:text-black transition-all">
-            <ArrowUpRight size={12} />
+          {t("cards.siteDetails")}
+          <div className="border border-white/30 rounded-full p-0.5 group-hover:bg-white group-hover:text-black transition-all">
+            <ArrowUpRight size={10} />
           </div>
         </Link>
       </div>

@@ -115,17 +115,12 @@ function NotifRow({ notif, onClick, onDelete }: {
         </div>
       </div>
 
-      {/* Actions hover */}
-      <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
-        <button
-          onClick={onDelete}
-          className="p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400 transition"
-          title="Supprimer"
-        >
-          <Trash2 size={13} />
-        </button>
-        <ChevronRight size={14} className="text-slate-300 mt-1" />
-      </div>
+      {/* Indicateur non-lu */}
+      {!notif.read && (
+        <div className="shrink-0 mt-2">
+          <span className="w-2 h-2 rounded-full bg-slate-900 block" />
+        </div>
+      )}
     </div>
   );
 }
@@ -251,7 +246,7 @@ export default function ListNotifs() {
         )}
       </div>
 
-      {/* ── NotificationPanel — s'ouvre au clic, détail direct ───────── */}
+      {/* ── NotificationPanel - s'ouvre au clic, détail direct ───────── */}
       <NotificationPanel
         isOpen={panelOpen}
         onClose={handleClose}

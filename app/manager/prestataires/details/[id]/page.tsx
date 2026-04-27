@@ -1,182 +1,135 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Filter, Upload, ChevronLeft, MapPin, Phone, Mail, Star,
-  Eye, TicketPlus, CalendarDays, CalendarCheck, Pencil,
+  ChevronLeft, MapPin, Phone, Mail, Star, Eye, Filter,
 } from "lucide-react";
-
 import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
 import Paginate from "@/components/Paginate";
 import StatsCard from "@/components/StatsCard";
-import ActionGroup from "@/components/ActionGroup";
-import ReusableForm from "@/components/ReusableForm";
 import DataTable from "@/components/DataTable";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 
-/* -------------------------------------------------------------------------- */
-/*                               STATIC MOCK DATA                             */
-/* -------------------------------------------------------------------------- */
+import { ProviderService } from "../../../../../services/manager/provider.service";
+import type { Provider, ProviderStats } from "../../../../../services/manager/provider.service";
 
-const mockServices = [
-  { id: 1, name: "Maintenance électrique" },
-  { id: 2, name: "Maintenance climatisation" },
-];
-
-const mockProvider = {
-  id: 1,
-  company_name: "SOUDOTEC",
-  city: "Abidjan",
-  street: "Cocody Angré",
-  neighborhood: "Angré 8ème tranche",
-  service_id: 1,
-  service: { name: "Maintenance électrique" },
-  rating: 4,
-  is_active: true,
-  date_entree: "2023-01-10",
-  description: "Prestataire spécialisé dans les installations électriques.",
-  user: {
-    first_name: "Jean",
-    last_name: "Kouassi",
-    phone: "0700000000",
-    email: "contact@soudotec.ci",
-  },
-};
-
-const mockStats = {
-  total_tickets: 15,
-  in_progress_tickets: 3,
-  closed_tickets: 9,
-  rating: 4,
-};
-
-const mockTickets = [
-  {
-    id: 101,
-    subject: "Panne générateur",
-    type: "curatif",
-    status: "en_cours",
-    site: { nom: "Siège Canal+" },
-    asset: { designation: "Générateur principal" },
-    planned_at: "2026-03-15",
-    due_at: "2026-03-16",
-    description: "Le générateur ne démarre plus.",
-  },
-  {
-    id: 102,
-    subject: "Inspection climatisation",
-    type: "preventif",
-    status: "clos",
-    site: { nom: "Boutique Canal+" },
-    asset: { designation: "Climatiseur LG" },
-    planned_at: "2026-03-10",
-    due_at: "2026-03-11",
-    description: "Inspection annuelle.",
-  },
-];
-
-/* -------------------------------------------------------------------------- */
-/*                                  CONSTANTS                                 */
-/* -------------------------------------------------------------------------- */
-
+/* ── Statuts ─────────────────────────────────────────────────────────────── */
 const STATUS_LABELS: Record<string, string> = {
-  en_cours: "En cours",
-  clos: "Clôturé",
+  SIGNALÉ: "Signalé", VALIDÉ: "Validé", ASSIGNÉ: "Assigné",
+  EN_COURS: "En cours", RAPPORTÉ: "Rapporté", ÉVALUÉ: "Évalué", CLOS: "Clôturé",
+  signalez: "Signalé", validé: "Validé", assigné: "Assigné",
+  en_cours: "En cours", rapporté: "Rapporté", évalué: "Évalué", clos: "Clôturé",
 };
-
 const STATUS_STYLES: Record<string, string> = {
-  en_cours: "border-orange-400 text-orange-500 bg-orange-50",
-  clos: "bg-black text-white border-black",
+  SIGNALÉ: "border-slate-300 bg-slate-100 text-slate-700",
+  VALIDÉ: "border-blue-400 bg-blue-50 text-blue-700",
+  ASSIGNÉ: "border-violet-400 bg-violet-50 text-violet-700",
+  EN_COURS: "border-orange-400 bg-orange-50 text-orange-600",
+  RAPPORTÉ: "border-amber-400 bg-amber-50 text-amber-700",
+  ÉVALUÉ: "border-green-500 bg-green-50 text-green-700",
+  CLOS: "bg-black text-white border-black",
 };
 
-/* -------------------------------------------------------------------------- */
-/*                                   PAGE                                     */
-/* -------------------------------------------------------------------------- */
-
+/* ── Page ────────────────────────────────────────────────────────────────── */
 export default function ProviderDetailsPage() {
-
   const params = useParams();
   const providerId = Number(params.id);
+  const router = useRouter();
 
-  /* ------------------------------- STATE ---------------------------------- */
-
-  const [tickets] = useState(mockTickets);
+  const [provider, setProvider] = useState<Provider | null>(null);
+  const [providerStats, setProviderStats] = useState<ProviderStats | null>(null);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [ticketMeta, setTicketMeta] = useState({ current_page: 1, last_page: 1, total: 0 });
   const [ticketPage, setTicketPage] = useState(1);
-
-  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  const provider = mockProvider;
-  const providerStats = mockStats;
+  /* ── Fetch provider depuis les tickets du site ─────────────────────────── */
+  const fetchProvider = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { provider: p, stats } = await ProviderService.getProvider(providerId);
+      setProvider(p);
+      setProviderStats(stats);
+    } catch (e) {
+      console.error("Erreur chargement prestataire", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [providerId]);
 
-  /* ------------------------------- KPIS ----------------------------------- */
+  /* ── Fetch tickets du prestataire ──────────────────────────────────────── */
+  const fetchTickets = useCallback(async () => {
+    try {
+      const result = await ProviderService.getProviderTickets(providerId, {
+        page: ticketPage, per_page: 10,
+      });
+      setTickets(result.items ?? []);
+      setTicketMeta(result.meta ?? { current_page: 1, last_page: 1, total: 0 });
+    } catch (e) {
+      console.error("Erreur chargement tickets prestataire", e);
+    }
+  }, [providerId, ticketPage]);
 
+  useEffect(() => { fetchProvider(); }, [fetchProvider]);
+  useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
+  /* ── KPIs ──────────────────────────────────────────────────────────────── */
   const kpis = [
-    { label: "Total tickets", value: providerStats.total_tickets, delta: "+3%", trend: "up" as const },
-    { label: "Tickets en cours", value: providerStats.in_progress_tickets, delta: "+3%", trend: "up" as const },
-    { label: "Tickets clôturés", value: providerStats.closed_tickets, delta: "+3%", trend: "up" as const },
-    { label: "Note", value: `${providerStats.rating}/5`, delta: "+0%", trend: "up" as const },
+    { label: "Total tickets", value: providerStats?.total_tickets ?? 0, delta: "", trend: "up" as const },
+    { label: "Tickets en cours", value: providerStats?.in_progress_tickets ?? 0, delta: "", trend: "up" as const },
+    { label: "Tickets clôturés", value: providerStats?.closed_tickets ?? 0, delta: "", trend: "up" as const },
+    { label: "Note", value: providerStats?.rating ? `${providerStats.rating}/5` : "N/A", delta: "", trend: "up" as const },
   ];
 
-  /* ---------------------------- SIDE PANEL -------------------------------- */
-
+  /* ── SidePanel ticket ──────────────────────────────────────────────────── */
   const handleOpenDetails = (ticket: any) => {
-
-    const statusColor =
-      ticket.status === "clos" ? "#000" : "#f97316";
-
+    const s = (ticket.status || "").toUpperCase();
+    const statusColor = s === "CLOS" ? "#000" : s === "EN_COURS" ? "#f97316" : "#64748b";
     setSelectedTicket({
-      title: ticket.subject,
+      title: ticket.subject ?? `Ticket #${ticket.id}`,
       reference: `#${ticket.id}`,
-      description: ticket.description,
+      description: ticket.description ?? "",
       fields: [
-        { label: "Type", value: ticket.type },
-        { label: "Site", value: ticket.site.nom },
-        { label: "Patrimoine", value: ticket.asset.designation },
-        { label: "Date planifiée", value: ticket.planned_at },
-        { label: "Date limite", value: ticket.due_at },
-        {
-          label: "Statut",
-          value: STATUS_LABELS[ticket.status],
-          isStatus: true,
-          statusColor,
-        },
+        { label: "Type", value: ticket.type === "curatif" ? "Curatif" : "Préventif" },
+        { label: "Site", value: ticket.site?.nom ?? "-" },
+        { label: "Patrimoine", value: ticket.asset?.designation ?? "-" },
+        { label: "Date soumise", value: ticket.planned_at ? new Date(ticket.planned_at).toLocaleString("fr-FR") : "-" },
+        { label: "Date limite", value: ticket.due_at ? new Date(ticket.due_at).toLocaleString("fr-FR") : "-" },
+        { label: "Statut", value: STATUS_LABELS[ticket.status] ?? ticket.status, isStatus: true, statusColor },
       ],
     });
-
     setIsDetailsOpen(true);
   };
 
-  /* ----------------------------- DATA TABLE ------------------------------- */
-
+  /* ── Colonnes ──────────────────────────────────────────────────────────── */
   const columns = [
-    { header: "ID", key: "id", render: (_: any, row: any) => `#${row.id}` },
-    { header: "Sujet", key: "subject", render: (_: any, row: any) => row.subject },
-    { header: "Site", key: "site", render: (_: any, row: any) => row.site.nom },
-    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.asset.designation },
-    { header: "Type", key: "type", render: (_: any, row: any) => row.type },
+    { header: "Code", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
+    { header: "Sujet", key: "subject", render: (_: any, row: any) => <span className="font-medium text-sm">{row.subject ?? "-"}</span> },
+    { header: "Site", key: "site", render: (_: any, row: any) => row.site?.nom ?? "-" },
+    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.asset?.designation ?? "-" },
+    { header: "Type", key: "type", render: (_: any, row: any) => row.type === "curatif" ? "Curatif" : "Préventif" },
     {
-      header: "Statut",
-      key: "status",
-      render: (_: any, row: any) => (
-        <span className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[row.status]}`}>
-          {STATUS_LABELS[row.status]}
-        </span>
-      ),
+      header: "Statut", key: "status",
+      render: (_: any, row: any) => {
+        const s = (row.status || "").toUpperCase();
+        return (
+          <span className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[s] ?? STATUS_STYLES.SIGNALÉ}`}>
+            {STATUS_LABELS[s] ?? row.status}
+          </span>
+        );
+      },
     },
     {
-      header: "Actions",
-      key: "actions",
+      header: "Actions", key: "actions",
       render: (_: any, row: any) => (
         <button
-          onClick={() => handleOpenDetails(row)}
-          className="text-slate-800 hover:text-blue-600"
+          onClick={() => router.push(`/manager/tickets/details/${row.id}`)}
+          className="p-2 hover:bg-slate-900 hover:text-white border border-slate-100 rounded-xl transition text-slate-400"
+          title="Voir la fiche complète"
         >
           <Eye size={18} />
         </button>
@@ -184,177 +137,96 @@ export default function ProviderDetailsPage() {
     },
   ];
 
-  const ticketActions = [
-    {
-      label: "Filtrer",
-      icon: Filter,
-      onClick: () => {},
-      variant: "secondary" as const,
-    },
-    {
-      label: "Exporter",
-      icon: Upload,
-      onClick: () => {},
-      variant: "secondary" as const,
-    },
-    {
-      label: "Nouveau Ticket",
-      icon: TicketPlus,
-      onClick: () => setIsTicketModalOpen(true),
-      variant: "primary" as const,
-    },
-  ];
-
-  /* -------------------------------------------------------------------------- */
-  /*                                   RENDER                                   */
-  /* -------------------------------------------------------------------------- */
-
+  /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
+    <div className="flex flex-col flex-1">
+      <Navbar />
 
-      <div className="flex-1 flex flex-col pl-64">
+      <main className="mt-20 p-8 space-y-8">
 
-        <Navbar />
-
-        <main className="mt-20 p-8 space-y-8">
-
-          {/* HEADER PROVIDER */}
-
-          <div className="bg-white flex justify-between p-6 rounded-2xl border">
-
-            <div className="space-y-4">
-
-              <Link
-                href="/admin/prestataires"
-                className="flex items-center gap-2 text-slate-500"
-              >
-                <ChevronLeft size={18} /> Retour
-              </Link>
-
+        {/* Header prestataire */}
+        <div className="bg-white flex flex-col md:flex-row md:items-start justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="space-y-4">
+            <Link href="/manager/prestataires" className="flex items-center gap-2 text-slate-500 hover:text-black transition text-sm font-medium">
+              <ChevronLeft size={18} /> Retour
+            </Link>
+            {isLoading ? (
+              <div className="w-64 h-10 bg-slate-100 rounded-xl animate-pulse" />
+            ) : (
               <div>
-
-                <h1 className="text-5xl font-black">
-                  {provider.company_name}
+                <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">
+                  {provider?.company_name ?? "Prestataire"}
                 </h1>
-
                 <div className="flex items-center gap-2 text-slate-400 mt-1">
-                  <MapPin size={18} />
-                  <span>{provider.city}</span>
+                  <MapPin size={16} />
+                  <span className="font-medium">{provider?.city ?? "-"}</span>
                 </div>
-
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-sm text-slate-500 font-medium">{provider?.service?.name ?? "-"}</span>
+                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold ${provider?.is_active ? "bg-green-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                    {provider?.is_active ? "Actif" : "Inactif"}
+                  </span>
+                </div>
               </div>
+            )}
+          </div>
 
+          {/* Contact + note */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 min-w-[260px] space-y-3">
+            <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
+              <Phone size={15} className="text-slate-400" />
+              {provider?.user?.phone ?? "-"}
             </div>
-
-            <div className="flex flex-col gap-4">
-
-              <div className="bg-slate-50 p-6 rounded-xl border space-y-3">
-
-                <div className="flex items-center gap-2">
-                  <Phone size={16} />
-                  {provider.user.phone}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Mail size={16} />
-                  {provider.user.email}
-                </div>
-
-                <div className="flex gap-1 mt-2">
-
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <Star
-                      key={i}
-                      size={20}
-                      className={
-                        i < provider.rating
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "text-slate-200"
-                      }
-                    />
-                  ))}
-
-                </div>
-
+            <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
+              <Mail size={15} className="text-slate-400" />
+              {provider?.user?.email ?? "-"}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xl font-black text-slate-900">
+                {providerStats?.rating ? `${providerStats.rating}/5` : "N/A"}
+              </span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <Star key={i} size={18} className={
+                    i < Math.floor(providerStats?.rating ?? 0)
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "fill-slate-200 text-slate-200"
+                  } />
+                ))}
               </div>
-
-              <button
-                onClick={() => setIsEditModalOpen(true)}
-                className="bg-slate-900 text-white py-3 px-6 rounded-xl flex items-center gap-2"
-              >
-                <Pencil size={16} /> Modifier
-              </button>
-
             </div>
-
           </div>
+        </div>
 
-          {/* KPIs */}
+        {/* KPIs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {kpis.map((kpi, i) => <StatsCard key={i} {...kpi} />)}
-          </div>
-
-          {/* ACTIONS */}
-
-          <div className="flex justify-end">
-            <ActionGroup actions={ticketActions} />
-          </div>
-
-          {/* TABLE TICKETS */}
-
-          <div className="bg-white rounded-[32px] border shadow-sm">
-
-            <DataTable columns={columns} data={tickets} title="Tickets assignés" />
-
-            <div className="p-6 border-t flex justify-end">
+        {/* Table tickets */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <DataTable columns={columns} data={tickets} title="Tickets assignés" />
+          {ticketMeta.last_page > 1 && (
+            <div className="p-6 border-t border-slate-50 flex justify-end">
               <Paginate
-                currentPage={ticketPage}
-                totalPages={1}
+                currentPage={ticketMeta.current_page}
+                totalPages={ticketMeta.last_page}
                 onPageChange={setTicketPage}
               />
             </div>
+          )}
+        </div>
 
-          </div>
-
-        </main>
-
-      </div>
-
-      {/* SIDE PANEL */}
+      </main>
 
       <SideDetailsPanel
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        title={selectedTicket?.title}
+        title={selectedTicket?.title ?? ""}
         reference={selectedTicket?.reference}
-        fields={selectedTicket?.fields || []}
+        fields={selectedTicket?.fields ?? []}
         descriptionContent={selectedTicket?.description}
       />
-
-      {/* MODALS STATIQUES */}
-
-      <ReusableForm
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Modifier le prestataire"
-        subtitle="Mode statique"
-        fields={[]}
-        onSubmit={() => setIsEditModalOpen(false)}
-        submitLabel="Mettre à jour"
-      />
-
-      <ReusableForm
-        isOpen={isTicketModalOpen}
-        onClose={() => setIsTicketModalOpen(false)}
-        title="Créer un ticket"
-        subtitle="Mode statique"
-        fields={[]}
-        onSubmit={() => setIsTicketModalOpen(false)}
-        submitLabel="Créer"
-      />
-
     </div>
   );
 }

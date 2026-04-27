@@ -4,6 +4,7 @@ import { X, MapPin, Star } from "lucide-react";
 import Image from "next/image";
 import StatsCard from "./StatsCard";
 import FormButton from "./form/FormButton";
+import { formatDate } from "@/lib/utils";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
           {/* KPIs */}
           <div className="grid grid-cols-2 gap-4">
             <StatsCard
-              label="Total billets attribués"
+              label="Total tickets attribués"
               value={provider.stats?.totalBillets?.value ?? 0}
               delta={provider.stats?.totalBillets?.delta ?? "+0%"}
               trend="up"
@@ -124,7 +125,7 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
                 { label: "Téléphone", value: provider.phone },
                 { label: "E-mail", value: provider.email },
                 { label: "Service", value: provider.category },
-                { label: "Date d'entrée", value: provider.dateEntree },
+                { label: "Date d'entrée", value: formatDate(provider.dateEntree) },
                 { label: "Localisation", value: provider.location },
               ].map((item, idx) => (
                 <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-50">
@@ -135,11 +136,10 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
 
               <div className="flex justify-between items-center py-2">
                 <span className="text-slate-400 font-medium">Statut</span>
-                <div className={`px-4 py-1 rounded-lg border text-sm font-bold ${
-                  provider.status === "Actif"
-                    ? "bg-green-50 text-green-600 border-green-100"
-                    : "bg-slate-100 text-slate-500 border-slate-200"
-                }`}>
+                <div className={`px-4 py-1 rounded-lg border text-sm font-bold ${provider.status === "Actif"
+                  ? "bg-green-50 text-green-600 border-green-100"
+                  : "bg-slate-100 text-slate-500 border-slate-200"
+                  }`}>
                   {provider.status}
                 </div>
               </div>
@@ -150,7 +150,7 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
         {/* Footer */}
         <div className="p-8 bg-white border-t border-slate-100 flex gap-4">
           <FormButton variant="secondary" onClick={onClose} className="flex-1">Annuler</FormButton>
-          <FormButton variant="primary" onClick={() => {}} className="flex-1">Mettre à jour</FormButton>
+          <FormButton variant="primary" onClick={() => { }} className="flex-1">Mettre à jour</FormButton>
         </div>
       </div>
     </>

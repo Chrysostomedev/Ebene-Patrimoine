@@ -9,16 +9,17 @@ import {
 } from "lucide-react";
 import axiosInstance from "../../../core/axios";
 
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable from "@/components/DataTable";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
+import { formatDate } from "@/lib/utils";
+import { useToast } from "@/contexts/ToastContext";
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // DONNÉES STATIQUES
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 
 const ROLES_CONFIG: Record<string, {
   label: string; badge: string; dot: string; icon: any; count: number; description: string;
@@ -102,9 +103,9 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // SIDE PANEL UTILISATEUR
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 
 function UserSidePanel({ user, onClose, onToggleStatus }: {
   user: User | null; onClose: () => void;
@@ -203,20 +204,20 @@ function UserSidePanel({ user, onClose, onToggleStatus }: {
             }
           </button>
 
-          {/* Changer le rôle */}
+          {/* Changer le rôle
           <button className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition">
             <Shield size={15} /> Changer le rôle
-          </button>
+          </button> */}
         </div>
       </div>
     </>
   );
 }
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // ADD ADMIN SIDE PANEL
-// POST /admin/admins — role_slug: admin | super-admin
-// ═══════════════════════════════════════
+// POST /admin/admins - role_slug: admin | super-admin
+// ══════════════════════════════════════
 
 const EMPTY_FORM = { name: "", email: "", phone: "", password: "", role_slug: "admin" as "admin" | "super-admin" };
 
@@ -262,9 +263,9 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
         email:  form.email,
         phone:  form.phone,
         role:   form.role_slug,
-        site:   "—",
+        site:   "",
         status: "active",
-        joined: new Date().toLocaleDateString("fr-FR"),
+        joined: formatDate(new Date()),
       });
       onClose();
     } catch (err: any) {
@@ -340,7 +341,7 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
             </div>
           )}
 
-          {/* Sélecteur de rôle — visuels */}
+          {/* Sélecteur de rôle - visuels */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
               <Shield size={10} /> Rôle
@@ -423,54 +424,191 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
   );
 }
 
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 // PAGE
-// ═══════════════════════════════════════
+// ══════════════════════════════════════
 
 export default function RolesPage() {
-  const [users,        setUsers]        = useState(USERS_DATA);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [users,        setUsers]        = useState<any[]>([]);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [isOpen,       setIsOpen]       = useState(false);
   const [roleFilter,   setRoleFilter]   = useState<string>("all");
   const [currentPage,  setCurrentPage]  = useState(1);
+  const [totalPages,   setTotalPages]   = useState(1);
+  const [totalItems,   setTotalItems]   = useState(0);
   const [addAdminOpen, setAddAdminOpen] = useState(false);
-  const [flash,        setFlash]        = useState<{ type: "success"|"error"; msg: string } | null>(null);
+  const { toast } = useToast();
+  const [stats,        setStats]        = useState({ total: 0, admins: 0, managers: 0, providers: 0 });
 
   const PER_PAGE = 10;
 
-  const showFlash = (type: "success"|"error", msg: string) => {
-    setFlash({ type, msg });
-    setTimeout(() => setFlash(null), 4000);
+
+  const fetchStats = async () => {
+    try {
+      // Récupère les vraies stats depuis les endpoints dédiés
+      const [adminsRes, providersRes] = await Promise.allSettled([
+        axiosInstance.get("/admin/admins", { params: { per_page: 1, page: 1 } }),
+        axiosInstance.get("/admin/providers/stats"),
+      ]);
+
+      // Admins depuis /admin/admins (inclut tous les rôles admin/manager/super-admin)
+      let superAdmins = 0, adminsCount = 0, managersCount = 0;
+      if (adminsRes.status === "fulfilled") {
+        const d = adminsRes.value.data?.data;
+        // Essaie d'abord /admin/roles/stats pour la répartition
+        try {
+          const rolesRes = await axiosInstance.get("/admin/roles/stats");
+          const arr: any[] = rolesRes.data?.data ?? [];
+          const get = (name: string) => arr.find((r: any) =>
+            (r.role_name ?? r.slug ?? "").toUpperCase() === name.toUpperCase()
+          )?.user_count ?? 0;
+          superAdmins  = get("SUPER-ADMIN");
+          adminsCount  = get("ADMIN") + superAdmins;
+          managersCount = get("MANAGER");
+        } catch {
+          // Fallback : total depuis meta
+          const total = d?.meta?.total ?? 0;
+          adminsCount = total;
+        }
+      }
+
+      // Providers depuis /admin/providers/stats
+      let providers = 0;
+      if (providersRes.status === "fulfilled") {
+        providers = providersRes.value.data?.data?.total_providers ?? 0;
+      }
+
+      setStats({
+        total:    adminsCount + managersCount + providers,
+        admins:   adminsCount,
+        managers: managersCount,
+        providers,
+      });
+    } catch (e) {
+      console.error("Stats error", e);
+    }
   };
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      let items: any[] = [];
+      let lastPage = 1;
+      let total = 0;
+
+      if (roleFilter === "provider") {
+        // Prestataires → /admin/providers
+        const res = await axiosInstance.get("/admin/providers", {
+          params: { page: currentPage, per_page: PER_PAGE },
+        });
+        const d = res.data?.data ?? res.data;
+        const raw: any[] = Array.isArray(d?.items) ? d.items
+          : Array.isArray(d?.data) ? d.data
+          : Array.isArray(d) ? d : [];
+        lastPage = d?.meta?.last_page ?? d?.last_page ?? 1;
+        total    = d?.meta?.total    ?? d?.total    ?? raw.length;
+        items = raw.map((u: any) => ({
+          id:     u.id,
+          name:   u.company_name ?? `Prestataire #${u.id}`,
+          role:   "provider",
+          phone:  u.phone ?? u.user?.phone ?? "",
+          email:  u.email ?? u.user?.email ?? "",
+          status: u.is_active ? "active" : "inactive",
+          joined: formatDate(u.created_at),
+        }));
+
+      } else {
+        // Admins / Managers / Super-Admin → /admin/admins?role_slug=...
+        const roleSlugMap: Record<string, string> = {
+          "admin":       "ADMIN",
+          "super-admin": "SUPER-ADMIN",
+          "manager":     "MANAGER",
+        };
+        const params: any = { page: currentPage, per_page: PER_PAGE };
+        if (roleFilter !== "all") params.role_slug = roleSlugMap[roleFilter] ?? roleFilter.toUpperCase();
+
+        const res = await axiosInstance.get("/admin/admins", { params });
+        const d = res.data?.data ?? res.data;
+        const raw: any[] = Array.isArray(d?.items) ? d.items
+          : Array.isArray(d?.data) ? d.data
+          : Array.isArray(d) ? d : [];
+        lastPage = d?.meta?.last_page ?? d?.last_page ?? 1;
+        total    = d?.meta?.total    ?? d?.total    ?? raw.length;
+        items = raw.map((u: any) => {
+          const roleName = (u.roles?.[0]?.name ?? u.role_name ?? "").toLowerCase();
+          return {
+            id:     u.id,
+            name:   [u.first_name, u.last_name].filter(Boolean).join(" ") || u.name || `#${u.id}`,
+            role:   roleName || (roleFilter !== "all" ? roleFilter : "admin"),
+            phone:  u.phone_number ?? u.phone ?? "",
+            email:  u.email ?? "",
+            status: (u.is_active === true || u.is_active === 1 || u.status === "active" || u.status === "actif") ? "active" : "inactive",
+            joined: formatDate(u.created_at),
+          };
+        });
+      }
+
+      setUsers(items);
+      setTotalPages(lastPage);
+      setTotalItems(total);
+    } catch (e) {
+      console.error("Fetch users error", e);
+      toast.error("Impossible de charger les utilisateurs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [roleFilter, currentPage]);
 
   const handleAdminCreated = (newUser: any) => {
-    setUsers(prev => [newUser, ...prev]);
-    showFlash("success", `Administrateur "${newUser.name}" créé avec succès.`);
+    fetchUsers();
+    fetchStats();
+    toast.success(`Administrateur créé avec succès.`);
   };
 
-  const handleToggleStatus = (id: number) => {
-    setUsers(prev => prev.map(u =>
-      u.id === id ? { ...u, status: u.status === "active" ? "inactive" : "active" } : u
-    ));
-    setSelectedUser(prev =>
-      prev?.id === id ? { ...prev, status: prev.status === "active" ? "inactive" : "active" } : prev
-    );
-  };
+  const handleToggleStatus = async (id: number) => {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
 
-  // KPIs
-  const totalUsers   = users.length;
-  const totalAdmins  = users.filter(u => u.role === "admin" || u.role === "super-admin").length;
-  const totalManagers = users.filter(u => u.role === "manager").length;
-  const totalProviders = users.filter(u => u.role === "provider").length;
+    const isProvider = user.role === "provider";
+    const isActive = user.status === "active";
+    const action = isActive ? "desactivate" : "activate";
+
+    try {
+      if (isProvider) {
+        await axiosInstance.put(`/admin/providers/${action}/${id}`);
+      } else {
+        // Pour les autres on update le status si l'API le permet, sinon message
+        await axiosInstance.put(`/admin/admins/${id}`, { status: isActive ? "inactive" : "active" });
+      }
+      
+      setUsers(prev => prev.map(u =>
+        u.id === id ? { ...u, status: isActive ? "inactive" : "active" } : u
+      ));
+      if (selectedUser?.id === id) {
+        setSelectedUser({ ...selectedUser, status: isActive ? "inactive" : "active" });
+      }
+      toast.success(`Statut mis à jour.`);
+    } catch (e) {
+      toast.error("Erreur lors de la mise à jour du statut.");
+    }
+  };
 
   const kpis = [
-    { label: "Utilisateurs au total", value: totalUsers,    delta: "+5%",  trend: "up" as const },
-    { label: "Administrateurs",        value: totalAdmins,  delta: "+0%",  trend: "up" as const },
-    { label: "Managers",               value: totalManagers,delta: "+20%", trend: "up" as const },
-    { label: "Prestataires",           value: totalProviders,delta: "+12%",trend: "up" as const },
+    { label: "Utilisateurs au total", value: stats.total,    delta: "",  trend: "up" as const },
+    { label: "Administrateurs",        value: stats.admins,   delta: "",  trend: "up" as const },
+    { label: "Managers",               value: stats.managers, delta: "",  trend: "up" as const },
+    { label: "Prestataires",           value: stats.providers,delta: "",  trend: "up" as const },
   ];
 
-  // Filtre par rôle
   const ROLE_FILTERS = [
     { key: "all",        label: "Tous" },
     { key: "super-admin",label: "Super Admin" },
@@ -479,21 +617,16 @@ export default function RolesPage() {
     { key: "provider",   label: "Prestataires" },
   ];
 
-  const filtered   = roleFilter === "all" ? users : users.filter(u => u.role === roleFilter);
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated  = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
   const handleRoleFilter = (key: string) => { setRoleFilter(key); setCurrentPage(1); };
 
-  // Colonnes DataTable
   const columns = [
     {
       header: "Utilisateur", key: "name",
-      render: (_: any, row: User) => (
+      render: (_: any, row: any) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
             <span className="text-xs font-black text-white">
-              {row.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+              {row.name.split(" ").map((n:string) => n[0]).join("").slice(0, 2).toUpperCase()}
             </span>
           </div>
           <div>
@@ -505,32 +638,32 @@ export default function RolesPage() {
     },
     {
       header: "Rôle", key: "role",
-      render: (_: any, row: User) => <RoleBadge role={row.role} />,
+      render: (_: any, row: any) => <RoleBadge role={row.role} />,
     },
-    {
-      header: "Site", key: "site",
-      render: (_: any, row: User) => (
-        <div className="flex items-center gap-1.5 text-slate-600 text-sm">
-          <Building2 size={13} className="text-slate-400" />
-          {row.site}
-        </div>
-      ),
-    },
+    // {
+    //   header: "Site / Entreprise", key: "site",
+    //   render: (_: any, row: any) => (
+    //     <div className="flex items-center gap-1.5 text-slate-600 text-sm">
+    //       <Building2 size={13} className="text-slate-400" />
+    //       {row.site}
+    //     </div>
+    //   ),
+    // },
     {
       header: "Téléphone", key: "phone",
-      render: (_: any, row: User) => <span className="text-sm text-slate-600">{row.phone}</span>,
+      render: (_: any, row: any) => <span className="text-sm text-slate-600">{row.phone}</span>,
     },
     {
       header: "Statut", key: "status",
-      render: (_: any, row: User) => <StatusBadge status={row.status} />,
+      render: (_: any, row: any) => <StatusBadge status={row.status} />,
     },
     {
       header: "Membre depuis", key: "joined",
-      render: (_: any, row: User) => <span className="text-xs text-slate-500">{row.joined}</span>,
+      render: (_: any, row: any) => <span className="text-xs text-slate-500">{row.joined}</span>,
     },
     {
       header: "Actions", key: "actions",
-      render: (_: any, row: User) => (
+      render: (_: any, row: any) => (
         <button
           onClick={() => { setSelectedUser(row); setIsOpen(true); }}
           className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
@@ -542,26 +675,20 @@ export default function RolesPage() {
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
+    <div className="flex-1 flex flex-col">
+      <Navbar />
 
-        <main className="ml-64 mt-20 p-6 space-y-8">
+      <main className="mt-20 p-6 space-y-8">
           <PageHeader
             title="Gestion des rôles & Utilisateurs"
             subtitle="Gérez les rôles, permissions et accès de tous les utilisateurs"
           />
 
-          {/* ── KPIs ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
           </div>
 
-      
-          {/* ── Filter pills + bouton Ajouter ── */}
           <div className="flex items-center justify-between gap-3">
-            {/* Pills rôles à gauche */}
             <div className="flex items-center gap-2 flex-wrap">
               {ROLE_FILTERS.map(f => (
                 <button
@@ -578,10 +705,10 @@ export default function RolesPage() {
               ))}
             </div>
 
-            {/* Droite : compteur + bouton */}
             <div className="flex items-center gap-3 shrink-0">
+              {loading && <span className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />}
               <p className="text-sm text-slate-400 font-medium">
-                {filtered.length} utilisateur{filtered.length > 1 ? "s" : ""}
+                {totalItems} utilisateur{totalItems > 1 ? "s" : ""}
               </p>
               <button
                 onClick={() => setAddAdminOpen(true)}
@@ -593,41 +720,44 @@ export default function RolesPage() {
             </div>
           </div>
 
-          {/* ── DataTable ── */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={paginated} onViewAll={() => {}} />
-            <div className="p-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
-              <p className="text-xs text-slate-400">
-                Page {currentPage} sur {totalPages || 1} · {filtered.length} utilisateurs
-              </p>
-              <Paginate currentPage={currentPage} totalPages={totalPages || 1} onPageChange={setCurrentPage} />
-            </div>
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
+            {loading && users.length === 0 ? (
+              <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-4">
+                <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
+                <p className="text-sm font-medium italic">Chargement des utilisateurs...</p>
+              </div>
+            ) : (
+              <>
+                <DataTable title="Liste des utilisateurs" columns={columns} data={users} onViewAll={() => {}} />
+                {users.length === 0 && !loading && (
+                   <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-2">
+                     <Users size={40} className="text-slate-100 mb-2" />
+                     <p className="text-sm font-medium italic">Aucun utilisateur trouvé pour ce filtre.</p>
+                   </div>
+                )}
+                <div className="p-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
+                  <p className="text-xs text-slate-400">
+                    Page {currentPage} sur {totalPages || 1} · {totalItems} utilisateurs
+                  </p>
+                  <Paginate currentPage={currentPage} totalPages={totalPages || 1} onPageChange={setCurrentPage} />
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Side Panel détail utilisateur */}
           <UserSidePanel
             user={isOpen ? selectedUser : null}
             onClose={() => { setIsOpen(false); setSelectedUser(null); }}
             onToggleStatus={handleToggleStatus}
           />
 
-          {/* Side Panel créer admin */}
           <AddAdminSidePanel
             open={addAdminOpen}
             onClose={() => setAddAdminOpen(false)}
             onSuccess={handleAdminCreated}
           />
 
-          {/* Flash */}
-          {flash && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[300] px-6 py-3.5 rounded-2xl shadow-xl text-sm font-bold border ${
-              flash.type === "success" ? "text-green-800 bg-green-50 border-green-200" : "text-red-700 bg-red-50 border-red-200"
-            }`}>
-              {flash.msg}
-            </div>
-          )}
         </main>
       </div>
-    </div>
   );
 }

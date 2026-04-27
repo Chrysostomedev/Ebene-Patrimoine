@@ -2,32 +2,33 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import {
   ChevronLeft, CheckCircle2, XCircle, Clock,
   FileText, Eye, Download, X,
   MapPin, Briefcase, DollarSign,
-  AlertTriangle, AlertCircle,
+  AlertTriangle, AlertCircle, Pencil,
 } from "lucide-react";
+
+import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 
 import {
   providerInvoiceService, Invoice,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
-  formatMontant, formatDate, formatDateLong,
   getPdfUrl, getProviderName, getSiteName,
   getReport, toNum,
 } from "../../../../services/provider/providerInvoiceService";
+import { formatCurrency as formatMontant, formatDate } from "@/lib/utils";
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   const icons: Record<string, React.ReactNode> = {
-    paid:      <CheckCircle2  size={14} />,
-    pending:   <Clock         size={14} />,
-    overdue:   <AlertTriangle size={14} />,
-    cancelled: <XCircle       size={14} />,
+    paid: <CheckCircle2 size={14} />,
+    pending: <Clock size={14} />,
+    overdue: <AlertTriangle size={14} />,
+    cancelled: <XCircle size={14} />,
   };
   return (
     <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-bold
@@ -38,7 +39,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── PDF Preview Modal — centre plein écran ───────────────────────────────────
+// ─── PDF Preview Modal - centre plein écran ───────────────────────────────────
 
 function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
   return (
@@ -67,7 +68,7 @@ function PdfPreviewModal({ url, name, onClose }: { url: string; name: string; on
   );
 }
 
-// ─── FlowStep — Flux : Rapport → Devis → Facture ─────────────────────────────
+// ─── FlowStep - Flux : Rapport → Devis → Facture ─────────────────────────────
 
 interface FlowStepProps {
   label: string;
@@ -90,8 +91,8 @@ function FlowStep({ label, reference, date, status, icon, isLast }: FlowStepProp
       <div className="flex-1 pb-6">
         <h4 className="text-sm font-black text-slate-900 mb-1">{label}</h4>
         {reference && <p className="text-xs text-slate-500 mb-1">Réf : {reference}</p>}
-        {date      && <p className="text-xs text-slate-400">{formatDate(date)}</p>}
-        {status    && <div className="mt-2"><StatusBadge status={status} /></div>}
+        {date && <p className="text-xs text-slate-400">{formatDate(date)}</p>}
+        {status && <div className="mt-2"><StatusBadge status={status} /></div>}
       </div>
     </div>
   );
@@ -100,79 +101,117 @@ function FlowStep({ label, reference, date, status, icon, isLast }: FlowStepProp
 // ─── Page détail ──────────────────────────────────────────────────────────────
 
 export default function ProviderFacturesDetailPage() {
-  const params    = useParams();
-  const router    = useRouter();
+  const params = useParams();
+  const router = useRouter();
   const invoiceId = Number(params?.id);
 
-  const [invoice,    setInvoice]    = useState<Invoice | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState("");
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
 
   // ── Chargement ────────────────────────────────────────────────────────────
-  useEffect(() => {
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [flash, setFlash] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  const showFlash = (type: "success" | "error", msg: string) => {
+    setFlash({ type, msg });
+    setTimeout(() => setFlash(null), 5000);
+  };
+
+  const loadInvoiceData = async () => {
     if (!invoiceId) return;
-    const load = async () => {
-      setLoading(true); setError("");
-      try {
-        // GET /provider/invoice/{id} — charge avec interventionReport, quote, provider, site, attachments
-        const data = await providerInvoiceService.getInvoiceById(invoiceId);
-        setInvoice(data);
-      } catch (e: any) {
-        setError(
-          e.response?.data?.message ??
-          e.response?.data?.error   ??
-          "Impossible de charger cette facture."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    setLoading(true); setError("");
+    try {
+      const data = await providerInvoiceService.getInvoiceById(invoiceId);
+      setInvoice(data);
+    } catch (e: any) {
+      setError(e.response?.data?.message ?? "Impossible de charger cette facture.");
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    loadInvoiceData();
   }, [invoiceId]);
 
-  // ── Données dérivées ──────────────────────────────────────────────────────
-  const isPaid    = invoice?.payment_status === "paid";
-  const isOverdue = invoice?.payment_status === "overdue";
-  const report    = invoice ? getReport(invoice) : undefined;
+  const handleEditSubmit = async (formData: any) => {
+    if (!invoice) return;
+    try {
+      await providerInvoiceService.updateInvoice(invoice.id, {
+        report_id: invoice.report_id!,
+        amount_ht: Number(formData.amount_ht),
+        tax_amount: Number(formData.tax_amount),
+        amount_ttc: Number(formData.amount_ttc),
+        comment: formData.comment,
+        pdf_file: formData.pdf_file?.[0],
+      });
+      showFlash("success", "Facture mise à jour avec succès.");
+      setIsEditModalOpen(false);
+      loadInvoiceData();
+    } catch (err: any) {
+      showFlash("error", err?.response?.data?.message ?? "Erreur lors de la mise à jour.");
+    }
+  };
 
-  const amountHT  = toNum(invoice?.amount_ht);
+  const invoiceFields: FieldConfig[] = [
+    { name: "amount_ht", label: "Montant HT (FCFA)", type: "number", required: true },
+    { name: "tax_amount", label: "Montant TVA (FCFA)", type: "number", required: true },
+    { name: "amount_ttc", label: "Montant TTC (FCFA)", type: "number", required: true },
+    { name: "comment", label: "Commentaire", type: "textarea", gridSpan: 2 },
+    { name: "pdf_file", label: "Facture PDF (optionnel)", type: "pdf-upload", maxPDFs: 1, gridSpan: 2 },
+  ];
+
+  const canEdit = invoice && invoice.payment_status === "pending";
+
+  // ── Données dérivées ──────────────────────────────────────────────────────
+  const isPaid = invoice?.payment_status === "paid";
+  const isOverdue = invoice?.payment_status === "overdue";
+  const report = invoice ? getReport(invoice) : undefined;
+
+  const amountHT = toNum(invoice?.amount_ht);
   const taxAmount = toNum(invoice?.tax_amount);
   const amountTTC = toNum(invoice?.amount_ttc);
 
   // PDF principal
-  const pdfUrl  = invoice?.pdf_path ? getPdfUrl(invoice.pdf_path) : null;
+  const pdfUrl = invoice?.pdf_path ? getPdfUrl(invoice.pdf_path) : null;
   const pdfName = invoice?.pdf_path?.split("/").pop() ?? "facture.pdf";
 
   // Justificatifs supplémentaires (relation attachments[])
   const attachments = (invoice?.attachments ?? []).map((a) => ({
     name: a.file_path.split("/").pop() ?? "document",
-    url:  getPdfUrl(a.file_path),
+    url: getPdfUrl(a.file_path),
   }));
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = [
     { label: "Prestataire", value: getProviderName(invoice?.provider), delta: "", trend: "up" as const },
-    { label: "Site",        value: getSiteName(invoice?.site),         delta: "", trend: "up" as const },
-    { label: "Montant HT",  value: formatMontant(amountHT),            delta: "", trend: "up" as const },
-    { label: "Montant TTC", value: formatMontant(amountTTC),           delta: "", trend: "up" as const },
+    { label: "Site", value: getSiteName(invoice?.site), delta: "", trend: "up" as const },
+    { label: "Montant HT", value: formatMontant(amountHT), delta: "", trend: "up" as const },
+    { label: "Montant TTC", value: formatMontant(amountTTC), delta: "", trend: "up" as const },
   ];
 
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="ml-64 mt-20 p-8 space-y-8">
+        <main className="mt-4 p-8 space-y-8">
 
           {/* Bouton retour */}
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-500 hover:text-black transition-colors
-              bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
-          >
-            <ChevronLeft size={16} /> Retour
-          </button>
+          <div className="flex items-center justify-between gap-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 text-slate-500 hover:text-black transition-colors
+                bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
+            >
+              <ChevronLeft size={16} /> Retour
+            </button>
+
+            {flash && (
+              <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${flash.type === "success" ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-100 border-red-300"}`}>
+                {flash.msg}
+              </div>
+            )}
+          </div>
 
           {/* Erreur */}
           {error && (
@@ -187,7 +226,7 @@ export default function ProviderFacturesDetailPage() {
               <div className="h-10 w-80 bg-slate-100 rounded-2xl" />
               <div className="h-36 bg-slate-100 rounded-3xl" />
               <div className="grid grid-cols-4 gap-6">
-                {[0,1,2,3].map(i => <div key={i} className="h-28 bg-slate-100 rounded-3xl" />)}
+                {[0, 1, 2, 3].map(i => <div key={i} className="h-28 bg-slate-100 rounded-3xl" />)}
               </div>
               <div className="grid grid-cols-3 gap-6">
                 <div className="col-span-2 h-80 bg-slate-100 rounded-3xl" />
@@ -219,24 +258,33 @@ export default function ProviderFacturesDetailPage() {
                   </div>
                 </div>
 
-                {/* Bloc dates */}
-                <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 min-w-[280px] space-y-2.5">
-                  {[
-                    { label: "Date facture", value: formatDate(invoice.invoice_date), style: "text-slate-900" },
-                    {
-                      label: "Échéance",
-                      value: formatDate(invoice.due_date),
-                      style: isOverdue ? "text-red-600 font-black" : "text-slate-900",
-                    },
-                    ...(isPaid && invoice.payment_date
-                      ? [{ label: "Payée le", value: formatDate(invoice.payment_date), style: "text-emerald-700 font-black" }]
-                      : []),
-                  ].map((r, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm">
-                      <span className="text-slate-400 font-medium">{r.label}</span>
-                      <span className={`font-bold ${r.style}`}>{r.value}</span>
-                    </div>
-                  ))}
+                {/* Bloc dates et actions */}
+                <div className="flex flex-col md:flex-row items-center gap-6 shrink-0">
+                  <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 min-w-[280px] space-y-2.5">
+                    {[
+                      { label: "Date facture", value: formatDate(invoice.invoice_date), style: "text-slate-900" },
+                      {
+                        label: "Échéance",
+                        value: formatDate(invoice.due_date),
+                        style: isOverdue ? "text-red-600 font-black" : "text-slate-900",
+                      },
+                      ...(isPaid && invoice.payment_date
+                        ? [{ label: "Payée le", value: formatDate(invoice.payment_date), style: "text-emerald-700 font-black" }]
+                        : []),
+                    ].map((r, i) => (
+                      <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-slate-400 font-medium">{r.label}</span>
+                        <span className={`font-bold ${r.style}`}>{r.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    disabled={!canEdit}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm ${canEdit ? "bg-slate-900 text-white hover:bg-black" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
+                  >
+                    <Pencil size={14} /> Modifier la facture
+                  </button>
                 </div>
               </div>
 
@@ -251,14 +299,14 @@ export default function ProviderFacturesDetailPage() {
                 {/* Colonne gauche */}
                 <div className="lg:col-span-2 space-y-6">
 
-                  {/* Flux de traitement — Rapport → Devis → Facture */}
+                  {/* Flux de traitement - Rapport → Devis → Facture */}
                   <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">
                       Flux de traitement
                     </h3>
                     <FlowStep
                       label="Rapport d'intervention"
-                      reference={report?.reference ?? `Rapport #${invoice.report_id}`}
+                      reference={report?.reference ?? `Rapport ${invoice.report_reference}`}
                       date={report?.start_date}
                       icon={<FileText size={18} />}
                     />
@@ -288,7 +336,7 @@ export default function ProviderFacturesDetailPage() {
                       <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 space-y-2">
                         {[
                           { label: "Montant HT", value: formatMontant(amountHT) },
-                          { label: "TVA",        value: formatMontant(taxAmount) },
+                          { label: "TVA", value: formatMontant(taxAmount) },
                         ].map((r) => (
                           <div key={r.label} className="flex justify-between text-sm">
                             <span className="text-slate-500">{r.label}</span>
@@ -306,9 +354,9 @@ export default function ProviderFacturesDetailPage() {
                         <div className="px-4 py-3 bg-emerald-50 border-t border-emerald-100">
                           <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm mb-1">
                             <CheckCircle2 size={16} />
-                            Payée le {formatDateLong(invoice.payment_date)}
+                            Payée le {formatDate(invoice.payment_date, { day: "2-digit", month: "long", year: "numeric" })}
                           </div>
-                          {invoice.payment_method    && <p className="text-xs text-emerald-600">Mode : {invoice.payment_method}</p>}
+                          {invoice.payment_method && <p className="text-xs text-emerald-600">Mode : {invoice.payment_method}</p>}
                           {invoice.payment_reference && <p className="text-xs text-emerald-600 font-mono">Réf : {invoice.payment_reference}</p>}
                         </div>
                       )}
@@ -318,21 +366,21 @@ export default function ProviderFacturesDetailPage() {
                         <div className="px-4 py-3 bg-red-50 border-t border-red-100">
                           <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
                             <AlertTriangle size={16} />
-                            Facture en retard — Échéance dépassée
+                            Facture en retard - Échéance dépassée
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Rapport lié — description ou findings */}
+                  {/* Rapport lié - description ou findings */}
                   {(report?.description || report?.findings) && (
                     <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
                         Rapport d'intervention
                       </h3>
                       <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">
-                        {report?.findings ?? report?.description}
+                        <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report?.findings ?? report?.description ?? "" }} />
                       </p>
                     </div>
                   )}
@@ -418,10 +466,10 @@ export default function ProviderFacturesDetailPage() {
                         style={{ backgroundColor: `${STATUS_DOT[invoice.payment_status] ?? "#94a3b8"}18` }}
                       >
                         {isPaid
-                          ? <CheckCircle2  size={18} className="text-green-500"  />
+                          ? <CheckCircle2 size={18} className="text-green-500" />
                           : isOverdue
-                            ? <AlertTriangle size={18} className="text-red-500"    />
-                            : <Clock         size={18} className="text-amber-500"  />
+                            ? <AlertTriangle size={18} className="text-red-500" />
+                            : <Clock size={18} className="text-amber-500" />
                         }
                       </div>
                       <div>
@@ -455,9 +503,9 @@ export default function ProviderFacturesDetailPage() {
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Prestataire</h3>
                       <div className="space-y-2.5">
                         {[
-                          { label: "Nom",       value: getProviderName(invoice.provider) },
-                          { label: "Email",     value: invoice.provider.email ?? "—"     },
-                          { label: "Téléphone", value: invoice.provider.phone ?? "—"     },
+                          { label: "Nom", value: getProviderName(invoice.provider) },
+                          { label: "Email", value: invoice.provider.email ?? "-" },
+                          { label: "Téléphone", value: invoice.provider.phone ?? "-" },
                         ].map((f, i) => (
                           <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
                             <span className="text-xs text-slate-400 font-medium">{f.label}</span>
@@ -474,9 +522,28 @@ export default function ProviderFacturesDetailPage() {
         </main>
       </div>
 
-      {/* PDF Preview Modal — centre */}
+      {/* PDF Preview Modal - centre */}
       {pdfPreview && (
         <PdfPreviewModal url={pdfPreview.url} name={pdfPreview.name} onClose={() => setPdfPreview(null)} />
+      )}
+
+      {/* Modifier Modal */}
+      {invoice && (
+        <ReusableForm
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Modifier la facture"
+          subtitle="Mettez à jour les informations de votre facture"
+          fields={invoiceFields}
+          initialValues={{
+            amount_ht: toNum(invoice.amount_ht),
+            tax_amount: toNum(invoice.tax_amount),
+            amount_ttc: toNum(invoice.amount_ttc),
+            comment: invoice.comment,
+          }}
+          onSubmit={handleEditSubmit}
+          submitLabel="Enregistrer les modifications"
+        />
       )}
     </div>
   );

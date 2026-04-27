@@ -1,7 +1,7 @@
 /**
  * app/login/password/page.tsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Page "Mot de passe oublié" — orchestre deux étapes :
+ * Page "Mot de passe oublié" - orchestre deux étapes :
  *
  *   Étape 1 : <ForgetEmail>
  *     → Saisie de l'email
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
 
   // ── Étape 2 : OTP + nouveau mot de passe ─────────────────────────────────
   // ForgetPassword appelle authService.resetPassword() avec l'OTP réel
-  // envoyé par Laravel — c'est le back qui le vérifie via OTPService
+  // envoyé par Laravel - c'est le back qui le vérifie via OTPService
   return (
     <ForgetPassword
       email={email}

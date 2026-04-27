@@ -9,10 +9,10 @@
 import { Planning, STATUS_COLORS, STATUS_BG, STATUS_LABELS } from "../../services/admin/planningService";
 
 const LEGEND_ITEMS = [
-  { label: "Planifié",   color: STATUS_COLORS.planifie,  bg: STATUS_BG.planifie },
-  { label: "En cours",  color: STATUS_COLORS.en_cours,  bg: STATUS_BG.en_cours },
-  { label: "En retard", color: STATUS_COLORS.en_retard, bg: STATUS_BG.en_retard },
-  { label: "Réalisé",   color: STATUS_COLORS.realise,   bg: STATUS_BG.realise },
+  { label: "Planifié",  color: STATUS_COLORS["PLANIFIÉ"],  bg: STATUS_BG["PLANIFIÉ"] },
+  { label: "En cours",  color: STATUS_COLORS["EN_COURS"],  bg: STATUS_BG["EN_COURS"] },
+  { label: "En retard", color: STATUS_COLORS["EN_RETARD"], bg: STATUS_BG["EN_RETARD"] },
+  { label: "Réalisé",   color: STATUS_COLORS["RÉALISÉ"],   bg: STATUS_BG["RÉALISÉ"] },
 ];
 
 interface EventLegendProps {
@@ -35,7 +35,7 @@ export default function EventLegend({ search = "", plannings }: EventLegendProps
         !search ||
         p.codification.toLowerCase().includes(search.toLowerCase()) ||
         p.responsable_name.toLowerCase().includes(search.toLowerCase()) ||
-        (p.site?.name ?? "").toLowerCase().includes(search.toLowerCase());
+        (p.site?.nom ?? "").toLowerCase().includes(search.toLowerCase());
       return isUpcoming && matchSearch;
     })
     .slice(0, 5); // Limite à 5 pour ne pas déborder
@@ -60,7 +60,7 @@ export default function EventLegend({ search = "", plannings }: EventLegendProps
         </div>
       </div>
 
-      {/* ── Événements à venir — DYNAMIQUES ── */}
+      {/* ── Événements à venir - DYNAMIQUES ── */}
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-slate-400">Événements à venir</h3>
 
@@ -88,9 +88,9 @@ export default function EventLegend({ search = "", plannings }: EventLegendProps
                       <span className="font-semibold text-slate-800 leading-tight line-clamp-1">
                         {planning.codification}
                       </span>
-                      {planning.site?.name && (
+                      {planning.site?.nom && (
                         <span className="text-slate-400 text-[11px]">
-                          {planning.site.name}
+                          {planning.site.nom}
                         </span>
                       )}
                     </div>

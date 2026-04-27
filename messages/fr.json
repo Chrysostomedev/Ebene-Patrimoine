@@ -1,0 +1,331 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer",
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "search": "Rechercher...",
+    "filter": "Filtrer",
+    "export": "Exporter",
+    "import": "Importer",
+    "add": "Ajouter",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "view": "Voir",
+    "actions": "Actions",
+    "status": "Statut",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "noData": "Aucune donnée disponible",
+    "seeAll": "Voir tout",
+    "reference": "Référence ou Identifiant",
+    "copied": "Copié",
+    "copy": "Copier",
+    "unavailable": "Informations indisponibles",
+    "enableAll": "Tout activer",
+    "disableAll": "Tout désactiver",
+    "savePreferences": "Enregistrer les préférences",
+    "see": "Voir →",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "preview": "Prévisualisation",
+    "addNew": "Ajouter",
+    "details": "Détails",
+    "all": "Tous",
+    "valid": "Valides",
+    "warnings": "Avertissements",
+    "errors": "Erreurs",
+    "lines": "lignes",
+    "page": "Page",
+    "of": "sur",
+    "noFilter": "Aucun filtre actif"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "administration": "Administration",
+    "tickets": "Tickets curatifs",
+    "sites": "Sites",
+    "patrimoines": "Patrimoines",
+    "types": "Types",
+    "subtypes": "Sous-types",
+    "planning": "Planning préventifs",
+    "entretien": "Rapports préventifs ",
+    "prestataires": "Prestataires",
+    "devis": "Devis",
+    "factures": "Factures",
+    "rapports": "Rapports curatifs",
+    "services": "Services",
+    "transfert": "Transfert inter-sites",
+    "gestionnaires": "Gestionnaires",
+    "notifications": "Notifications",
+    "profile": "Profil",
+    "parametres": "Paramètres",
+    "logout": "Se déconnecter",
+    "roles": "Gestion des rôles",
+    "audit": "Traçabilité",
+    "stayConnected": "Rester connecté",
+    "disconnect": "Se déconnecter",
+    "disconnectTitle": "Déconnexion de votre compte",
+    "disconnectMessage": "Souhaitez-vous vous déconnecter ? Vous pourrez vous reconnecter facilement à tout moment."
+  },
+  "settings": {
+    "title": "Paramètres avancés",
+    "subtitle": "Personnalisez votre expérience",
+    "pageTitle": "Paramètres",
+    "pageSubtitle": "Gérez votre compte et vos préférences",
+    "myAccount": "Mon Compte",
+    "notifications": "Notifications",
+    "administration": "Administration",
+    "tracking": "Traçabilité",
+    "language": "Langue",
+    "languageTitle": "Choisir la langue",
+    "languageSubtitle": "Langue de l'interface",
+    "currentLanguage": "Langue actuelle",
+    "applyLanguage": "Appliquer",
+    "personalInfo": "Informations Personnelles",
+    "personalInfoDesc": "Modifiez vos informations personnelles, votre photo de profil et votre mot de passe depuis la page dédiée.",
+    "accessProfile": "Accéder à mon profil",
+    "notifSubscriptions": "Abonnements aux notifications",
+    "notifSubtitle": "Choisissez les événements pour lesquels vous souhaitez être informé",
+    "savePreferences": "Enregistrer les préférences",
+    "access": "Accéder",
+    "advancedSettings": "Paramètres avancés",
+    "advancedSubtitle": "Notifications, langue",
+    "advancedSubtitleAdmin": "Notifications, langue, traçabilité",
+    "trackingGlobal": "Traçabilité globale",
+    "trackingDesc": "Enregistre toutes les actions utilisateurs",
+    "trackingActive": "Active",
+    "trackingInactive": "Désactivée",
+    "recentActivity": "Journal d'activité récente",
+    "noActivity": "Aucune activité enregistrée.",
+    "instantChange": "Changement immédiat et persistant.",
+    "activated": "activées"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "upToDate": "Tout est à jour",
+    "unread": "non lue",
+    "unreads": "non lues",
+    "markAllRead": "Tout lire",
+    "noNotifications": "Aucune notification",
+    "noNotificationsDesc": "Vous êtes à jour sur tout !",
+    "ticketsNew": "Nouveaux tickets créés",
+    "ticketsLate": "Tickets en retard",
+    "planning": "Modifications de planning",
+    "providers": "Nouveaux prestataires",
+    "reports": "Rapports hebdomadaires",
+    "realtime": "Envoi d'une alerte en temps réel via l'interface et email"
+  },
+  "table": {
+    "noData": "Aucune donnée disponible",
+    "search": "Rechercher..."
+  },
+  "pagination": {
+    "previous": "Précédent",
+    "next": "Suivant"
+  },
+  "cards": {
+    "siteDetails": "voir les détails du site",
+    "tickets": "Tickets",
+    "profile": "Profil",
+    "ratingObtained": "Note obtenue",
+    "managedSite": "Site géré :",
+    "activeStatus": "Actif",
+    "inactiveStatus": "Inactif"
+  },
+  "interventions": {
+    "title": "Evènements à venir",
+    "seeAll": "Voir tout",
+    "none": "Aucune événement planifié",
+    "noneDesc": "Les prochains plannings apparaîtront ici",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "planned": "planifiée",
+    "planneds": "planifiées"
+  },
+  "form": {
+    "selectPlaceholder": "Cliquez pour sélectionner",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "phoneFormat": "Format : indicatif pays + numéro (ex: +225 07 00 00 00 00)"
+  },
+  "languages": {
+    "fr": "Français",
+    "en": "English",
+    "es": "Español",
+    "ja": "日本語",
+    "ar": "العربية"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "subtitle": "Vue d'ensemble de votre activité",
+    "totalTickets": "Nombre total de tickets",
+    "treatedTickets": "Tickets traités",
+    "untreatedTickets": "Tickets non traités",
+    "activeSites": "Sites actifs",
+    "inactiveSites": "Sites inactifs",
+    "avgCostPerSite": "Coût moyen par site",
+    "totalMaintenanceCost": "Coût total de maintenance",
+    "yearTrend": "Tendance de l'année",
+    "mostVisitedSites": "Sites les plus fréquentés (interventions)",
+    "sitesList": "Listes des sites",
+    "seeAll": "Voir tous",
+    "recentTickets": "Listes tickets récents",
+    "loading": "Chargement..."
+  },
+  "administration": {
+    "title": "Administration",
+    "subtitle": "Ce menu vous permettra de gérer tout l'ensemble de votre espace",
+    "totalActiveSites": "Nombre total de sites actifs",
+    "totalInactiveSites": "Nombre total de sites inactifs",
+    "avgCostPerSite": "Coût moyen par site",
+    "totalMaintenanceCost": "Coût total de maintenance",
+    "totalEquipments": "Nombre total d'équipements du patrimoine",
+    "totalProviders": "Nombre total de prestataires",
+    "totalInvoices": "Nombre total de factures",
+    "pendingTickets": "Tickets en attente",
+    "ongoingTickets": "Tickets en cours",
+    "closedTickets": "Tickets clôturés",
+    "evolutionChart": "Évolution des équipements du patrimoine",
+    "equipments": "équipements"
+  },
+  "tickets": {
+    "title": "Tickets",
+    "subtitle": "Gestion et suivi de tous les tickets de maintenance",
+    "addTicket": "Ajouter un ticket",
+    "newTicket": "Nouveau ticket",
+    "importTickets": "Importer",
+    "exportTickets": "Exporter",
+    "filterTickets": "Filtrer",
+    "totalTickets": "Total tickets",
+    "openTickets": "Tickets ouverts",
+    "closedTickets": "Tickets clôturés",
+    "avgDelay": "Délai moyen",
+    "minDelay": "Délai minimal",
+    "maxDelay": "Délai maximal",
+    "status": {
+      "all": "Tous les statuts",
+      "SIGNALÉ": "Signalé",
+      "VALIDÉ": "Validé",
+      "ASSIGNÉ": "Assigné",
+      "EN_COURS": "En cours",
+      "RAPPORTÉ": "Rapporté",
+      "ÉVALUÉ": "Évalué",
+      "CLOS": "Clôturé"
+    },
+    "type": {
+      "all": "Tous les types",
+      "curatif": "Curatif",
+      "preventif": "Préventif"
+    },
+    "priority": {
+      "all": "Toutes",
+      "faible": "Faible",
+      "moyenne": "Moyenne",
+      "haute": "Haute",
+      "critique": "Critique"
+    },
+    "columns": {
+      "id": "ID ticket",
+      "subject": "Sujet",
+      "site": "Site",
+      "service": "Service",
+      "type": "Type",
+      "status": "Statut",
+      "actions": "Actions"
+    }
+  },
+  "sites": {
+    "title": "Sites",
+    "subtitle": "Suivi et gestion de tous les sites",
+    "addSite": "Ajouter un site",
+    "activeSites": "Sites actifs",
+    "inactiveSites": "Sites inactifs",
+    "avgDelay": "Délai moyen / site",
+    "totalSites": "Total sites",
+    "avgCost": "Coût moyen / site",
+    "ongoingTickets": "Tickets en cours",
+    "closedTickets": "Tickets clôturés",
+    "mostVisited": "Site le plus visité"
+  },
+  "patrimoines": {
+    "title": "Patrimoines",
+    "subtitle": "Gestion des équipements et actifs",
+    "addAsset": "Ajouter un actif",
+    "types": {
+      "title": "Types d'actifs",
+      "subtitle": "Gestion des types d'équipements",
+      "addType": "Ajouter un type"
+    },
+    "subtypes": {
+      "title": "Sous-types d'actifs",
+      "subtitle": "Gestion des sous-types d'équipements",
+      "addSubtype": "Ajouter un sous-type"
+    }
+  },
+  "planning": {
+    "title": "Planning",
+    "subtitle": "Planification et suivi des interventions",
+    "addPlanning": "Ajouter une planification",
+    "today": "Aujourd'hui",
+    "month": "Mois",
+    "week": "Semaine"
+  },
+  "entretien": {
+    "title": "Entretien",
+    "subtitle": "Gestion des rapports d'intervention",
+    "addReport": "Nouveau rapport"
+  },
+  "prestataires": {
+    "title": "Prestataires",
+    "subtitle": "Gérez tous vos prestataires de services",
+    "addProvider": "Ajouter un prestataire",
+    "totalProviders": "Total prestataires",
+    "activeProviders": "Prestataires actifs",
+    "inactiveProviders": "Prestataires inactifs",
+    "avgInterventionTime": "Délai moyen intervention"
+  },
+  "devis": {
+    "title": "Devis",
+    "subtitle": "Gestion des devis et demandes de prix",
+    "addQuote": "Nouveau devis"
+  },
+  "factures": {
+    "title": "Factures",
+    "subtitle": "Gestion des factures et paiements",
+    "addInvoice": "Nouvelle facture"
+  },
+  "rapports": {
+    "title": "Rapports",
+    "subtitle": "Rapports et analyses de performance"
+  },
+  "services": {
+    "title": "Services",
+    "subtitle": "Gestion des services disponibles pour les prestataires",
+    "addService": "Ajouter un service"
+  },
+  "transfert": {
+    "title": "Transferts inter-sites",
+    "subtitle": "Historique et gestion des relocalisations d'équipements entre sites",
+    "newTransfer": "Nouveau transfert",
+    "totalTransfers": "Total transferts",
+    "completed": "Effectués",
+    "ongoing": "En cours",
+    "involvedSites": "Sites impliqués"
+  },
+  "gestionnaires": {
+    "title": "Gestionnaires",
+    "subtitle": "Gestion des responsables de sites",
+    "addManager": "Ajouter un gestionnaire"
+  },
+  "roles": {
+    "title": "Gestion des rôles",
+    "subtitle": "Définissez les permissions par rôle"
+  }
+}

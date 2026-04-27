@@ -26,7 +26,7 @@ export const useProviders = () => {
 
       const result = await ProviderService.getProviders({
         page:       p,
-        per_page:   9,
+        per_page:   10,
         search:     s || undefined,
         is_active:  f.is_active,
         service_id: f.service_id,

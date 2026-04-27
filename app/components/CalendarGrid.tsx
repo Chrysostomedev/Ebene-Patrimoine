@@ -23,6 +23,12 @@ interface CalendarGridProps {
   plannings: Planning[];
   activeMonth: Date;
   onEventClick: (planning: Planning) => void;
+  onEventDrop?: (planningId: number, newDate: Date) => void;
+  canAddEvent?: boolean;
+  onEventAdd?: (date: Date) => void;
+  /** Appelé quand on clique "+N autres" — reçoit tous les plannings du jour */
+  onShowMore?: (plannings: Planning[], date: Date) => void;
+  onCellClick?: (date: Date) => void;
 }
 
 export default function CalendarGrid({
@@ -30,14 +36,19 @@ export default function CalendarGrid({
   plannings,
   activeMonth,
   onEventClick,
+  onEventDrop,
+  canAddEvent,
+  onEventAdd,
+  onShowMore,
+  onCellClick,
 }: CalendarGridProps) {
-  const year  = activeMonth.getFullYear();
+  const year = activeMonth.getFullYear();
   const month = activeMonth.getMonth();
 
-  const daysInMonth     = new Date(year, month + 1, 0).getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   // Lundi = 0
-  const startingDay     = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+  const startingDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
   // Jours du mois précédent (cellules vides à gauche)
   const daysInPrevMonth = new Date(year, month, 0).getDate();
@@ -64,18 +75,18 @@ export default function CalendarGrid({
         !q ||
         p.codification.toLowerCase().includes(q) ||
         p.responsable_name.toLowerCase().includes(q) ||
-        (p.site?.name ?? "").toLowerCase().includes(q) ||
-        (p.provider?.user?.name ?? "").toLowerCase().includes(q)
+        (p.site?.nom ?? "").toLowerCase().includes(q) ||
+        (p.provider?.company_name ?? p.provider?.user?.first_name ?? "").toLowerCase().includes(q)
       );
     });
 
     // Transformation vers le format CalendarEvent attendu par DayCell
     const events: CalendarEvent[] = filtered.map((p) => ({
-      id:       p.id,
-      label:    p.codification,
-      time:     p.date_debut.split("T")[1]?.slice(0, 5) ?? "—",
-      color:    STATUS_COLORS[p.status] ?? "#000000",
-      status:   p.status,
+      id: p.id,
+      label: p.codification,
+      time: p.date_debut.split("T")[1]?.slice(0, 5) ?? "-",
+      color: STATUS_COLORS[p.status] ?? "#000000",
+      status: p.status,
       planning: p,
     }));
 
@@ -112,11 +123,22 @@ export default function CalendarGrid({
             key={i}
             day={cell.day}
             currentMonth={cell.currentMonth}
+            date={new Date(year, month, cell.day)}
             events={cell.events}
+            canAddEvent={canAddEvent}
+            onAddClick={onEventAdd}
             onClick={(event) => {
-              // On remonte le planning complet, pas juste l'event formaté
               if (event?.planning) onEventClick(event.planning);
             }}
+            onShowMore={onShowMore ? (evts, date) => {
+              onShowMore(evts.map(e => e.planning), date);
+            } : undefined}
+            onDrop={(planningId) => {
+              if (cell.currentMonth && onEventDrop) {
+                onEventDrop(planningId, new Date(year, month, cell.day));
+              }
+            }}
+            onCellClick={onCellClick}
           />
         ))}
       </div>

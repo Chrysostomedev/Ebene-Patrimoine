@@ -4,13 +4,13 @@
  * Étape 1 du flux "mot de passe oublié".
  *
  * L'utilisateur saisit son email.
- * authService.forgotPassword(email) est appelé — il tente les endpoints
+ * authService.forgotPassword(email) est appelé - il tente les endpoints
  * dans l'ordre (super-admin → admin → provider) jusqu'à trouver le bon rôle.
  * Le back envoie un OTP par mail et stocke le préfixe en localStorage.
  *
  * Props :
- *   onEmailSent(email) — callback appelé après succès back, déclenchant l'étape 2
- *   backHref           — lien "Retour" (généralement "/login")
+ *   onEmailSent(email) - callback appelé après succès back, déclenchant l'étape 2
+ *   backHref           - lien "Retour" (généralement "/login")
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -41,7 +41,7 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
     setError("");
 
     try {
-      // POST /{prefix}/forgot-password — le préfixe est auto-détecté
+      // POST /{prefix}/forgot-password - le préfixe est auto-détecté
       // Le back envoie l'OTP par mail si l'email est trouvé
       await authService.forgotPassword(email);
 
@@ -67,24 +67,23 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
   return (
     <div
       className="min-h-screen flex items-center justify-center relative bg-cover bg-center"
-      style={{ backgroundImage: "url('/images/bg-poste.png')" }}
+      style={{ backgroundImage: "url('/assets/bg_login.png')" }}
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
-     <div className="relative z-10 w-full max-w-md">
-  <div className="rounded-3xl overflow-hidden shadow-2xl">
+      <div className="relative z-10 w-full max-w-md">
         <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo-poste.png" alt="La Poste" width={160} height={40} priority />
+            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
               <Mail size={26} className="text-white" />
             </div>
           </div>
@@ -105,7 +104,7 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
             onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
           >
             <div className="group relative">
-              <label className="block text-xs font-semibold text-theme-primary mb-1.5 ml-1">
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5 ml-1">
                 Adresse email
               </label>
               <div className="relative">
@@ -115,7 +114,7 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
                 />
                 <input
                   type="email"
-                  placeholder="exemple@laposte.com"
+                  placeholder="exemple@canal.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent focus:bg-white transition-all text-sm"
@@ -136,7 +135,7 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 mt-2 rounded-xl bg-theme-primary text-white font-semibold text-sm
+              className="w-full py-3.5 mt-2 rounded-xl bg-gray-900 text-white font-semibold text-sm
                          hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed
                          transition-all duration-200 shadow-lg shadow-gray-900/20
                          flex items-center justify-center gap-2 group"
@@ -170,9 +169,8 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
           </div>
 
           <div className="mt-4 text-center text-xs text-gray-400">
-            © {new Date().getFullYear()} la poste• Accès sécurisé
+            © {new Date().getFullYear()} CANAL+ • Accès sécurisé
           </div>
-        </div>
         </div>
       </div>
     </div>

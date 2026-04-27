@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 interface PrestCardProps {
-  id: number;           // ← id réel du prestataire pour construire le lien
+  id: number;
   name: string;
   location: string;
   category: string;
@@ -14,6 +14,7 @@ interface PrestCardProps {
   rating: number;
   status: "Actif" | "Inactif";
   logo?: string;
+  detailBasePath?: string;
   onProfilClick?: () => void;
   onTicketsClick?: () => void;
 }
@@ -28,50 +29,46 @@ export default function PrestCard({
   rating,
   status,
   logo,
+  detailBasePath = "/admin/prestataires/details",
   onProfilClick,
   onTicketsClick,
 }: PrestCardProps) {
-
-  // Lien vers la page details avec l'id réel — plus de query params
-  const detailUrl = `/admin/prestataires/details/${id}`;
+  const detailUrl = `${detailBasePath}/${id}`;
+  const initial   = name?.charAt(0)?.toUpperCase() ?? "?";
 
   const renderStars = (note: number) =>
     Array.from({ length: 5 }, (_, i) => (
       <Star
         key={i}
-        size={24}
-        className={i < Math.floor(note) ? "fill-yellow-400 text-yellow-400" : "fill-slate-100 text-slate-100"}
+        size={14}
+        className={i < Math.floor(note) ? "fill-yellow-400 text-yellow-400" : "fill-slate-200 text-slate-200"}
       />
     ));
 
-  // Première lettre sécurisée — évite le crash si name est null/vide
-  const initial = name?.charAt(0)?.toUpperCase() ?? "?";
-
   return (
-    <div className="bg-white rounded-[32px] p-6 border border-slate-50 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-6">
+    <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3">
 
-      {/* Header : Logo, Nom et Statut */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border-2 border-white shadow-inner">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0 border border-slate-200">
             {logo ? (
-              <Image src={logo} alt={name} width={64} height={64} className="object-cover" />
+              <Image src={logo} alt={name} width={40} height={40} className="object-cover" />
             ) : (
-              <div className="text-slate-400 font-bold text-xl">{initial}</div>
+              <span className="text-slate-500 font-black text-sm">{initial}</span>
             )}
           </div>
-          <div>
-            <h3 className="text-xl font-black text-slate-900 leading-tight uppercase tracking-tight">
+          <div className="min-w-0">
+            <h3 className="text-sm font-black text-slate-900 leading-tight uppercase tracking-tight truncate">
               {name}
             </h3>
-            <div className="flex items-center gap-1 text-slate-400 text-sm font-medium mt-1">
-              <MapPin size={14} />
-              {location}
+            <div className="flex items-center gap-1 text-slate-400 text-[11px] font-medium mt-0.5">
+              <MapPin size={11} />
+              <span className="truncate">{location || "-"}</span>
             </div>
           </div>
         </div>
-
-        <span className={`px-4 py-1 rounded-full text-[10px] font-bold tracking-wider ${
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider ${
           status === "Actif" ? "bg-green-600 text-white" : "bg-slate-200 text-slate-500"
         }`}>
           {status}
@@ -79,44 +76,45 @@ export default function PrestCard({
       </div>
 
       {/* Contact */}
-      <div className="space-y-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-50">
-        <div className="flex items-center gap-3 text-slate-600 font-medium text-[14px]">
-          <Briefcase size={16} className="text-slate-400" />
-          {category}
+      <div className="space-y-1.5 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-100">
+        <div className="flex items-center gap-2 text-slate-600 text-[11px] font-medium">
+          <Briefcase size={12} className="text-slate-400 shrink-0" />
+          <span className="truncate">{category || "-"}</span>
         </div>
-        <div className="flex items-center gap-3 text-slate-600 font-medium text-[14px]">
-          <Phone size={16} className="text-slate-400" />
-          {phone}
+        <div className="flex items-center gap-2 text-slate-600 text-[11px] font-medium">
+          <Phone size={12} className="text-slate-400 shrink-0" />
+          {phone ? (
+            <a href={`tel:${phone}`} className="truncate hover:underline">{phone}</a>
+          ) : <span>-</span>}
         </div>
-        <div className="flex items-center gap-3 text-slate-600 font-medium text-[14px]">
-          <Mail size={16} className="text-slate-400" />
-          <span className="truncate">{email}</span>
+        <div className="flex items-center gap-2 text-slate-600 text-[11px] font-medium">
+          <Mail size={12} className="text-slate-400 shrink-0" />
+          {email ? (
+            <a href={`mailto:${email}`} className="truncate hover:underline">{email}</a>
+          ) : <span>-</span>}
         </div>
       </div>
 
       {/* Note */}
-      <div className="bg-slate-50/30 p-4 rounded-2xl flex flex-col gap-2">
-        <span className="text-slate-400 text-[13px] font-bold uppercase">Note obtenue</span>
-        <div className="flex items-center gap-4">
-          <span className="text-5xl font-black text-slate-900 leading-none">{rating ?? 0}</span>
-          <div className="flex gap-1">{renderStars(rating ?? 0)}</div>
+      <div className="flex items-center justify-between px-1">
+        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Note</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-lg font-black text-slate-900 leading-none">{rating ?? 0}</span>
+          <div className="flex gap-0.5">{renderStars(rating ?? 0)}</div>
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3">
-        {/* Profil → ouvre le ProfileModal */}
+      <div className="flex gap-2 pt-1">
         <button
           onClick={onProfilClick}
-          className="flex-1 bg-white border-2 border-slate-900 text-slate-900 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-colors"
+          className="flex-1 bg-white border border-slate-200 text-slate-800 py-2 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors"
         >
           Profil
         </button>
-
-        {/* Tickets → navigue vers details/[id] */}
         <Link
           href={detailUrl}
-          className="flex-1 flex items-center justify-center bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-black transition-colors"
+          className="flex-1 flex items-center justify-center bg-slate-900 text-white py-2 rounded-xl text-xs font-bold hover:bg-black transition-colors"
         >
           Tickets
         </Link>

@@ -3,123 +3,123 @@
 import { useState, useEffect } from "react";
 import { Eye, Download, Upload, Building2 } from "lucide-react";
 
-import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import DataTable from "@/components/DataTable";
 import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
+import UniversalImportPreview, { ColumnDef, ImportResult } from "@/components/UniversalImportPreview";
 
 import { useTypes } from "../../../../hooks/admin/useTypes";
 import { TypeAssetService } from "../../../../services/admin/type-asset.service";
+import { useToast } from "@/contexts/ToastContext";
+
+// Colonnes attendues par TypesImport.php : nom*, code*, description
+const IMPORT_COLUMNS: ColumnDef[] = [
+  { key: "nom", label: "Nom", required: true },
+  { key: "code", label: "Code", required: true },
+  { key: "description", label: "Description", required: false },
+];
 
 export default function PatrimoinesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPatrimoine, setSelectedPatrimoine] = useState<any>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editingData, setEditingData] = useState<Record<string, any> | null>(null);
-  const [flashMessage, setFlashMessage] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [importLoading, setImportLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  // Preview import
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const { toast } = useToast();
 
   const { types, isLoading, fetchTypes, meta, setPage } = useTypes();
 
   useEffect(() => { fetchTypes(); }, []);
 
-  useEffect(() => {
-    if (!flashMessage) return;
-    const timer = setTimeout(() => setFlashMessage(null), 5000);
-    return () => clearTimeout(timer);
-  }, [flashMessage]);
-
-  const showFlash = (type: "success" | "error", message: string) =>
-    setFlashMessage({ type, message });
-
-  // ── Détails panel ──
-  const handleOpenDetails = (patrimoine: any) => {
-    setSelectedPatrimoine({
-      title: patrimoine.name,
-      reference: patrimoine.id,
+  const handleOpenDetails = (item: any) => {
+    setSelectedItem({
+      title: item.name, reference: item.id,
       fields: [
-        { label: "Famille / Type", value: patrimoine.name },
-        { label: "Codification", value: patrimoine.code },
-        { label: "Description", value: patrimoine.description || "-" },
-        { label: "Date d'ajout", value: patrimoine.created_at?.split("T")[0] || "-" },
+        { label: "Famille / Type", value: item.name },
+        { label: "Codification", value: item.code },
+        { label: "Description", value: item.description || "-" },
+        { label: "Date d'ajout", value: item.created_at?.split("T")[0] || "-" },
       ],
-      description: patrimoine.description,
-      rawData: patrimoine,
+      description: item.description, rawData: item,
     });
     setIsDetailsOpen(true);
   };
 
   const handleEdit = () => {
-    if (!selectedPatrimoine?.rawData) return;
-    setEditingData({
-      name: selectedPatrimoine.rawData.name,
-      code: selectedPatrimoine.rawData.code,
-      description: selectedPatrimoine.rawData.description,
-    });
+    if (!selectedItem?.rawData) return;
+    setEditingData({ name: selectedItem.rawData.name, code: selectedItem.rawData.code, description: selectedItem.rawData.description });
     setIsModalOpen(true);
     setIsDetailsOpen(false);
   };
 
-  // ── CRUD ──
-  const handleCreateOrUpdateType = async (formData: Record<string, any>) => {
+  const handleCreateOrUpdate = async (formData: Record<string, any>) => {
     try {
-      if (editingData && selectedPatrimoine?.reference) {
-        await TypeAssetService.updateType(selectedPatrimoine.reference, formData);
-        showFlash("success", "Type de patrimoine mis à jour avec succès.");
+      if (editingData && selectedItem?.reference) {
+        await TypeAssetService.updateType(selectedItem.reference, formData);
+        toast.success("Type mis à jour avec succès.");
       } else {
         await TypeAssetService.createType(formData);
-        showFlash("success", "Type de patrimoine créé avec succès.");
+        toast.success("Type créé avec succès.");
       }
       await fetchTypes();
       setIsModalOpen(false);
       setEditingData(null);
     } catch (err: any) {
-      if (err?.response?.status === 422 && err?.response?.data?.errors) {
-        const errors = Object.values(err.response.data.errors).flat().join(" | ");
-        showFlash("error", errors);
-      } else {
-        showFlash("error", err?.response?.data?.message || "Erreur serveur.");
-      }
+      toast.error(err?.response?.data?.message || "Erreur serveur.");
     }
   };
 
-  // ── Import ──
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── Import via preview ──────────────────────────────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setImportLoading(true);
+    e.target.value = "";
+    setPreviewFile(file);
+    setPreviewOpen(true);
+  };
+
+  const handleConfirmImport = async (rows: Record<string, any>[]): Promise<ImportResult> => {
+    // Envoie le fichier original au back (qui gère la déduplication)
+    // On reconstruit un fichier XLSX à partir des lignes éditées
+    const XLSX = await import("xlsx");
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Types");
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const file = new File([buf], "import_types.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
     try {
-      // await TypeAssetService.importTypes(file); // décommenter quand endpoint dispo
-      showFlash("success", "Import réussi.");
+      await TypeAssetService.importTypes(file);
       await fetchTypes();
-    } catch {
-      showFlash("error", "Erreur lors de l'import.");
-    } finally {
-      setImportLoading(false);
-      e.target.value = "";
+      toast.success(`${rows.length} type${rows.length > 1 ? "s" : ""} importé${rows.length > 1 ? "s" : ""} avec succès.`);
+      return { imported: rows.length, skipped: 0, errors: [] };
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "Erreur lors de l'import.";
+      toast.error(msg);
+      return { imported: 0, skipped: 0, errors: [{ row: 0, message: msg }] };
     }
   };
 
-  // ── Export ──
+  // ── Export ──────────────────────────────────────────────────────────────────
   const handleExport = async () => {
     setExportLoading(true);
     try {
-      // await TypeAssetService.exportTypes(); // décommenter quand endpoint dispo
-      showFlash("success", "Export téléchargé.");
+      await TypeAssetService.exportTypes();
+      toast.success("Export téléchargé.");
     } catch {
-      showFlash("error", "Erreur lors de l'export.");
+      toast.error("Erreur lors de l'export.");
     } finally {
       setExportLoading(false);
     }
   };
 
-  const sortedTypes = [...types].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  const sortedTypes = [...types].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const columns = [
     { header: "Type", key: "name" },
@@ -128,10 +128,7 @@ export default function PatrimoinesPage() {
     {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
-        <button
-          onClick={() => handleOpenDetails(row)}
-          className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
-        >
+        <button onClick={() => handleOpenDetails(row)} className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
           <Eye size={18} /> Aperçu
         </button>
       ),
@@ -140,92 +137,70 @@ export default function PatrimoinesPage() {
 
   const typeFields: FieldConfig[] = [
     { name: "name", label: "Famille / Type", type: "text", required: true },
-    { name: "code", label: "Codification", type: "text", placeholder: "ex: SD1245", required: true },
-    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, placeholder: "Décrivez le patrimoine" },
+    { name: "code", label: "Codification", type: "text", required: true, placeholder: "ex: SD1245" },
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
   ];
 
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="ml-64 mt-20 p-6 space-y-8">
-          <PageHeader
-            title="Type de patrimoine"
-            subtitle="Ce menu vous permet de voir les différents patrimoines disponibles"
-          />
+    <div className="flex-1 flex flex-col">
+      <Navbar />
+      <main className="mt-20 p-6 space-y-8">
+        <PageHeader title="Type de patrimoine" subtitle="Gérez les familles et types de patrimoine" />
 
-          {/* Barre d'actions — PAS de filtre sur cette vue */}
-          <div className="shrink-0 flex justify-end items-center gap-3">
+        <div className="shrink-0 flex justify-end items-center gap-3">
 
-            {/* Import */}
-            <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition ${importLoading ? "opacity-50 pointer-events-none" : ""}`}>
-              <Download size={16} />
-              {importLoading ? "Import..." : "Importer"}
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            </label>
+          <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition">
+            <Download size={16} /> Importer
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
+          </label>
+          <button onClick={handleExport} disabled={exportLoading} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50">
+            {exportLoading ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" /> : <Upload size={16} />}
+            Exporter
+          </button>
+          <button onClick={() => { setEditingData(null); setIsModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition">
+            <Building2 size={16} /> Ajouter un type
+          </button>
+        </div>
 
-            {/* Export */}
-            <button
-              onClick={handleExport}
-              disabled={exportLoading}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50"
-            >
-              <Upload size={16} />
-              {exportLoading ? "Export..." : "Exporter"}
-            </button>
-
-            {/* Ajouter */}
-            <button
-              onClick={() => { setEditingData(null); setIsModalOpen(true); }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
-            >
-              <Building2 size={16} /> Ajouter un type
-            </button>
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <DataTable columns={columns as any} data={isLoading ? [] : sortedTypes} onViewAll={() => { }} />
+          <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
+            <Paginate currentPage={meta?.current_page || 1} totalPages={meta?.last_page || 1} onPageChange={p => setPage(p)} />
           </div>
+        </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable columns={columns} data={isLoading ? [] : sortedTypes} onViewAll={() => {}} />
-            <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-              <Paginate
-                currentPage={meta?.current_page || 1}
-                totalPages={meta?.last_page || 1}
-                onPageChange={(p) => setPage(p)}
-              />
-            </div>
-          </div>
+        <ReusableForm
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingData(null); }}
+          title={editingData ? "Modifier un type" : "Ajouter un nouveau type"}
+          subtitle="Remplissez les informations ci-dessous."
+          fields={typeFields}
+          onSubmit={handleCreateOrUpdate}
+          initialValues={editingData || {}}
+        />
 
-          <ReusableForm
-            isOpen={isModalOpen}
-            onClose={() => { setIsModalOpen(false); setEditingData(null); }}
-            title={editingData ? "Modifier un type de patrimoine" : "Ajouter un nouveau type"}
-            subtitle="Remplissez les informations ci-dessous."
-            fields={typeFields}
-            onSubmit={handleCreateOrUpdateType}
-            initialValues={editingData || {}}
-          />
+        <SideDetailsPanel
+          isOpen={isDetailsOpen}
+          onClose={() => setIsDetailsOpen(false)}
+          title={selectedItem?.title || ""}
+          reference={selectedItem?.reference}
+          fields={selectedItem?.fields || []}
+          descriptionContent={selectedItem?.description}
+          onEdit={handleEdit}
+        />
 
-          <SideDetailsPanel
-            isOpen={isDetailsOpen}
-            onClose={() => setIsDetailsOpen(false)}
-            title={selectedPatrimoine?.title || ""}
-            reference={selectedPatrimoine?.reference}
-            fields={selectedPatrimoine?.fields || []}
-            descriptionContent={selectedPatrimoine?.description}
-            onEdit={handleEdit}
-          />
+      </main>
 
-          {flashMessage && (
-            <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-medium border ${
-              flashMessage.type === "success"
-                ? "text-green-700 bg-green-50 border-green-200"
-                : "text-red-600 bg-red-100 border-red-300"
-            }`}>
-              {flashMessage.message}
-            </div>
-          )}
-        </main>
-      </div>
+      <UniversalImportPreview
+        isOpen={previewOpen}
+        onClose={() => { setPreviewOpen(false); setPreviewFile(null); }}
+        file={previewFile}
+        columns={IMPORT_COLUMNS}
+        dedupeKey="code"
+        existingData={types.map(t => ({ code: t.code, nom: t.name }))}
+        onConfirm={handleConfirmImport}
+        title="Prévisualisation — Import Types de patrimoine"
+      />
     </div>
   );
 }

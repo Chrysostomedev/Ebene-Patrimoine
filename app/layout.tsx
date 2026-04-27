@@ -3,6 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Poppins } from "next/font/google"; // <-- importer Poppins
 import "./globals.css";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { SidebarProvider } from "./components/Sidebar";
+import { LanguageProvider } from "../contexts/LanguageContext";
+import { FormatProvider } from "../contexts/FormatContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,11 +25,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-   title: "LA POSTE",
-  description: "l'application de gestion de patrimoines pour la POSTE par CIPLUS !",
-  
-  // title: "Ebène Patrimoine",
-  // description: "l'application de gestion des tout en un faite par CIPLUS !",
+  title: "Facility Management",
+  description: "l'application tout en un faite par Canal+ et ses partenaires !",
 };
 
 export default function RootLayout({
@@ -35,14 +35,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr" translate="no">
+      <head>
+        <meta name="google" content="notranslate" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
         <ThemeProvider>
-          {children}
+          <LanguageProvider>
+            <FormatProvider>
+              <SidebarProvider>
+                {children}
+              </SidebarProvider>
+            </FormatProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

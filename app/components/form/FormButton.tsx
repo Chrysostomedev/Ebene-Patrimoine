@@ -1,16 +1,21 @@
 // les composants boutons reutilisables components/form/Formbutton.tsx
 "use client";
 
+import { Loader2 } from "lucide-react";
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary";
   fullWidth?: boolean;
+  isLoading?: boolean;
 }
 
 export default function FormButton({ 
   children, 
   variant = "primary", 
   fullWidth = true, 
+  isLoading = false,
   className = "", 
+  disabled,
   ...props 
 }: ButtonProps) {
   
@@ -24,9 +29,16 @@ export default function FormButton({
   return (
     <button 
       {...props}
-      className={`${baseStyles} ${variants[variant]} ${fullWidth ? "w-full" : ""} ${className}`}
+      disabled={isLoading || disabled}
+      className={`${baseStyles} ${variants[variant]} ${fullWidth ? "w-full" : ""} ${isLoading || disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""} ${className}`}
     >
-      {children}
+      {isLoading ? (
+        <>
+          <Loader2 className="animate-spin" size={18} /> En cours...
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

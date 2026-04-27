@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 
 import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
 import Paginate from "@/components/Paginate";
 import StatsCard from "@/components/StatsCard";
 import ActionGroup from "@/components/ActionGroup";
@@ -19,6 +18,7 @@ import SideDetailsPanel from "@/components/SideDetailsPanel";
 
 import { ProviderService, ProviderDetail } from "../../../../../services/admin/provider.service";
 import { useServices } from "../../../../../hooks/admin/useServices";
+import { useToast } from "@/contexts/ToastContext";
 
 const STATUS_LABELS: Record<string, string> = {
   signalez: "Signalé", validé: "Validé", assigné: "Assigné",
@@ -56,12 +56,8 @@ export default function ProviderDetailsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [flash, setFlash] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const { toast } = useToast();
 
-  const showFlash = (type: "success" | "error", message: string) => {
-    setFlash({ type, message });
-    setTimeout(() => setFlash(null), 5000);
-  };
 
   // ── Fetch provider + ses stats tickets ──
   const fetchDetail = async () => {
@@ -105,29 +101,24 @@ export default function ProviderDetailsPage() {
     try {
       const payload: any = {};
       if (formData.company_name) payload.company_name = formData.company_name;
-      if (formData.city) payload.city = formData.city;
+      if (formData.city)         payload.city         = formData.city;
       if (formData.neighborhood) payload.neighborhood = formData.neighborhood;
-      if (formData.street) payload.street = formData.street;
-      if (formData.service_id) payload.service_id = Number(formData.service_id);
-      if (formData.date_entree) payload.date_entree = formData.date_entree;
-      if (formData.description) payload.description = formData.description;
-
-      // users imbriqué — seulement si au moins un champ rempli
-      const usersPayload: any = {};
-      if (formData["users.first_name"]) usersPayload.first_name = formData["users.first_name"];
-      if (formData["users.last_name"]) usersPayload.last_name = formData["users.last_name"];
-      if (formData["users.email"]) usersPayload.email = formData["users.email"];
-      if (formData["users.phone"]) usersPayload.phone = formData["users.phone"];
-      if (formData["users.password"]) usersPayload.password = formData["users.password"];
-      if (Object.keys(usersPayload).length > 0) payload.users = usersPayload;
+      if (formData.street)       payload.street       = formData.street;
+      if (formData.service_id)   payload.service_id   = Number(formData.service_id);
+      if (formData.date_entree)  payload.date_entree  = formData.date_entree;
+      if (formData.description)  payload.description  = formData.description;
+      // email directement sur le modèle Providers
+      if (formData.email)        payload.email        = formData.email;
+      // password via users wrapper si fourni
+      if (formData["users.password"]) payload.users = { password: formData["users.password"] };
 
       await ProviderService.updateProvider(providerId, payload);
-      showFlash("success", "Prestataire mis à jour avec succès");
+      toast.success("Prestataire mis à jour avec succès");
       setIsEditModalOpen(false);
       fetchDetail();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || "Erreur lors de la mise à jour";
-      showFlash("error", msg);
+      toast.error(msg);
     }
   };
 
@@ -203,22 +194,19 @@ export default function ProviderDetailsPage() {
 
   // ── Champs formulaire modification prestataire ──
   const editFields = [
-    { name: "company_name", label: "Nom du prestataire", type: "text", defaultValue: provider?.company_name },
-    { name: "city", label: "Ville", type: "text", defaultValue: provider?.city },
-    { name: "neighborhood", label: "Quartier", type: "text", defaultValue: provider?.neighborhood },
-    { name: "street", label: "Rue / Adresse", type: "text", defaultValue: provider?.street },
+    { name: "company_name", label: "Nom du prestataire", type: "text" },
+    { name: "city", label: "Ville", type: "text" },
+    { name: "neighborhood", label: "Quartier", type: "text" },
+    { name: "street", label: "Rue / Adresse", type: "text" },
     {
       name: "service_id", label: "Service", type: "select",
       options: services.map(s => ({ label: s.name, value: String(s.id) })),
-      defaultValue: String(provider?.service_id ?? ""),
     },
-    { name: "date_entree", label: "Date d'entrée", type: "date", defaultValue: provider?.date_entree },
-    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, defaultValue: provider?.description },
-    { name: "users.first_name", label: "Prénom contact", type: "text", defaultValue: provider?.user?.first_name },
-    { name: "users.last_name", label: "Nom contact", type: "text", defaultValue: provider?.user?.last_name },
-    { name: "users.email", label: "Email contact", type: "email", defaultValue: provider?.user?.email },
-    { name: "users.phone", label: "Téléphone", type: "text", defaultValue: provider?.user?.phone },
-    { name: "users.password", label: "Nouveau mot de passe (optionnel)", type: "text" },
+    { name: "date_entree", label: "Date d'entrée", type: "date" },
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
+    // email directement sur le modèle Providers
+    { name: "email", label: "Email de contact", type: "email" },
+    { name: "users.password", label: "Nouveau mot de passe (optionnel)", type: "password" },
   ];
 
   // ── Champs formulaire nouveau ticket ──
@@ -237,25 +225,17 @@ export default function ProviderDetailsPage() {
         { label: "Critique", value: "critique" },
       ],
     },
-    { name: "planned_at", label: "Date planifiée", type: "date", required: true, icon: CalendarDays },
-    { name: "due_at", label: "Date limite", type: "date", required: true, icon: CalendarCheck },
+    { name: "planned_at", label: "Date planifiée", type: "date", required: true, disablePastDates: true, icon: CalendarDays },
+    { name: "due_at", label: "Date limite", type: "date", required: true, disablePastDates: true, icon: CalendarCheck },
     { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
   ];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col pl-64">
+      <div className="flex-1 flex flex-col">
         <Navbar />
         <main className="mt-20 p-8 space-y-8">
 
-          {flash && (
-            <div className={`px-6 py-4 rounded-2xl text-sm font-semibold ${
-              flash.type === "success"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200"
-            }`}>{flash.message}</div>
-          )}
 
           {/* ── Header profil prestataire ── */}
           <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
@@ -294,29 +274,34 @@ export default function ProviderDetailsPage() {
                     <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
                       <Phone size={16} className="text-slate-900" />
                     </div>
-                    {provider?.user?.phone ?? "-"}
+                    {"-"}
                   </div>
                   <div className="flex items-center gap-3 text-slate-600 font-semibold text-[15px]">
                     <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
                       <Mail size={16} className="text-slate-900" />
                     </div>
-                    {provider?.user?.email ?? "-"}
+                    {provider?.email ?? "-"}
                   </div>
                 </div>
 
                 {/* Note étoiles */}
                 <div className="flex items-center gap-4 mt-2">
                   <span className="text-2xl font-black text-slate-900 leading-none">
-                    {provider?.rating ? `${provider.rating}/5` : "N/A"}
+                    {provider?.rating ? `${provider.rating}/5` : providerStats?.rating ? `${providerStats.rating}/5` : "N/A"}
                   </span>
                   <div className="flex gap-1">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star key={i} size={24} className={
-                        i < Math.floor(provider?.rating ?? 0)
-                          ? "fill-yellow-400 text-yellow-400"
-                          : "fill-slate-200 text-slate-200"
-                      } />
-                    ))}
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const note = Number(provider?.rating ?? providerStats?.rating ?? 0);
+                      return (
+                        <Star key={i} size={24} className={
+                          i < Math.floor(note)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : i < note
+                            ? "fill-yellow-200 text-yellow-300"
+                            : "fill-slate-200 text-slate-200"
+                        } />
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -381,10 +366,7 @@ export default function ProviderDetailsPage() {
           service_id: String(provider?.service_id ?? ""),
           date_entree: provider?.date_entree ?? "",
           description: provider?.description ?? "",
-          "users.first_name": provider?.user?.first_name ?? "",
-          "users.last_name": provider?.user?.last_name ?? "",
-          "users.email": provider?.user?.email ?? "",
-          "users.phone": provider?.user?.phone ?? "",
+          email: provider?.email ?? "",
         }}
         onSubmit={handleUpdate}
         submitLabel="Mettre à jour"

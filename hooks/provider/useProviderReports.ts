@@ -10,6 +10,8 @@ import {
 export type ReportFilterState = {
   status?: string;
   type?:   string;
+  date_from?: string;
+  date_to?:   string;
 };
 
 export interface UseProviderReportsReturn {
@@ -45,7 +47,7 @@ export interface UseProviderReportsReturn {
   refresh:      () => void;
 }
 
-export function useProviderReports(): UseProviderReportsReturn {
+export function useProviderReports(initialFilters: ReportFilterState = {}): UseProviderReportsReturn {
   const [reports,        setReports]        = useState<InterventionReport[]>([]);
   const [stats,          setStats]          = useState<ReportStats | null>(null);
   const [selectedReport, setSelectedReport] = useState<InterventionReport | null>(null);
@@ -61,7 +63,7 @@ export function useProviderReports(): UseProviderReportsReturn {
   const [isPanelOpen,  setIsPanelOpen]  = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen,   setIsEditOpen]   = useState(false);
-  const [filters,      setFiltersState] = useState<ReportFilterState>({});
+  const [filters,      setFiltersState] = useState<ReportFilterState>(initialFilters);
 
   // ── flash ──────────────────────────────────────────────────────────────────
   const flash = (type: "success" | "error", msg: string) => {
@@ -69,14 +71,21 @@ export function useProviderReports(): UseProviderReportsReturn {
     else                    { setSubmitError(msg);   setTimeout(() => setSubmitError(""),   5000); }
   };
 
-  // ── fetchReports ───────────────────────────────────────────────────────────
-  const fetchReports = useCallback(async () => {
+  // ── fetchReports — passe les filtres directement à l'API ─────────────────
+  const fetchReports = useCallback(async (f?: ReportFilterState) => {
     setLoading(true); setError("");
     try {
-      setReports(await providerReportService.getReports());
+      const active = f ?? filters;
+      const params: Record<string, any> = {};
+      if (active.type)      params.intervention_type = active.type;
+      if (active.status)    params.status            = active.status;
+      if (active.date_from) params.date_debut        = active.date_from;
+      if (active.date_to)   params.date_fin          = active.date_to;
+      setReports(await providerReportService.getReports(params));
     } catch (e: any) {
       setError(e.response?.data?.message ?? e.response?.data?.error ?? "Erreur lors du chargement des rapports.");
     } finally { setLoading(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── fetchStats ─────────────────────────────────────────────────────────────
@@ -89,14 +98,17 @@ export function useProviderReports(): UseProviderReportsReturn {
 
   useEffect(() => { fetchReports(); fetchStats(); }, [fetchReports, fetchStats]);
 
-  // ── filtrage côté client (statut + type) ───────────────────────────────────
+  // ── filtrage côté client (fallback si l'API ne filtre pas tout) ───────────
   const filteredReports = reports.filter(r => {
-    if (filters.status && r.status !== filters.status)                return false;
-    if (filters.type   && r.intervention_type !== filters.type)        return false;
+    if (filters.status && r.status !== filters.status) return false;
+    // On ne filtre plus sur le type côté Front pour faire confiance à l'API
     return true;
   });
 
-  const setFilters = (f: ReportFilterState) => setFiltersState(f);
+  const setFilters = (f: ReportFilterState) => {
+    setFiltersState(f);
+    fetchReports(f);
+  };
 
   // ── panel aperçu ───────────────────────────────────────────────────────────
   const openPanel  = (r: InterventionReport) => { setSelectedReport(r); setIsPanelOpen(true); };

@@ -60,7 +60,16 @@ export const useReports = (): UseReportsReturn => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await ReportService.getReports();
+      const response = await ReportService.getReports();
+      let data: InterventionReport[] = [];
+      
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && typeof response === 'object' && Array.isArray((response as any).items)) {
+        // Cas paginé : { items: [...], meta: {...} }
+        data = (response as any).items;
+      }
+      
       // Tri par created_at décroissante côté front
       const sorted = [...data].sort(
         (a, b) => new Date(b.created_at ?? "").getTime() - new Date(a.created_at ?? "").getTime()
@@ -100,7 +109,15 @@ export const useReports = (): UseReportsReturn => {
    */
   const fetchReportsByTicket = useCallback(async (ticketId: number): Promise<InterventionReport[]> => {
     try {
-      const data = await ReportService.getReportsByTicket(ticketId);
+      const response = await ReportService.getReportsByTicket(ticketId);
+      let data: InterventionReport[] = [];
+      
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && typeof response === 'object' && Array.isArray((response as any).items)) {
+        data = (response as any).items;
+      }
+      
       return data.sort(
         (a, b) => new Date(b.created_at ?? "").getTime() - new Date(a.created_at ?? "").getTime()
       );
@@ -117,7 +134,15 @@ export const useReports = (): UseReportsReturn => {
    */
   const fetchReportsByProvider = useCallback(async (providerId: number): Promise<InterventionReport[]> => {
     try {
-      const data = await ReportService.getReportsByProvider(providerId);
+      const response = await ReportService.getReportsByProvider(providerId);
+      let data: InterventionReport[] = [];
+      
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && typeof response === 'object' && Array.isArray((response as any).items)) {
+        data = (response as any).items;
+      }
+
       return data.sort(
         (a, b) => new Date(b.created_at ?? "").getTime() - new Date(a.created_at ?? "").getTime()
       );
