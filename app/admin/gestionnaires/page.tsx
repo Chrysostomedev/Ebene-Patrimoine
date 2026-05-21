@@ -138,10 +138,14 @@ export default function GestionnairesPage() {
       setIsCreateModalOpen(false);
       fetchManagers();
     } catch (err: any) {
-      const msg = err?.response?.data?.message
-        ?? err?.response?.data?.errors
+      // Priorité aux erreurs de champs spécifiques (ex: email déjà utilisé)
+      const fieldErrors = err?.response?.data?.errors ?? {};
+      const firstFieldError = Object.values(fieldErrors).flat()[0] as string | undefined;
+      const msg = firstFieldError
+        ?? err?.response?.data?.message
         ?? "Erreur lors de la création";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+
     }
   };
 

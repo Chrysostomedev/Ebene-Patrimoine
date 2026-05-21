@@ -2,6 +2,7 @@
 
 import { X, MapPin, Star } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import StatsCard from "./StatsCard";
 import FormButton from "./form/FormButton";
 import { formatDate } from "@/lib/utils";
@@ -9,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  detailUrl?: string;
   provider: {
     name: string;
     location: string;
@@ -27,7 +29,7 @@ interface ProfileModalProps {
   } | null; // ← accepte null pour éviter le crash avant que selectedProvider soit défini
 }
 
-export default function ProfileModal({ isOpen, onClose, provider }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, provider, detailUrl }: ProfileModalProps) {
   if (!isOpen || !provider) return null;
 
   // Sécurise charAt si name est null/vide
@@ -40,10 +42,10 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[9998]" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 h-full w-full max-w-[600px] bg-white z-[9999] shadow-2xl flex flex-col animate-in slide-in-from-right">
+      <div className="profile-modal fixed right-0 top-0 h-full w-full max-w-[600px] bg-white z-[9999] shadow-2xl flex flex-col animate-in slide-in-from-right">
 
         {/* Header */}
-        <div className="p-8 pb-4 space-y-6">
+        <div className="p-6 md:p-8 pb-4 space-y-6">
           <button onClick={onClose} className="p-2.5 hover:bg-slate-100 rounded-xl border border-slate-100 transition-colors">
             <X size={22} className="text-slate-600" />
           </button>
@@ -69,7 +71,7 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
         </div>
 
         {/* Contenu scrollable */}
-        <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8">
+        <div className="flex-1 overflow-y-auto px-6 md:px-8 py-4 space-y-8">
 
           {/* KPIs */}
           <div className="grid grid-cols-2 gap-4">
@@ -86,7 +88,7 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
               trend="up"
             />
             <StatsCard
-              label="Tickets traités"
+              label="Tickets clôturés"
               value={provider.stats?.ticketsTraites?.value ?? 0}
               delta={provider.stats?.ticketsTraites?.delta ?? "+0%"}
               trend="up"
@@ -148,9 +150,20 @@ export default function ProfileModal({ isOpen, onClose, provider }: ProfileModal
         </div>
 
         {/* Footer */}
-        <div className="p-8 bg-white border-t border-slate-100 flex gap-4">
-          <FormButton variant="secondary" onClick={onClose} className="flex-1">Annuler</FormButton>
-          <FormButton variant="primary" onClick={() => { }} className="flex-1">Mettre à jour</FormButton>
+        <div className="p-6 md:p-8 bg-white border-t border-slate-100 flex gap-4">
+          {detailUrl ? (
+            <>
+              <FormButton variant="secondary" onClick={onClose} className="flex-1">Fermer</FormButton>
+              <Link href={detailUrl} className="flex-1 flex items-center justify-center bg-slate-900 text-white rounded-2xl hover:bg-black transition-colors font-bold text-sm h-[52px]">
+                Voir les détails
+              </Link>
+            </>
+          ) : (
+            <>
+              <FormButton variant="secondary" onClick={onClose} className="flex-1">Annuler</FormButton>
+              <FormButton variant="primary" onClick={() => { }} className="flex-1">Mettre à jour</FormButton>
+            </>
+          )}
         </div>
       </div>
     </>

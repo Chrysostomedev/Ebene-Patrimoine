@@ -52,7 +52,7 @@ const STATUS_LABEL: Record<string, string> = {
 const PRIORITY_LABEL: Record<string, string> = { faible: "Faible", moyenne: "Moyenne", haute: "Haute", critique: "Critique" };
 
 // ─── Modale validation rapport ────────────────────────────────────────────────
-function ValidateModal({ reportId, onClose, onDone }: { reportId: number; onClose: () => void; onDone: () => void }) {
+function ValidateModal({ reportId, ticketId, onClose, onDone }: { reportId: number; ticketId: number; onClose: () => void; onDone: () => void }) {
     const { toast } = useToast();
     const [mode, setMode] = useState<"validate" | "reject">("validate");
     const [rating, setRating] = useState(0);
@@ -75,7 +75,7 @@ function ValidateModal({ reportId, onClose, onDone }: { reportId: number; onClos
         if (reason.trim().length < 10) { toast.error("Le motif doit faire au moins 10 caractères."); return; }
         setLoading(true);
         try {
-            await axiosInstance.post(`/manager/ticket/${reportId}/reject-report`, { reason });
+            await axiosInstance.post(`/manager/ticket/${ticketId}/reject-report`, { reason });
             toast.success("Rapport rejeté.");
             onDone();
         } catch (e: any) {
@@ -113,7 +113,7 @@ function ValidateModal({ reportId, onClose, onDone }: { reportId: number; onClos
                                         ))}
                                     </div>
                                 </div>
-                                <textarea value={comment} onChange={e => setComment(e.target.value)} rows={3} placeholder="Commentaire (optionnel)..." className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900" />
+                                <textarea value={comment} onChange={e => setComment(e.target.value)} rows={3} placeholder="Commentaire (optionnel)..." className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900 text-slate-900 bg-white" />
                                 <button onClick={handleValidate} disabled={loading} className="w-full py-3.5 rounded-2xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-700 disabled:opacity-50 transition flex items-center justify-center gap-2">
                                     {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 size={16} />}
                                     Confirmer la validation
@@ -121,7 +121,7 @@ function ValidateModal({ reportId, onClose, onDone }: { reportId: number; onClos
                             </>
                         ) : (
                             <>
-                                <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4} placeholder="Motif de rejet (min 10 caractères)..." className="w-full px-4 py-3 rounded-xl border border-red-200 bg-red-50 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400" />
+                                <textarea value={reason} onChange={e => setReason(e.target.value)} rows={4} placeholder="Motif de rejet (min 10 caractères)..." className="w-full px-4 py-3 rounded-xl border border-red-200 bg-white text-slate-900 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-400" />
                                 <button onClick={handleReject} disabled={loading || reason.trim().length < 10} className="w-full py-3.5 rounded-2xl bg-red-600 text-white text-sm font-black hover:bg-red-700 disabled:opacity-50 transition flex items-center justify-center gap-2">
                                     {loading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <X size={16} />}
                                     Rejeter le rapport
@@ -268,11 +268,11 @@ export default function ManagerTicketDetailPage() {
                                             ))}
                                         </div>
                                         {/* Action manager : valider rapport si RAPPORTÉ */}
-                                        {/*{pendingReport && (
+                                        {pendingReport && (
                                             <button onClick={() => setValidateReportId(pendingReport.id)} className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition">
                                                 <CheckCircle2 size={14} /> Valider le rapport
                                             </button>
-                                        )}*/}
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -339,12 +339,15 @@ export default function ManagerTicketDetailPage() {
                                                 {devis.invoice && (
                                                     <div className="p-4 rounded-2xl border border-slate-100 bg-slate-50 flex items-center justify-between">
                                                         <div>
-                                                            <p className="text-sm font-bold text-slate-900">Facture #{devis.invoice.reference}</p>
+                                                            <p className="text-sm font-bold text-slate-900">Facture {devis.invoice.reference}</p>
                                                             <p className="text-xs text-slate-400 mt-0.5">{devis.invoice.total_ttc?.toLocaleString()} FG TTC · {fmtDate(devis.invoice.created_at)}</p>
                                                         </div>
                                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 uppercase`}>
                                                             {devis.invoice.status}
                                                         </span>
+                                                        <Link href={`/manager/factures/details/${devis.invoice.id}`} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition">
+                                                            <Eye size={14} />
+                                                        </Link>
                                                     </div>
                                                 )}
                                             </div>
@@ -454,6 +457,7 @@ export default function ManagerTicketDetailPage() {
             {validateReportId && (
                 <ValidateModal
                     reportId={validateReportId}
+                    ticketId={ticketId}
                     onClose={() => setValidateReportId(null)}
                     onDone={() => { setValidateReportId(null); reload(); }}
                 />

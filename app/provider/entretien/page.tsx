@@ -17,6 +17,7 @@ import {
   PlayCircle, CheckSquare, AlertTriangle,
   RefreshCw
 } from "lucide-react";
+import Paginate from "@/components/Paginate";
 
 import { useProviderReports } from "../../../hooks/provider/useProviderReports";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -59,8 +60,9 @@ const ALL_STATUSES: MaintenanceStatus[] = [
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-  planifié: "Planifié", en_cours: "En cours", rapporté: "Rapporté",
-  validé: "Validé", clos: "Clôturé", rejeté: "Rejeté", anomalie: "Anomalie",
+
+  validé: "Validé", clos: "Clôturé",
+  submitted: "Soumis", validated: "Validé", rejected: "Rejeté",
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -71,6 +73,10 @@ const STATUS_STYLES: Record<string, string> = {
   clos: "border-slate-200  bg-slate-50  text-slate-500",
   rejeté: "border-red-200    bg-red-50    text-red-700",
   anomalie: "border-orange-200 bg-orange-50 text-orange-700",
+  pending: "border-slate-200  bg-slate-50  text-slate-500",
+  submitted: "border-amber-200  bg-amber-50  text-amber-700",
+  validated: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  rejected: "border-red-200    bg-red-50    text-red-700",
 };
 
 const STATUS_DOT: Record<string, string> = {
@@ -86,54 +92,7 @@ const WORKFLOW_STEPS = [
   { key: "clos", icon: CheckSquare, label: "Clôturé" },
 ];
 
-const MOCK_TICKETS: MaintenanceTicket[] = [
-  {
-    id: 1, reference: "ENT-2025-001",
-    site: { nom: "Siège Social Abidjan" }, site_id: 1, planning_id: 10,
-    scheduled_date: "2025-07-15T08:00:00Z", status: "planifié",
-    created_at: "2025-07-01T10:00:00Z",
-  },
-  {
-    id: 2, reference: "ENT-2025-002",
-    site: { nom: "Antenne Bouaké" }, site_id: 2,
-    scheduled_date: "2025-07-10T09:00:00Z",
-    completed_date: "2025-07-10T14:30:00Z", status: "rapporté",
-    report: {
-      observations: "Climatisation salle serveur défectueuse, filtre encrassé.",
-      anomaly_action: "devis", submitted_at: "2025-07-10T15:00:00Z",
-    },
-    created_at: "2025-06-28T10:00:00Z",
-  },
-  {
-    id: 3, reference: "ENT-2025-003",
-    site: { nom: "Agence Plateau" }, site_id: 3,
-    scheduled_date: "2025-07-05T08:00:00Z", status: "clos",
-    report: {
-      observations: "RAS. Tous les équipements sont en bon état.",
-      anomaly_action: "ras",
-      validated_at: "2025-07-06T09:00:00Z", submitted_at: "2025-07-05T16:00:00Z",
-    },
-    created_at: "2025-06-20T10:00:00Z",
-  },
-  {
-    id: 4, reference: "ENT-2025-004",
-    site: { nom: "Datacenter Yopougon" }, site_id: 4,
-    scheduled_date: "2025-07-12T08:00:00Z", status: "rejeté",
-    report: {
-      observations: "Rapport incomplet, photos manquantes.",
-      anomaly_action: "ras",
-      rejection_reason: "Rapport incomplet : les photos des équipements vérifiés sont absentes.",
-      submitted_at: "2025-07-12T13:00:00Z",
-    },
-    created_at: "2025-06-25T10:00:00Z",
-  },
-  {
-    id: 5, reference: "ENT-2025-005",
-    site: { nom: "Siège Social Abidjan" }, site_id: 1,
-    scheduled_date: "2025-07-18T08:00:00Z", status: "en_cours",
-    created_at: "2025-07-02T10:00:00Z",
-  },
-];
+
 
 // local formatDate removed - using @/lib/utils
 
@@ -453,13 +412,13 @@ function ReportFormPanel({
               Cochez cette case si vous avez constaté un dysfonctionnement nécessitant une attention particulière ou un devis.
             </p>
             {anomalyDetected && !devisSubmitted && (
-               <button
-                  type="button"
-                  onClick={() => setShowDevisModal(true)}
-                  className="mt-3 ml-9 text-xs font-bold text-orange-600 underline underline-offset-2 hover:text-orange-800 transition"
-                >
-                  Remplir le formulaire de devis ...
-                </button>
+              <button
+                type="button"
+                onClick={() => setShowDevisModal(true)}
+                className="mt-3 ml-9 text-xs font-bold text-orange-600 underline underline-offset-2 hover:text-orange-800 transition"
+              >
+                Remplir le formulaire de devis ...
+              </button>
             )}
             {anomalyDetected && devisSubmitted && (
               <div className="mt-2 ml-9 flex items-center gap-1.5 text-xs font-bold text-orange-600">
@@ -639,12 +598,12 @@ export default function ProviderEntretienPage() {
   const { toast } = useToast();
 
   const {
-    reports, filteredReports, stats,
+    reports, filteredReports, stats, meta,
     loading, statsLoading, submitting,
     error, submitSuccess, submitError,
     filters, setFilters,
     createReport, exportXlsx, refresh
-  } = useProviderReports({ type: "preventif" });
+  } = useProviderReports({ type: "preventif", page: 1 });
 
   useEffect(() => { if (submitSuccess) toast.success(submitSuccess); }, [submitSuccess]);
   useEffect(() => { if (submitError) toast.error(submitError); }, [submitError]);
@@ -703,24 +662,12 @@ export default function ProviderEntretienPage() {
     },
   ];
 
-  // Stats calculées depuis les rapports déjà filtrés (préventifs uniquement)
-  const preventifReports = filteredReports; // déjà filtrés sur type=preventif
-  const preventifStats = {
-    total: preventifReports.length,
-    pending: preventifReports.filter(r => r.status === "submitted" || r.status === "pending").length,
-    validated: preventifReports.filter(r => r.status === "validated").length,
-    avg_rating: (() => {
-      const rated = preventifReports.filter(r => r.rating);
-      if (!rated.length) return null;
-      return (rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length).toFixed(1);
-    })(),
-  };
 
   const kpis = [
-    { label: "Total rapports", value: statsLoading ? "-" : preventifStats.total, delta: "", trend: "up" as const },
-    { label: "En attente", value: statsLoading ? "-" : preventifStats.pending, delta: "", trend: "up" as const },
-    { label: "Validés", value: statsLoading ? "-" : preventifStats.validated, delta: "", trend: "up" as const },
-    { label: "Note moyenne", value: statsLoading ? "-" : (preventifStats.avg_rating ? `${preventifStats.avg_rating}/5` : "—"), delta: "", trend: "up" as const },
+    { label: "Total rapports", value: statsLoading ? "-" : (stats?.total_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "En attente", value: statsLoading ? "-" : (stats?.pending_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "Validés", value: statsLoading ? "-" : (stats?.validated_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "Note moyenne", value: statsLoading ? "-" : (stats?.average_rating ? `${Number(stats.average_rating).toFixed(1)}/5` : "—"), delta: "", trend: "up" as const },
   ];
 
   const actions = [
@@ -805,7 +752,7 @@ export default function ProviderEntretienPage() {
 
         <div className="shrink-0 flex justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter size={15} className="text-slate-400 shrink-0" />
+            {/* <Filter size={15} className="text-slate-400 shrink-0" />
             <select
               value={filters.status || ""}
               onChange={e => setFilters({ ...filters, status: e.target.value })}
@@ -820,7 +767,7 @@ export default function ProviderEntretienPage() {
                 className="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-400">
                 <X size={14} />
               </button>
-            )}
+            )} */}
           </div>
           <ActionGroup
             actions={actions}
@@ -832,22 +779,25 @@ export default function ProviderEntretienPage() {
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
-            <span className="text-xs text-slate-400">{filteredReports.length} entretien{filteredReports.length > 1 ? "s" : ""}</span>
+            <span className="text-xs text-slate-400">{meta?.total || filteredReports.length} entretien{(meta?.total || filteredReports.length) > 1 ? "s" : ""}</span>
           </div>
-          <div className="px-6 py-4">
-            {loading ? (
-              <div className="flex justify-center py-10">
-                <RefreshCw className="animate-spin text-slate-400" size={30} />
-              </div>
-            ) : (
-              <DataTable
-                title="Liste des entretiens"
-                columns={columns}
-                data={filteredReports}
-                onViewAll={() => { }}
+            <DataTable
+              title="Liste des entretiens"
+              columns={columns}
+              data={filteredReports}
+              isLoading={loading}
+              onSearchChange={(s) => setFilters({ search: s })}
+              onViewAll={() => { }}
+            />
+          {meta?.last_page > 1 && (
+            <div className="px-6 py-6 border-t border-slate-50 flex justify-center">
+              <Paginate
+                currentPage={filters.page || 1}
+                totalPages={meta.last_page}
+                onPageChange={(p) => setFilters({ page: p })}
               />
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
       </main>

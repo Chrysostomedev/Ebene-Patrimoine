@@ -15,6 +15,7 @@ import Navbar from "@/components/Navbar";
 import DataTable from "@/components/DataTable";
 import StatsCard from "@/components/StatsCard";
 import Paginate from "@/components/Paginate";
+import RichContent from "@/components/RichContent";
 import PageHeader from "@/components/PageHeader";
 import Sidebar from "@/components/Sidebar";
 import { FieldConfig } from "@/components/ReusableForm";
@@ -36,7 +37,16 @@ const formatHeures = sharedFormatHeures;
 // ══════════════════════════════════════════════
 
 // HELPERS
-// ══════════════════════════════════════════════
+const getActorName = (obj: any): string | null => {
+  if (!obj) return null;
+  const u = obj.user || obj;
+  const person = u.manager || u.admin || u;
+  const fn = (person.first_name || u.first_name || obj.first_name || "").trim();
+  const ln = (person.last_name || u.last_name || obj.last_name || "").trim();
+  const fullName = `${fn} ${ln}`.trim();
+  const rawName = person.name || u.name || obj.name || "";
+  return fullName || rawName || null;
+};
 
 // ══════════════════════════════════════════════
 // STATUTS
@@ -57,9 +67,10 @@ const STATUS_STYLES: Record<string, string> = {
   VALIDÉ: "border-blue-400 bg-blue-50 text-blue-700",
   ASSIGNÉ: "border-violet-400 bg-violet-50 text-violet-700",
   EN_COURS: "border-orange-400 bg-orange-50 text-orange-600",
+  EN_TRAITEMENT: "border-orange-400 bg-orange-50 text-orange-600",
   RAPPORTÉ: "border-amber-400 bg-amber-50 text-amber-700",
   ÉVALUÉ: "border-green-500 bg-green-50 text-green-700",
-  CLOS: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  CLOS: "bg-black text-white border-black",
 };
 
 const STATUS_DOT_COLORS: Record<string, string> = {
@@ -73,9 +84,10 @@ const STATUS_DOT_COLORS: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const s = (status || "").toUpperCase();
   return (
-    <span className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[status] ?? ""}`}>
-      {STATUS_LABELS[status] ?? status}
+    <span className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[s] ?? ""}`}>
+      {STATUS_LABELS[s] ?? s}
     </span>
   );
 }
@@ -159,20 +171,6 @@ function FilterDropdown({
           </div>
         </div>
 
-        {/* Type */}
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Type</p>
-          <div className="flex flex-col gap-1.5">
-            {[
-              { val: "", label: "Tous les types" },
-              { val: "curatif", label: "Curatif" },
-              { val: "preventif", label: "Préventif" },
-            ].map(o => (
-              <Pill key={o.val} val={o.val} current={local.type ?? ""} label={o.label}
-                onClick={() => setLocal({ ...local, type: o.val || undefined })} />
-            ))}
-          </div>
-        </div>
 
         {/* Priorité */}
         <div className="space-y-1.5">
@@ -699,9 +697,9 @@ function TicketSidePanel({
     { Icon: AlertTriangle, label: "Priorité", custom: <PriorityBadge priority={ticket.priority} /> },
     { Icon: CalendarDays, label: "Date ", value: formatDate(ticket.planned_at) },
     { Icon: CalendarCheck, label: "Date limite", value: formatDate(ticket.due_at) },
-    ...(ticket.resolved_at ? [{ Icon: CheckCircle2, label: "Résolu le", value: formatDate(ticket.resolved_at) }] : []),
-    ...(ticket.closed_at ? [{ Icon: Clock, label: "Clôturé le", value: formatDate(ticket.closed_at) }] : []),
-    ...(ticket.created_at ? [{ Icon: Clock, label: "Créé le", value: formatDate(ticket.created_at) }] : []),
+    ...(ticket.resolved_at ? [{ Icon: CheckCircle2, label: "Résolu le", value: `${formatDate(ticket.resolved_at)} par ${ticket.provider?.company_name || ticket.provider?.name || "Prestataire"}` }] : []),
+    ...(ticket.closed_at ? [{ Icon: Clock, label: "Clôturé le", value: `${formatDate(ticket.closed_at)} par ${getActorName((ticket as any).validator) || 'Administrateur'}` }] : []),
+    ...(ticket.created_at ? [{ Icon: Clock, label: "Créé le", value: `${formatDate(ticket.created_at)} par ${getActorName((ticket as any).site?.manager) || getActorName((ticket as any).user) || 'Gestionnaire'}` }] : []),
   ];
 
   return (
@@ -761,10 +759,7 @@ function TicketSidePanel({
           {ticket.description && (
             <div>
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
-              <div
-                className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: ticket.description }}
-              />
+              <RichContent html={ticket.description} />
             </div>
           )}
 
@@ -898,16 +893,19 @@ export default function TicketsPage() {
     tickets, stats, isLoading, meta, page,
     filters, fetchTickets, setPage, applyFilters,
     assignTicket, closeTicket, validateReport, error,
-  } = useTickets();
+  } = useTickets({ type: "curatif" });
 
-  const { providers } = useProviders();
+  const { providers, fetchSimple: fetchProvidersSelect } = useProviders();
   const { services } = useServices();
   const { assets } = useAssets();
-  const { sites, fetchSites } = useSites();
+  const { sites, fetchSitesAll } = useSites();
 
   const filterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (sites.length === 0) fetchSites(); }, []);
+  useEffect(() => {
+    fetchSitesAll();
+    fetchProvidersSelect();
+  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTicket, setEditingTicket] = useState<Ticket | null>(null);
@@ -946,7 +944,7 @@ export default function TicketsPage() {
   }, []);
 
 
-  const activeCount = [filters.status, filters.type, filters.priority].filter(Boolean).length;
+  const activeCount = [filters.status, filters.priority].filter(Boolean).length;
 
   const handleOpenDetails = (ticket: Ticket) => {
     setSelectedTicket(ticket);
@@ -975,6 +973,10 @@ export default function TicketsPage() {
           subject: formData.subject || undefined,
           description: formData.description || undefined,
         };
+
+        if (formData.images && formData.images.length > 0) {
+          payload.attachments = formData.images;
+        }
 
         if (formData.service_id) payload.service_id = Number(formData.service_id);
         if (formData.provider_id) payload.provider_id = Number(formData.provider_id);
@@ -1171,7 +1173,6 @@ export default function TicketsPage() {
     return "expired";
   };
 
-  const visibleTickets = tickets.filter(t => getTicketSlaState(t) !== "expired");
 
   // ── Colonnes du tableau ──────────────────────────────────────────────────────
   const columns = [
@@ -1181,14 +1182,17 @@ export default function TicketsPage() {
       ...
     }, */
     {
-      header: "Codification", key: "code",
+      header: "Référence", key: "code",
       render: (_: any, row: Ticket) => {
         const sla = getTicketSlaState(row);
         return (
-          <span className={`font-mono text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap inline-flex items-center gap-1 ${sla === "grace" ? "bg-slate-100 text-slate-400 opacity-50" : "bg-slate-100 text-slate-700"
+          <span className={`font-mono text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap inline-flex items-center gap-1 ${sla === "expired" ? "bg-red-50 text-red-600 border border-red-100" :
+            sla === "grace" ? "bg-orange-50 text-orange-600 border border-orange-100" :
+              "bg-slate-100 text-slate-700"
             }`}>
-            {(row as any).ticket?.code_ticket ?? `${row.code_ticket}`}
-            {sla === "grace" && <span className="text-[9px] text-orange-500 font-black">SLA!</span>}
+            {row.code_ticket || `#${row.id}`}
+            {sla === "expired" && <AlertCircle size={10} className="text-red-500" />}
+            {sla === "grace" && <Clock size={10} className="text-orange-500" />}
           </span>
         );
       },
@@ -1198,7 +1202,10 @@ export default function TicketsPage() {
       render: (_: any, row: Ticket) => {
         const sla = getTicketSlaState(row);
         return (
-          <span className={`font-medium text-sm max-w-[200px] truncate block ${sla === "grace" ? "text-slate-400 line-through" : "text-slate-900"}`}>
+          <span className={`font-medium text-sm max-w-[200px] truncate block ${sla === "expired" ? "text-red-700" :
+            sla === "grace" ? "text-orange-700" :
+              "text-slate-900"
+            }`}>
             {row.subject ?? ""}
           </span>
         );
@@ -1234,21 +1241,18 @@ export default function TicketsPage() {
     },
     {
       header: "Actions", key: "actions",
-      render: (_: any, row: Ticket) => (
-        <div className="flex items-center gap-1">
-          {/* <button
-          onClick={() => handleOpenDetails(row)}
-          className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
-        >
-          <Eye size={18} /> Aperçu
-        </button> */}
-
-
-          <Link href={`/admin/tickets/${row.id}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
-            <Eye size={16} />
-          </Link>
-        </div>
-      ),
+      render: (_: any, row: Ticket) => {
+        const detailHref = row.type === "preventif"
+          ? `/admin/preventif/${row.id}`
+          : `/admin/tickets/${row.id}`;
+        return (
+          <div className="flex items-center gap-1">
+            <Link href={detailHref} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
+              <Eye size={16} />
+            </Link>
+          </div>
+        );
+      },
     },
   ];
 
@@ -1281,11 +1285,12 @@ export default function TicketsPage() {
       defaultValue: "curatif",
       options: [
         { label: "Curatif", value: "curatif" },
-        { label: "Préventif", value: "preventif" },
+
       ],
     },
     {
       name: "priority", label: "Priorité", type: "select", required: true,
+      defaultValue: "haute",
       options: [
         { label: "Faible", value: "faible" }, { label: "Moyenne", value: "moyenne" },
         { label: "Haute", value: "haute" }, { label: "Critique", value: "critique" },
@@ -1400,12 +1405,6 @@ export default function TicketsPage() {
                   <button onClick={() => applyFilters({ ...filters, status: undefined })} className="hover:opacity-70 transition"><X size={11} /></button>
                 </span>
               )}
-              {filters.type && (
-                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                  {filters.type === "curatif" ? "Curatif" : "Préventif"}
-                  <button onClick={() => applyFilters({ ...filters, type: undefined })} className="hover:opacity-70 transition"><X size={11} /></button>
-                </span>
-              )}
               {filters.priority && (
                 <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
                   {PRIORITY_LABELS[filters.priority]}
@@ -1470,24 +1469,18 @@ export default function TicketsPage() {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            {isLoading ? (
-              <div className="py-16 text-center text-slate-400 text-sm">
-                <span className="inline-block w-6 h-6 border-2 border-slate-200 border-t-slate-700 rounded-full animate-spin mb-3" />
-                <p>Chargement des tickets...</p>
-              </div>
-            ) : tickets.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-sm">
-                Aucun ticket{activeCount > 0 ? " correspondant aux filtres" : ""}.
-              </div>
-            ) : (
-              <DataTable title="Liste des tickets" columns={columns} data={visibleTickets} onViewAll={() => { }} />
-            )}
-            <div className="p-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
-              <p className="text-xs text-slate-400">
-                Page {page} sur {meta?.last_page ?? 1} · {meta?.total ?? 0} tickets
-              </p>
-              <Paginate currentPage={page} totalPages={meta?.last_page ?? 1} onPageChange={setPage} />
-            </div>
+            <DataTable
+              title="Liste des tickets"
+              columns={columns}
+              data={tickets}
+              isLoading={isLoading}
+              onSearchChange={(q) => applyFilters({ ...filters, search: q })}
+              pagination={{
+                currentPage: page,
+                totalPages: meta?.last_page ?? 1,
+                onPageChange: setPage,
+              }}
+            />
           </div>
         </main>
       </div>

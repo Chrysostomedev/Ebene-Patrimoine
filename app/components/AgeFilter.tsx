@@ -6,6 +6,7 @@ import { fr } from "date-fns/locale";
 import { DayPicker, DateRange } from "react-day-picker";
 import { CalendarDays, X, ChevronRight, ChevronLeft } from "lucide-react";
 import "react-day-picker/dist/style.css";
+import { useMediaQuery } from "../../hooks/common/useMediaQuery";
 
 export interface DateRangePickerProps {
   date: DateRange | undefined;
@@ -36,6 +37,7 @@ export function DateRangePicker({
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLButtonElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMediaQuery("(max-width: 767px)");
 
   const today = startOfDay(new Date());
 
@@ -53,11 +55,31 @@ export function DateRangePicker({
     if (!triggerRef.current) { setIsOpen(o => !o); return; }
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
-    const popoverH = singleDate ? 380 : 440;
-    const popoverW = singleDate ? 340 : 660;
-    const top = spaceBelow > popoverH ? rect.bottom + 6 : rect.top - popoverH - 6;
-    const left = Math.min(rect.left, window.innerWidth - popoverW - 8);
-    setPopoverStyle({ position: "fixed", top, left: Math.max(8, left), zIndex: 99999, width: popoverW });
+    const popoverH = singleDate ? 460 : 480;
+    const popoverW = isMobile ? Math.min(360, window.innerWidth - 32) : (singleDate ? 360 : 680);
+    
+    if (isMobile) {
+      setPopoverStyle({
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 99999,
+        width: "100%",
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+      });
+    } else {
+      const top = spaceBelow > popoverH ? rect.bottom + 6 : rect.top - popoverH - 6;
+      const left = Math.min(rect.left, window.innerWidth - popoverW - 8);
+      setPopoverStyle({
+        position: "fixed",
+        top,
+        left: Math.max(8, left),
+        zIndex: 99999,
+        width: popoverW,
+      });
+    }
     setIsOpen(o => !o);
   };
 
@@ -107,8 +129,15 @@ export function DateRangePicker({
       </button>
 
       {/* ── Popover (fixed pour éviter le clipping dans les modales) ── */}
+      {isOpen && isMobile && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[99998]"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {isOpen && (
-        <div style={popoverStyle} className="bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+        <div style={popoverStyle} className={`bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in ${isMobile ? "slide-in-from-bottom-8" : "slide-in-from-top-2"} duration-150`}>
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
@@ -142,42 +171,39 @@ export function DateRangePicker({
           )}
 
           {/* Calendar */}
-          <div className="p-4">
+          <div className="p-3 md:p-5 flex justify-center overflow-x-auto">
             <DayPicker
               mode="range"
               defaultMonth={date?.from ?? today}
               selected={date}
               onSelect={handleSelect}
-              numberOfMonths={singleDate ? 1 : (typeof window !== "undefined" && window.innerWidth > 640 ? 2 : 1)}
+              numberOfMonths={singleDate ? 1 : (isMobile ? 1 : 2)}
               locale={fr}
-              pagedNavigation
+              captionLayout="dropdown"
+              fromYear={2020}
+              toYear={2030}
               disabled={disablePastDates ? { before: today } : undefined}
-              components={{
-                IconLeft: () => <ChevronLeft size={16} strokeWidth={3} />,
-                IconRight: () => <ChevronRight size={16} strokeWidth={3} />,
-              }}
               classNames={{
-                months: "flex flex-col sm:flex-row gap-8 justify-center",
-                month: "space-y-6",
-                caption: "flex justify-center pt-2 relative items-center mb-4",
-                caption_label: "text-sm font-black text-slate-900 capitalize tracking-tight",
-                nav: "flex items-center",
-                nav_button: "h-9 w-9 flex items-center justify-center rounded-xl transition-all duration-200 shadow-sm border border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white hover:shadow-blue-200 active:scale-90",
-                nav_button_previous: "absolute left-0 z-10",
-                nav_button_next: "absolute right-0 z-10",
+                months: "flex flex-col sm:flex-row gap-5",
+                month: "space-y-4 min-w-[280px]",
+                caption: "flex justify-center pt-2 relative items-center h-10 mb-2",
+                caption_label: "hidden",
+                caption_dropdowns: "flex justify-center gap-2 z-20 w-full",
+                dropdown: "px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-900 cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition outline-none appearance-none",
+                nav: "hidden",
                 table: "w-full border-collapse",
-                head_row: "flex mb-2",
-                head_cell: "text-slate-400 w-9 font-black text-[10px] uppercase text-center tracking-widest",
-                row: "flex w-full mt-1.5",
-                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-slate-50 first:[&:has([aria-selected])]:rounded-l-2xl last:[&:has([aria-selected])]:rounded-r-2xl",
-                day: "h-9 w-9 p-0 font-bold rounded-2xl transition-all duration-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900",
-                day_range_start: "bg-blue-600 !text-white hover:bg-blue-700 rounded-2xl shadow-lg shadow-blue-200",
-                day_range_end: "bg-blue-600 !text-white hover:bg-blue-700 rounded-2xl shadow-lg shadow-blue-200",
-                day_selected: "bg-blue-600 !text-white hover:bg-blue-700",
-                day_today: "bg-slate-50 text-blue-600 font-black ring-2 ring-inset ring-blue-100",
-                day_outside: "text-slate-300 opacity-40",
-                day_disabled: "text-slate-200 opacity-20 cursor-not-allowed hover:bg-transparent",
-                day_range_middle: "aria-selected:bg-blue-50/50 aria-selected:text-blue-900 rounded-none",
+                head_row: "flex w-full",
+                head_cell: "text-slate-900 w-9 md:w-10 font-black text-[11px] uppercase text-center tracking-widest py-4",
+                row: "flex w-full mt-1",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-slate-50 first:[&:has([aria-selected])]:rounded-l-xl last:[&:has([aria-selected])]:rounded-r-xl",
+                day: "h-9 w-9 md:h-10 md:w-10 p-0 font-bold rounded-xl transition-all duration-75 text-slate-700 hover:bg-slate-900 hover:text-white",
+                day_range_start: "bg-slate-900 !text-white rounded-xl shadow-md",
+                day_range_end: "bg-slate-900 !text-white rounded-xl shadow-md",
+                day_selected: "bg-slate-900 !text-white",
+                day_today: "text-slate-900 font-black ring-2 ring-inset ring-slate-900 bg-slate-50",
+                day_outside: "text-slate-300 opacity-20",
+                day_disabled: "text-slate-200 opacity-10 cursor-not-allowed",
+                day_range_middle: "aria-selected:bg-slate-100 aria-selected:text-slate-900 rounded-none",
                 day_hidden: "invisible",
               }}
             />

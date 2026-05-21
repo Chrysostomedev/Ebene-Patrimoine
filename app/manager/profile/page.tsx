@@ -62,6 +62,11 @@ export default function ManagerProfilePage() {
         email:      data.email      || "",
         phone:      data.phone      || "",
       });
+      if (data.first_name || data.last_name) {
+        localStorage.setItem("first_name", data.first_name || "");
+        localStorage.setItem("last_name", data.last_name || "");
+        window.dispatchEvent(new CustomEvent("profile-updated"));
+      }
       const photoUrl = data.url || (data.profile_picture_path ? resolveStorageUrl(data.profile_picture_path) : null);
       if (photoUrl) {
         dispatchProfileUpdate(photoUrl);

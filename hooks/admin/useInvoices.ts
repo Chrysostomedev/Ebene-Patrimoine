@@ -1,5 +1,5 @@
 // hooks/useInvoices.ts
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   Invoice,
   InvoiceStats,
@@ -14,8 +14,15 @@ interface UseInvoicesReturn {
   isLoading: boolean;
   statsLoading: boolean;
   error: string | null;
+  meta: any;
+  page: number;
+  setPage: (p: number) => void;
+  search: string;
+  setSearch: (s: string) => void;
+  filters: any;
+  setFilters: (f: any) => void;
 
-  fetchInvoices: () => Promise<void>;
+  fetchInvoices: (params?: any) => Promise<void>;
   fetchStats: () => Promise<void>;
   fetchInvoicesByReport: (reportId: number) => Promise<Invoice[]>;
   createInvoice: (payload: CreateInvoicePayload) => Promise<Invoice>;
@@ -23,31 +30,43 @@ interface UseInvoicesReturn {
   markAsPaid: (id: number, payload?: MarkAsPaidPayload) => Promise<void>;
 }
 
-export const useInvoices = (): UseInvoicesReturn => {
+export const useInvoices = (initialPage = 1, initialSearch = ""): UseInvoicesReturn => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats | null>(null);
+  const [meta, setMeta] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [page, setPage] = useState(initialPage);
+  const [search, setSearchState] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
+  const [filters, setFiltersState] = useState<any>({ status: undefined });
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Récupération liste factures ────────────────────────────────────────────
-  const fetchInvoices = useCallback(async () => {
+  const fetchInvoices = useCallback(async (customParams?: any) => {
     setIsLoading(true);
     setError(null);
     try {
-      // ✅ CORRECTION : InvoiceService.getInvoices() retourne déjà un tableau
-      const data = await InvoiceService.getInvoices();
+      const queryParams = {
+        page: customParams?.page ?? page,
+        search: customParams?.search !== undefined ? customParams.search : debouncedSearch,
+        status: customParams?.status !== undefined ? customParams.status : filters.status,
+        site_id: customParams?.site_id !== undefined ? customParams.site_id : filters.site_id,
+        provider_id: customParams?.provider_id !== undefined ? customParams.provider_id : filters.provider_id,
+        per_page: 10,
+      };
+
+      const res = await InvoiceService.getInvoicesPaginated(queryParams);
       
-      // ✅ data est maintenant TOUJOURS un tableau (Invoice[])
-      const sorted = [...data].sort(
-        (a, b) => {
-          const dateA = new Date(a.invoice_date).getTime();
-          const dateB = new Date(b.invoice_date).getTime();
-          return dateB - dateA;  // Décroissant (plus récent en haut)
-        }
+      const sorted = [...res.items].sort(
+        (a, b) => new Date(b.invoice_date).getTime() - new Date(a.invoice_date).getTime()
       );
       
       setInvoices(sorted);
+      setMeta(res.meta);
     } catch (err: any) {
       const message = err?.response?.data?.message ?? "Erreur lors de la récupération des factures.";
       setError(message);
@@ -55,6 +74,32 @@ export const useInvoices = (): UseInvoicesReturn => {
     } finally {
       setIsLoading(false);
     }
+  }, [page, debouncedSearch, filters.status, filters.site_id, filters.provider_id]);
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [search]);
+
+  // Re-fetch when page, debouncedSearch or status changes
+  useEffect(() => {
+    fetchInvoices();
+  }, [page, debouncedSearch, filters.status, filters.site_id, filters.provider_id, fetchInvoices]);
+
+  const setSearch = useCallback((s: string) => {
+    setSearchState(s);
+  }, []);
+
+  const setFilters = useCallback((f: any) => {
+    setFiltersState(f);
+    setPage(1);
   }, []);
 
   // ── Récupération statistiques ──────────────────────────────────────────────
@@ -135,6 +180,13 @@ export const useInvoices = (): UseInvoicesReturn => {
     isLoading,
     statsLoading,
     error,
+    meta,
+    page,
+    setPage,
+    search,
+    setSearch,
+    filters,
+    setFilters,
     fetchInvoices,
     fetchStats,
     fetchInvoicesByReport,

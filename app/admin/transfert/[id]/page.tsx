@@ -470,8 +470,11 @@ export default function TransferDetailPage({
                     Motif du transfert
                   </h2>
 
-                  <div className="bg-slate-50 rounded-xl p-4 text-sm text-slate-700 italic border border-slate-100">
-                    {transfer.reason}
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                    <div
+                      className="prose prose-slate prose-sm max-w-none text-slate-700 leading-relaxed italic"
+                      dangerouslySetInnerHTML={{ __html: transfer.reason }}
+                    />
                   </div>
 
                 </div>
@@ -519,10 +522,10 @@ export default function TransferDetailPage({
 
               <div
                 className={`rounded-3xl p-6 border ${isCompleted
-                  ? "bg-green-50 border-green-100"
+                  ? "bg-green-50 border-green-100 text-green-800"
                   : isCancelled
-                    ? "bg-red-50 border-red-100"
-                    : "bg-blue-50 border-blue-100"
+                    ? "bg-red-50 border-red-100 text-red-800"
+                    : "bg-blue-50 border-blue-100 text-blue-800"
                   }`}
               >
 

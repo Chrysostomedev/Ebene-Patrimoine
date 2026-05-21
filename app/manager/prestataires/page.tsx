@@ -122,9 +122,9 @@ export default function PrestatairesPage() {
                     id={p.id}
                     name={p.company_name}
                     location={p.city || ""}
-                    category={p.service?.name || ""}
-                    phone={p.user?.phone || ""}
-                    email={p.user?.email || ""}
+                    category={p.service?.name || (p as any).service_name || "-"}
+                    phone={p.user?.phone || (p as any).phone || (p as any).telephone || (p as any).phone_number || ""}
+                    email={p.email || p.user?.email || ""}
                     rating={p.rating || 0}
                     status={p.is_active ? "Actif" : "Inactif"}
                     detailBasePath="/manager/prestataires/details"
@@ -144,17 +144,17 @@ export default function PrestatairesPage() {
           </div>
         </main>
       
-      {/* Profile modal */}
       <ProfileModal
         isOpen={!!selectedProvider}
         onClose={() => setSelectedProvider(null)}
+        detailUrl={selectedProvider ? `/manager/prestataires/details/${selectedProvider.id}` : undefined}
         provider={
           selectedProvider ? {
             name:       selectedProvider.company_name,
             location:   selectedProvider.city || "",
-            phone:      selectedProvider.user?.phone || "",
-            email:      selectedProvider.user?.email || "",
-            category:   selectedProvider.service?.name || "",
+            phone:      selectedProvider.user?.phone || (selectedProvider as any).phone || (selectedProvider as any).telephone || (selectedProvider as any).phone_number || "",
+            email:      selectedProvider.email || selectedProvider.user?.email || "",
+            category:   selectedProvider.service?.name || (selectedProvider as any).service_name || "",
             dateEntree: selectedProvider.date_entree || "-",
             status:     selectedProvider.is_active ? "Actif" : "Inactif",
             stats: {

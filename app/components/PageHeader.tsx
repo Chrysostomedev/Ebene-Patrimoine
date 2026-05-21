@@ -13,8 +13,8 @@ export default function PageHeader({ title, subtitle }: PageHeaderProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { collapsed: sidebarCollapsed } = useSidebar();
 
-  const leftOffset = sidebarCollapsed ? "left-16" : "left-64";
-  const widthCalc  = sidebarCollapsed ? "w-[calc(100%-4rem)]" : "w-[calc(100%-16rem)]";
+  const leftOffset = sidebarCollapsed ? "md:left-16" : "md:left-64";
+  const widthCalc  = sidebarCollapsed ? "md:w-[calc(100%-4rem)]" : "md:w-[calc(100%-16rem)]";
 
   return (
     <>
@@ -22,13 +22,13 @@ export default function PageHeader({ title, subtitle }: PageHeaderProps) {
       <div className={`transition-all duration-300 ${isCollapsed ? "h-16" : "h-[100px]"}`} />
 
       {/* Header fixe */}
-      <div className={`fixed top-[57px] ${leftOffset} ${widthCalc} z-20 bg-white border-b border-slate-100 shadow-sm transition-all duration-300`}>
+      <div className={`fixed top-[57px] left-0 w-full ${leftOffset} ${widthCalc} z-20 bg-white border-b border-slate-100 shadow-sm transition-all duration-300`}>
         <div className={`relative px-6 flex flex-col justify-center transition-all duration-300 ${isCollapsed ? "h-16" : "h-[100px]"}`}>
-          <div className="flex flex-col gap-0.5">
-            <h1 className={`font-black text-slate-900 tracking-tight transition-all duration-300 ${isCollapsed ? "text-lg" : "text-2xl lg:text-3xl"}`}>
+          <div className="flex flex-col gap-0.5 pr-10">
+            <h1 className={`font-black text-slate-900 tracking-tight transition-all duration-300 ${isCollapsed ? "text-lg" : "text-xl md:text-2xl lg:text-3xl"}`}>
               {title}
             </h1>
-            <p className={`text-slate-500 text-xs lg:text-sm transition-all duration-300 overflow-hidden ${isCollapsed ? "h-0 opacity-0" : "h-auto opacity-100"}`}>
+            <p className={`text-slate-500 text-[11px] md:text-xs lg:text-sm transition-all duration-300 overflow-hidden ${isCollapsed ? "h-0 opacity-0" : "h-auto opacity-100"}`}>
               {subtitle}
             </p>
           </div>

@@ -195,12 +195,12 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
+            <Image src="/images/logoci.png" alt="Ebene" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
               <ShieldCheck size={26} className="text-white" />
             </div>
           </div>
@@ -353,8 +353,8 @@ export default function ForgetPassword({ email, onSuccess, backHref = "/login" }
             <button
               type="submit"
               disabled={loading || !otpComplete || !!success}
-              className="w-full py-3.5 rounded-xl bg-gray-900 text-white font-semibold text-sm
-                         hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed
+              className="w-full py-3.5 rounded-xl bg-theme-primary text-white font-semibold text-sm
+                         hover:bg-theme-primary disabled:bg-theme-primary disabled:cursor-not-allowed
                          transition-all duration-200 shadow-lg shadow-gray-900/20
                          flex items-center justify-center gap-2"
             >

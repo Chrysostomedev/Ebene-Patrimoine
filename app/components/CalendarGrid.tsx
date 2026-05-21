@@ -109,7 +109,7 @@ export default function CalendarGrid({
         {DAY_HEADERS.map((d) => (
           <div
             key={d}
-            className="text-[11px] font-bold text-slate-400 tracking-widest text-center py-3"
+            className="text-[11px] font-black text-slate-500 tracking-widest text-center py-3"
           >
             {d}
           </div>
@@ -118,12 +118,20 @@ export default function CalendarGrid({
 
       {/* Grille */}
       <div className="grid grid-cols-7 border-l border-slate-100">
-        {cells.map((cell, i) => (
+      {cells.map((cell, i) => {
+        const cellDate = cell.currentMonth 
+          ? new Date(year, month, cell.day)
+          : (cell.day > 20 
+              ? new Date(year, month - 1, cell.day) // Mois précédent
+              : new Date(year, month + 1, cell.day) // Mois suivant
+            );
+
+        return (
           <DayCell
             key={i}
             day={cell.day}
             currentMonth={cell.currentMonth}
-            date={new Date(year, month, cell.day)}
+            date={cellDate}
             events={cell.events}
             canAddEvent={canAddEvent}
             onAddClick={onEventAdd}
@@ -135,12 +143,13 @@ export default function CalendarGrid({
             } : undefined}
             onDrop={(planningId) => {
               if (cell.currentMonth && onEventDrop) {
-                onEventDrop(planningId, new Date(year, month, cell.day));
+                onEventDrop(planningId, cellDate);
               }
             }}
             onCellClick={onCellClick}
           />
-        ))}
+        );
+      })}
       </div>
     </div>
   );

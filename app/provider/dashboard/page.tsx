@@ -38,23 +38,23 @@ import { parseApiError } from "../../../core/error";
 
 // ── Statuts - inchangés ───────────────────────────────────────────────────────
 const STATUS_STYLES: Record<string, string> = {
-  signalez: "border-slate-300 text-slate-700 bg-gray-100",
-  validé: "border-blue-400 text-blue-600 bg-blue-50",
-  assigné: "border-purple-400 text-purple-600 bg-purple-50",
-  en_cours: "border-orange-400 text-orange-500 bg-orange-50",
-  rapporté: "border-yellow-400 text-yellow-600 bg-yellow-50",
-  évalué: "border-green-400 text-green-600 bg-green-50",
-  clos: "bg-black text-white border-black",
+  SIGNALÉ: "border-slate-300 text-slate-700 bg-gray-100",
+  VALIDÉ: "border-blue-400 text-blue-600 bg-blue-50",
+  ASSIGNÉ: "border-purple-400 text-purple-600 bg-purple-50",
+  EN_COURS: "border-orange-400 text-orange-500 bg-orange-50",
+  RAPPORTÉ: "border-yellow-400 text-yellow-600 bg-yellow-50",
+  ÉVALUÉ: "border-green-400 text-green-600 bg-green-50",
+  CLOS: "bg-black text-white border-black",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  signalez: "Signalé",
-  validé: "Validé",
-  assigné: "Assigné",
-  en_cours: "En cours",
-  rapporté: "Rapporté",
-  évalué: "Évalué",
-  clos: "Clos",
+  SIGNALÉ: "Signalé",
+  VALIDÉ: "Validé",
+  ASSIGNÉ: "Assigné",
+  EN_COURS: "En cours",
+  RAPPORTÉ: "Rapporté",
+  ÉVALUÉ: "Évalué",
+  CLOS: "Clôturé",
 };
 
 // ── Helper toEventItem - inchangé ─────────────────────────────────────────────
@@ -178,7 +178,7 @@ export default function ProviderDashboard() {
         { label: "Sujet", value: ticket.subject ?? "-" },
         { label: "Site concerné", value: ticket.site?.nom ?? "-" },
         { label: "Service", value: ticket.service?.name ?? "-" },
-        { label: "Date planifiée", value: ticket.planned_at ?? "-" },
+        { label: "Date soumise", value: ticket.planned_at ?? "-" },
         {
           label: "Statut",
           value: STATUS_LABELS[ticket.status] ?? ticket.status,
@@ -192,7 +192,7 @@ export default function ProviderDashboard() {
 
   // ── Colonnes DataTable - inchangées ──────────────────────────────────────
   const columns: ColumnConfig<any>[] = [
-    { header: "Code ", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
+    { header: "Référence ", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
     { header: "Nom", key: "subject", render: (_: any, row: any) => row.subject ?? "-" },
     { header: "Site", key: "site", render: (_: any, row: any) => row.site?.nom ?? "-" },
     // { header: "Catégorie", key: "category", render: (_: any, row: any) => row.category?.name ?? "-" },
@@ -203,11 +203,14 @@ export default function ProviderDashboard() {
     {
       header: "Statut",
       key: "status",
-      render: (_: any, row: any) => (
-        <span className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[row.status] ?? ""}`}>
-          {STATUS_LABELS[row.status] ?? row.status}
-        </span>
-      ),
+      render: (_: any, row: any) => {
+        const s = (row.status || "").toUpperCase();
+        return (
+          <span className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[s] ?? ""}`}>
+            {STATUS_LABELS[s] ?? s}
+          </span>
+        );
+      },
     },
     {
       header: "Actions",
@@ -321,7 +324,7 @@ export default function ProviderDashboard() {
         }
         redirectLabel="Voir le ticket"
       />
-      
+
       {/* <SideDetailsPanel
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}

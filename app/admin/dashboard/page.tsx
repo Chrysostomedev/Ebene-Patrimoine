@@ -40,32 +40,63 @@ const MOIS_LABELS = [
   "Juil", "Aoû", "Sep", "Oct", "Nov", "Déc",
 ];
 
-const DONUT_COLORS = ["#df1414", "#07ad07", "#606eee", "#050f6b", "#f97316"];
-
+const DONUT_COLORS = [
+  "#df1414", // rouge
+  "#e9a076ff", // vert
+  "#880808ff", // bleu violet
+  "#998877ff", // bleu nuit
+  "#f97316", // orange
+];
 const BAR_COLORS = [
-  "#01050e", "#041022", "#192535", "#2d3748",
-  "#373e46", "#4a5568", "#718096", "#969799",
-  "#a0aec0", "#cbd5e0", "#e2e8f0", "#94a3b8",
+  "#fffaf5", // blanc crème ultra soft
+  "#fff3e8",
+  "#ffe8d1",
+  "#ffd8b0",
+  "#ffc78f",
+  "#ffb46b",
+  "#ffa14d",
+  "#ff9336",
+  "#ff851f",
+  "#f97316",
+  "#ea580c",
+  "#c2410c", // orange profond élégant
 ];
 
 const STATUS_LABELS: Record<string, string> = {
-  signalez: "Signalé",
-  validé: "Validé",
-  assigné: "Assigné",
-  en_cours: "En cours",
-  rapporté: "Rapporté",
-  évalué: "Évalué",
-  clos: "Clôturé",
+  SIGNALÉ: "Signalé",
+  VALIDÉ: "Validé",
+  ASSIGNÉ: "Assigné",
+  EN_COURS: "En cours",
+  EN_TRAITEMENT: "En traitement",
+  RAPPORTÉ: "Rapporté",
+  ÉVALUÉ: "Évalué",
+  CLOS: "Clôturé",
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  signalez: "border-slate-300 text-slate-700 bg-gray-100",
-  validé: "border-blue-400 text-blue-600 bg-blue-50",
-  assigné: "border-purple-400 text-purple-600 bg-purple-50",
-  en_cours: "border-orange-400 text-orange-500 bg-orange-50",
-  rapporté: "border-yellow-400 text-yellow-600 bg-yellow-50",
-  évalué: "border-green-400 text-green-600 bg-green-50",
-  clos: "bg-black text-white border-black",
+  SIGNALÉ:
+    "border-stone-300 text-stone-700 bg-stone-100",
+
+  VALIDÉ:
+    "border-sky-400 text-sky-700 bg-sky-50",
+
+  ASSIGNÉ:
+    "border-violet-400 text-violet-700 bg-violet-50",
+
+  EN_COURS:
+    "border-orange-400 text-orange-700 bg-orange-50",
+
+  EN_TRAITEMENT:
+    "border-amber-500 text-amber-700 bg-amber-50",
+
+  RAPPORTÉ:
+    "border-red-400 text-red-700 bg-red-50",
+
+  ÉVALUÉ:
+    "border-emerald-400 text-emerald-700 bg-emerald-50",
+
+  CLOS:
+    "border-neutral-700 text-white bg-neutral-800",
 };
 
 // ── Composant principal ───────────────────────────────────────────────────────
@@ -128,7 +159,7 @@ export default function Dashboard() {
         { label: "Sujet", value: ticket.subject ?? "-" },
         { label: "Site concerné", value: ticket.site?.nom ?? "-" },
         { label: "Service", value: ticket.service?.name ?? "-" },
-        { label: "Date planifiée", value: formatDate(ticket.planned_at) },
+        { label: "Date soumis", value: formatDate(ticket.planned_at) },
         {
           label: "Statut",
           value: STATUS_LABELS[ticket.status] ?? ticket.status,
@@ -181,14 +212,17 @@ export default function Dashboard() {
     {
       header: "Statut",
       key: "status",
-      render: (_: any, row: any) => (
-        <span
-          className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[row.status] ?? ""
-            }`}
-        >
-          {STATUS_LABELS[row.status] ?? row.status}
-        </span>
-      ),
+      render: (_: any, row: any) => {
+        const s = (row.status || "").toUpperCase();
+        return (
+          <span
+            className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl border text-xs font-bold ${STATUS_STYLES[s] ?? ""
+              }`}
+          >
+            {STATUS_LABELS[s] ?? s}
+          </span>
+        );
+      },
     },
     {
       header: "Actions",

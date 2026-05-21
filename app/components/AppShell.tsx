@@ -10,9 +10,17 @@
 import { useSidebar } from "./Sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const { collapsed } = useSidebar();
+  const { collapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
   return (
-    <div className={`flex-1 w-full min-w-0 transition-all duration-300 ${collapsed ? "pl-16" : "pl-64"}`}>
+    <div className={`app-shell flex-1 w-full min-w-0 transition-all duration-300 ${collapsed ? "pl-16" : "pl-64"}`}>
+      {/* Overlay mobile cliquable pour fermer le tiroir */}
+      {isMobileOpen && (
+        <div
+          className="mobile-overlay"
+          onClick={() => setIsMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
       {children}
     </div>
   );

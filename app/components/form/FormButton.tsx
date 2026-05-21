@@ -22,8 +22,8 @@ export default function FormButton({
   const baseStyles = "py-4 px-6 rounded-2xl font-bold transition-all duration-200 active:scale-95 flex items-center justify-center gap-2";
   
   const variants = {
-    primary: "bg-[#111] text-white hover:bg-black shadow-lg shadow-slate-200",
-    secondary: "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+    primary: "bg-[#111] text-white hover:bg-theme-primary shadow-lg shadow-slate-200",
+    secondary: "bg-white border border-slate-200 text-theme-primary hover:bg-slate-50"
   };
 
   return (

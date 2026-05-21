@@ -61,7 +61,7 @@ export function usePlanning(): UsePlanningReturn {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen]     = useState(false);
   const [isPanelOpen, setIsPanelOpen]             = useState(false);
-  const [filters, setFiltersState]              = useState<PlanningFilters>({ per_page: 15 });
+  const [filters, setFiltersState]              = useState<PlanningFilters>({ per_page: 100 });
 
   // ── Ref pour savoir si c'est le premier rendu ──────────────
   // FIX BUG 1 : évite le double chargement au montage
@@ -74,7 +74,7 @@ export function usePlanning(): UsePlanningReturn {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetchPlannings(activeFilters ?? { per_page: 15 });
+      const res = await fetchPlannings(activeFilters ?? { per_page: 100 });
       setPlannings(res.items);
       setCurrentPage(res.meta.current_page);
       setLastPage(res.meta.last_page);
@@ -103,7 +103,7 @@ export function usePlanning(): UsePlanningReturn {
   // ── Chargement initial UNIQUE ──────────────────────────────
   // FIX BUG 1 : un seul useEffect de montage, séquentiel
   useEffect(() => {
-    loadPlannings({ per_page: 15 });
+    loadPlannings({ per_page: 100 });
     loadStats();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

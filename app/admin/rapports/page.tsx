@@ -27,6 +27,16 @@ import { formatDate } from "@/lib/utils";
 
 // local formatDate removed - using @/lib/utils
 
+const getActorName = (obj: any): string | null => {
+  if (!obj) return null;
+  const u = obj.user || obj;
+  const person = u.manager || u.admin || u;
+  const fn = (person.first_name || u.first_name || obj.first_name || "").trim();
+  const ln = (person.last_name || u.last_name || obj.last_name || "").trim();
+  const fullName = `${fn} ${ln}`.trim();
+  const rawName = person.name || u.name || obj.name || "";
+  return fullName || rawName || null;
+};
 
 // ══════════════════════════════════════════════
 // STATUTS
@@ -35,10 +45,12 @@ import { formatDate } from "@/lib/utils";
 const STATUS_STYLES: Record<string, string> = {
   validated: "border-emerald-200 bg-emerald-50 text-emerald-600",
   pending: "border-amber-200 bg-amber-50 text-amber-600",
+  submitted: "border-blue-200 bg-blue-50 text-blue-600",
 };
 const STATUS_LABELS: Record<string, string> = {
   validated: "Validé",
   pending: "En attente",
+  submitted: "Soumis",
 };
 
 function StatusBadge({ status }: { status?: string }) {
@@ -120,15 +132,11 @@ function ValidateModal({
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    if (!comment.trim()) {
-      alert("Le commentaire est obligatoire.");
-      return;
-    }
     setLoading(true);
     try {
       await onConfirm({
         rating: rating || null,
-        comment: comment.trim(),
+        comment: comment.trim() || "",
         result: report.intervention_type === "preventif" ? "RAS" : "ANOMALIE",
       });
       onClose();
@@ -185,17 +193,17 @@ function ValidateModal({
             </div>
           </div>
 
-          {/* Commentaire */}
+          {/* Commentaire ca doit etre required stp les 2 champs commentation comme notation */}
           <div>
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">
-              Commentaire <span className="text-red-500">*</span>
+              Commentaire <span className="text-slate-400 font-normal"></span>
             </label>
             <textarea
               value={comment}
               onChange={e => setComment(e.target.value)}
               rows={4}
-              placeholder="Commentaire de validation obligatoire..."
-              className={`w-full px-4 py-3 rounded-xl border text-sm text-slate-700 placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition ${!comment.trim() ? "border-red-200" : "border-slate-200"}`}
+              placeholder="Ajouter un commentaire de validation..."
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder-slate-300 resize-none focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition"
             />
           </div>
         </div>
@@ -277,7 +285,7 @@ function ReportSidePanel({
               { label: "Type", render: () => <TypeBadge type={report.intervention_type} /> },
               { label: "Début", value: formatDate(report.start_date) },
               { label: "Fin", value: formatDate(report.end_date) },
-              { label: "Créé le", value: formatDate(report.created_at) },
+              { label: "Créé le", value: `${formatDate(report.created_at)} par ${providerName}` },
             ].map((f, i) => (
               <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <p className="text-xs text-slate-400 font-medium">{f.label}</p>
@@ -301,7 +309,7 @@ function ReportSidePanel({
             <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
                 <CheckCircle2 size={16} />
-                Validé le {formatDate(report.validated_at)}
+                Validé le {formatDate(report.validated_at)} par {getActorName((report as any).validator) || 'Administrateur'}
               </div>
               {report.rating && (
                 <div className="flex items-center gap-2">
@@ -387,14 +395,14 @@ function FilterDropdown({
 
   const statusOpts = [
     { val: "", label: "Tous" },
-    { val: "pending", label: "En attente" },
+    { val: "submitted", label: "Soumis" },
     { val: "validated", label: "Validé" },
   ];
-  const typeOpts = [
-    { val: "", label: "Tous" },
-    { val: "curatif", label: "Curatif" },
-    { val: "preventif", label: "Préventif" },
-  ];
+  // const typeOpts = [
+  //   { val: "", label: "Tous" },
+  //   { val: "curatif", label: "Curatif" },
+  //   { val: "preventif", label: "Préventif" },
+  // ];
 
   return (
     <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
@@ -420,7 +428,7 @@ function FilterDropdown({
           </div>
         </div>
         {/* Type */}
-        <div>
+        {/* <div>
           <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Type</label>
           <div className="flex flex-col gap-2 mt-2">
             {typeOpts.map(({ val, label }) => (
@@ -432,10 +440,10 @@ function FilterDropdown({
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
       <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
-        <button onClick={() => { setLocal({}); onApply({}); onClose(); }}
+        <button onClick={() => { resetFilters(); onClose(); }}
           className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition">
           Réinitialiser
         </button>
@@ -455,19 +463,21 @@ function FilterDropdown({
 export default function RapportsPage() {
 
   const filterRef = useRef<HTMLDivElement>(null);
-  const { reports, stats, isLoading, statsLoading, fetchReports, fetchStats, validateReport } = useReports();
+  const {
+    reports, stats, isLoading, statsLoading,
+    fetchReports, fetchStats, validateReport, resetFilters,
+    filters: hookFilters, setFilters: setHookFilters
+  } = useReports({ type: "curatif" });
 
   const [selectedReport, setSelectedReport] = useState<InterventionReport | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<{ status?: string; type?: string }>({ type: "curatif" });
   const [currentPage, setCurrentPage] = useState(1);
   const [exportLoading, setExportLoading] = useState(false);
   const { toast } = useToast();
 
   const PER_PAGE = 10;
 
-  useEffect(() => { fetchReports(); fetchStats(); }, []);
 
 
   useEffect(() => {
@@ -478,27 +488,24 @@ export default function RapportsPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const applyFilters = (f: { status?: string; type?: string }) => { setFilters(f); setCurrentPage(1); };
+  const applyFilters = (f: { status?: string; type?: string }) => {
+    setHookFilters(f);
+    setCurrentPage(1);
+  };
 
   const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
 
-  const filtered = reports.filter(r => {
-    if (filters.status && r.status !== filters.status) return false;
-    if (filters.type && r.intervention_type !== filters.type) return false;
-    if (dateRange?.from) {
-      const d = new Date(r.created_at ?? "");
-      if (isNaN(d.getTime()) || d < dateRange.from) return false;
-    }
-    if (dateRange?.to) {
-      const d = new Date(r.created_at ?? "");
-      const toEnd = new Date(dateRange.to); toEnd.setHours(23, 59, 59, 999);
-      if (isNaN(d.getTime()) || d > toEnd) return false;
-    }
-    return true;
-  });
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-  const activeCount = Object.values(filters).filter(Boolean).length;
+  // Synchronisation de la plage de dates avec les filtres du hook
+  useEffect(() => {
+    setHookFilters({
+      date_debut: dateRange?.from ? dateRange.from.toISOString().split('T')[0] : undefined,
+      date_fin: dateRange?.to ? dateRange.to.toISOString().split('T')[0] : undefined,
+    });
+  }, [dateRange]);
+
+  const totalPages = Math.ceil((reports?.length || 0) / PER_PAGE);
+  const paginated = (reports || []).slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+  const activeCount = Object.values(hookFilters || {}).filter(v => v !== undefined && v !== "curatif" && v !== "").length;
 
   const handleValidate = async (report: InterventionReport, payload: ValidateReportPayload) => {
     try {
@@ -517,8 +524,7 @@ export default function RapportsPage() {
     if (exportLoading) return;
     setExportLoading(true);
     try {
-      const dataToExport = filtered.length > 0 ? filtered : reports;
-      const rows = dataToExport.map(r => ({
+      const rows = reports.map(r => ({
         id: `#${r.id}`,
         ticket: r.ticket?.subject ?? `#${r.ticket_id}`,
         prestataire: r.provider?.company_name ?? r.provider?.name ?? "-",
@@ -553,7 +559,7 @@ export default function RapportsPage() {
   const kpis = [
     { label: "Total rapports", value: statsLoading ? 0 : (stats?.total_reports ?? 0), delta: "+3%", trend: "up" as const },
     { label: "Rapports validés", value: statsLoading ? 0 : (stats?.validated_reports ?? 0), delta: "+8%", trend: "up" as const },
-    { label: "En attente", value: statsLoading ? 0 : (stats?.pending_reports ?? 0), delta: "+0%", trend: "up" as const },
+    { label: "Rapports soumis", value: statsLoading ? 0 : (stats?.submitted_reports ?? 0), delta: "+0%", trend: "up" as const },
     {
       label: "Note moyenne",
       value: statsLoading ? "-" : (stats?.average_rating ? `${Number(stats.average_rating).toFixed(1)}/5` : "-"),
@@ -562,7 +568,7 @@ export default function RapportsPage() {
   ];
 
   const columns: ColumnConfig<InterventionReport>[] = [
-    { header: "Ticket", key: "ticket", render: (_: any, row: InterventionReport) => row.ticket?.subject ?? `#${row.ticket_id}` },
+    { header: "Ticket", key: "ticket", render: (_: any, row: InterventionReport) => row.ticket?.code_ticket ?? `${row.ticket_id}` },
     { header: "Prestataire", key: "provider", render: (_: any, row: InterventionReport) => row.provider?.company_name ?? row.provider?.name ?? "-" },
     { header: "Site", key: "site", render: (_: any, row: InterventionReport) => row.site?.nom ?? row.site?.name ?? "-" },
     { header: "Type", key: "intervention_type", render: (_: any, row: InterventionReport) => <TypeBadge type={row.intervention_type} /> },
@@ -624,7 +630,7 @@ export default function RapportsPage() {
                 <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">{activeCount}</span>
               )}
             </button>
-            <FilterDropdown isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} filters={filters} onApply={applyFilters} />
+            <FilterDropdown isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} filters={hookFilters} onApply={applyFilters} />
           </div>
           <ActionGroup
             actions={[{ label: exportLoading ? "Export…" : "Exporter", icon: Upload, onClick: handleExport, variant: "secondary" as const }]}
@@ -638,16 +644,16 @@ export default function RapportsPage() {
         {activeCount > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
-            {filters.status && (
+            {hookFilters.status && (
               <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {STATUS_LABELS[filters.status] ?? filters.status}
-                <button onClick={() => applyFilters({ ...filters, status: undefined })} className="hover:opacity-70"><X size={12} /></button>
+                {STATUS_LABELS[hookFilters.status] ?? hookFilters.status}
+                <button onClick={() => applyFilters({ ...hookFilters, status: undefined })} className="hover:opacity-70"><X size={12} /></button>
               </span>
             )}
-            {filters.type && (
+            {hookFilters.type && hookFilters.type !== "curatif" && (
               <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {filters.type === "curatif" ? "Curatif" : "Préventif"}
-                <button onClick={() => applyFilters({ ...filters, type: undefined })} className="hover:opacity-70"><X size={12} /></button>
+                {hookFilters.type === "curatif" ? "Curatif" : "Préventif"}
+                <button onClick={() => applyFilters({ ...hookFilters, type: undefined })} className="hover:opacity-70"><X size={12} /></button>
               </span>
             )}
           </div>

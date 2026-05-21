@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import * as XLSX from "xlsx";
 import {
     Filter, Download, Upload, Globe, X,
@@ -87,15 +87,18 @@ function SiteFilterDropdown({
                         { val: "", label: "Tous les sites" },
                         { val: "active", label: "Actif" },
                         { val: "inactive", label: "Inactif" },
-                    ].map(o => (
-                        <Pill
-                            key={o.val}
-                            val={o.val}
-                            current={local.status ?? ""}
-                            label={o.label}
-                            onClick={() => setLocal({ ...local, status: o.val || undefined })}
-                        />
-                    ))}
+                    ].map(o => {
+                        const isCurrent = (local.status === "actif" ? "active" : local.status === "inactif" ? "inactive" : (local.status ?? "")) === o.val;
+                        return (
+                            <Pill
+                                key={o.val}
+                                val={o.val}
+                                current={isCurrent ? o.val : "other"}
+                                label={o.label}
+                                onClick={() => setLocal({ ...local, status: o.val || undefined })}
+                            />
+                        );
+                    })}
                 </div>
             </div>
             <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
@@ -643,6 +646,7 @@ export default function SitesPage() {
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [importLoading, setImportLoading] = useState(false);
     const [exportLoading, setExportLoading] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
 
     // ── Preview import states ──
@@ -682,6 +686,7 @@ export default function SitesPage() {
         fetchManagers();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const filteredSites = sites;
 
     const handleApplyFilters = (f: SiteFiltersState) => {
         setFilters(f);
@@ -693,6 +698,7 @@ export default function SitesPage() {
 
     // ── Création d'un site ──
     const handleFormSubmit = async (formData: any) => {
+        setIsSubmitting(true);
         try {
             const payload: any = {};
 
@@ -727,7 +733,20 @@ export default function SitesPage() {
             if (formData.date_fin_contrat?.trim()) payload.date_fin_contrat = formData.date_fin_contrat.trim();
 
             // manager_id nullable
-            if (formData.manager_id) payload.manager_id = Number(formData.manager_id);
+            if (formData.manager_id) {
+                payload.manager_id = Number(formData.manager_id);
+                const manager = managers.find(m => String(m.id) === String(formData.manager_id));
+                if (manager) {
+                    const fullName = resolveManagerName(manager);
+                    const phone = (manager as any).phone_number ?? (manager as any).phone ?? "";
+                    if (!payload.responsable_name && fullName && fullName !== "—") {
+                        payload.responsable_name = fullName;
+                    }
+                    if (!payload.phone_responsable && phone) {
+                        payload.phone_responsable = phone;
+                    }
+                }
+            }
 
             await addSite(payload);
             setIsModalOpen(false);
@@ -754,6 +773,8 @@ export default function SitesPage() {
                 msg = err.response.data.message;
             }
             toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -851,7 +872,6 @@ export default function SitesPage() {
                 { label: "Inactif", value: "inactive" },
             ],
         },
-        { name: "responsable_name", label: "Nom du responsable", type: "text" },
         { name: "phone_responsable", label: "Tél. responsable", type: "tel", placeholder: "+225 07 00 00 00" },
         { name: "effectifs", label: "Effectifs", type: "number", placeholder: "22" },
         { name: "loyer", label: "Loyer mensuel (FCFA)", type: "number", placeholder: "22500" },
@@ -874,7 +894,7 @@ export default function SitesPage() {
     const kpis1 = [
         { label: "Sites actifs", value: stats?.nombre_sites_actifs ?? 0, delta: "+0%", trend: "up" as const },
         { label: "Sites inactifs", value: stats?.nombre_sites_inactifs ?? 0, delta: "+0%", trend: "down" as const },
-        { label: "Délai moyen / site", value: "1 semaine", delta: "+0%", trend: "up" as const },
+        // { label: "Cout moyen du loyer", value: stats?.cout_loyer_moyen_par_site ?? "10h", delta: "+0%", trend: "up" as const },
         { label: "Total sites", value: stats?.nombre_total_sites ?? 0, delta: "+0%", trend: "up" as const },
     ];
     const kpis2 = [
@@ -899,7 +919,7 @@ export default function SitesPage() {
 
 
                     {/* KPIs row 1 */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {kpis1.map((k, i) => <StatsCard key={i} {...k} />)}
                     </div>
 
@@ -918,7 +938,7 @@ export default function SitesPage() {
                             )}
                             {filters.status && (
                                 <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                                    {filters.status === "active" ? "Actif" : "Inactif"}
+                                    {filters.status === "active" || filters.status === "actif" ? "Actif" : "Inactif"}
                                     <button
                                         onClick={() => handleApplyFilters({ ...filters, status: undefined })}
                                         className="hover:opacity-70"
@@ -1012,8 +1032,8 @@ export default function SitesPage() {
                                     <span className="inline-block w-6 h-6 border-2 border-slate-200 border-t-slate-700 rounded-full animate-spin mb-3" />
                                     <p className="text-slate-400 text-sm">Chargement des sites...</p>
                                 </div>
-                            ) : sites.length > 0 ? (
-                                sites.map(site => <SiteCard key={site.id} site={site} />)
+                            ) : filteredSites.length > 0 ? (
+                                filteredSites.map(site => <SiteCard key={site.id} site={site} />)
                             ) : (
                                 <div className="col-span-full text-center text-slate-400 italic py-10">
                                     Aucun site trouvé{activeCount > 0 ? " pour ce filtre" : ""}.
@@ -1040,7 +1060,8 @@ export default function SitesPage() {
                 title="Ajouter un site"
                 subtitle="Créez un nouveau site avec ses informations"
                 fields={siteFields}
-                onSubmit={(data) => { handleFormSubmit(data); setSiteFormValues({}); }}
+                onSubmit={handleFormSubmit}
+                isSubmitting={isSubmitting}
                 submitLabel="Créer le site"
                 initialValues={siteFormValues}
                 onFieldChange={handleManagerFieldChange}

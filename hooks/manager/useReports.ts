@@ -1,11 +1,4 @@
-"use client";
-
-// ═══════════════════════════════════════════════════════════════
-// hooks/manager/useReports.ts
-// Liste paginée des rapports + stats + export
-// ═══════════════════════════════════════════════════════════════
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ReportService } from "../../services/manager/report.service";
 import type {
   InterventionReport,
@@ -38,18 +31,52 @@ export function useReports(
     per_page: 15,
     ...initialFilters,
   });
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(initialFilters.search);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const apiFilters = { ...filters, search: debouncedSearch };
+      const reqType = filters.type || filters.intervention_type;
+
+      // Le type demandé (preventif / curatif) est directement transmis à l'API pour un filtrage serveur précis et cohérent
+      if (reqType) {
+        apiFilters.intervention_type = reqType;
+      }
+
       const [paginatedData, statsData] = await Promise.all([
-        ReportService.getReports(filters),
+        ReportService.getReports(apiFilters),
         ReportService.getStats(filters),
       ]);
-      setReports(paginatedData.items);
+
+      // Normalisation des types en fonction du contexte (planning ou ticket préventif)
+      let items = paginatedData.items.map(r => {
+        const isPreventif = r.intervention_type === "preventif" || !!r.planning_id;
+        return { ...r, intervention_type: isPreventif ? "preventif" : "curatif" };
+      });
+
+      // Filtrage de sécurité front si un type spécifique est demandé
+      if (reqType) {
+        items = items.filter(r => r.intervention_type === reqType);
+      }
+
+      setReports(items);
       setMeta(paginatedData.meta);
       setStats(statsData);
     } catch (err: any) {
@@ -60,19 +87,25 @@ export function useReports(
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, debouncedSearch]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   const setFilters = (partial: Partial<ReportFilters>) => {
-    setFiltersState((prev) => ({ ...prev, ...partial, page: 1 }));
+    setFiltersState((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.search !== undefined) {
+        next.page = 1;
+      }
+      return next;
+    });
   };
 
   const exportReports = async () => {
     try {
-      const blob = await ReportService.exportReports(filters);
+      const blob = await ReportService.exportReports({ ...filters, search: debouncedSearch });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

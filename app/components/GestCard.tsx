@@ -41,7 +41,7 @@ export default function GestCard({
       <div className="bg-slate-50 rounded-t-xl px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center shrink-0 overflow-hidden">
+            <div className="w-9 h-9 rounded-lg bg-theme-primary flex items-center justify-center shrink-0 overflow-hidden">
               {avatar ? (
                 <Image src={avatar} alt={fullName} width={36} height={36} className="object-cover w-full h-full" />
               ) : (

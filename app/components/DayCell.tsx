@@ -35,8 +35,9 @@ export function DayCell({
   const isToday = Boolean(date && currentMonth && date.toDateString() === new Date().toDateString());
   const hasEvents = events.length > 0;
 
-  // Bouton + uniquement sur cellules VIDES du mois courant ET non passées
-  const showAddButton = currentMonth && canAddEvent && onAddClick && date && !hasEvents && !isPast;
+  // Bouton + visible par défaut sur le fond pour l'admin (si canAddEvent est vrai)
+  // On le cache s'il y a déjà des événements pour éviter la surcharge visuelle
+  const showAddButton = currentMonth && canAddEvent && onAddClick && date && !isPast && events.length === 0;
 
   return (
     <div
@@ -51,24 +52,35 @@ export function DayCell({
         }
       }}
       onClick={(e) => {
-        // Uniquement si on clique sur le fond de la cellule, pas sur un event
-        if (e.target === e.currentTarget && onCellClick && date && currentMonth) {
-          onCellClick(date);
+        if (!currentMonth || !date) return;
+        const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+        if (isMobile) {
+          if (hasEvents && onShowMore) {
+            onShowMore(events, date);
+          } else if (onCellClick) {
+            onCellClick(date);
+          }
+        } else {
+          if (e.target === e.currentTarget && onCellClick) {
+            onCellClick(date);
+          }
         }
       }}
       className={`
-        relative min-h-[110px] border-b border-r p-2 flex flex-col gap-1 group/cell overflow-hidden
+        relative min-h-[64px] md:min-h-[110px] border-b border-r p-1.5 md:p-2 flex flex-col gap-1 group/cell overflow-hidden select-none
         ${!currentMonth ? "bg-slate-50/50 border-slate-100" : "bg-white border-slate-100"}
         ${currentMonth ? "hover:bg-slate-50/30 transition-colors" : ""}
-        ${isToday && hasEvents ? "ring-2 ring-blue-500 ring-inset bg-blue-50/20" : ""}
-        ${isToday && !hasEvents ? "ring-1 ring-blue-300 ring-inset bg-blue-50/10" : ""}
+        ${isToday ? "ring-2 ring-blue-500 ring-inset bg-blue-50/20" : ""}
       `}
     >
-      {/* Bouton + uniquement sur cellules vides */}
+      {/* Bouton + en fond de cellule */}
       {showAddButton && (
         <button
-          onClick={() => onAddClick!(date!)}
-          className="absolute inset-0 m-auto w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex flex-col items-center justify-center opacity-0 group-hover/cell:opacity-100 hover:bg-slate-200 hover:text-slate-600 transition-all z-0 scale-90 hover:scale-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAddClick!(date!);
+          }}
+          className="absolute inset-0 m-auto w-12 h-12 bg-slate-50 text-slate-200 rounded-full hidden md:flex flex-col items-center justify-center opacity-40 group-hover/cell:opacity-100 group-hover/cell:bg-slate-100 group-hover/cell:text-slate-400 hover:!bg-slate-200 hover:!text-slate-600 transition-all z-0 scale-90 hover:scale-100"
           title="Ajouter un planning"
         >
           <Plus size={24} />
@@ -76,14 +88,14 @@ export function DayCell({
       )}
 
       {/* Numéro du jour */}
-      <div className="flex items-center justify-end mb-1 relative z-10">
-        <span className={`text-[13px] w-7 h-7 flex items-center justify-center rounded-full font-semibold ${!currentMonth ? "text-slate-300" : "text-slate-700"}`}>
+      <div className="flex items-center justify-end mb-0.5 md:mb-1 relative z-10">
+        <span className={`text-[11px] md:text-[13px] w-5 h-5 md:w-7 md:h-7 flex items-center justify-center rounded-full font-semibold ${!currentMonth ? "text-slate-300" : "text-slate-700"}`}>
           {day}
         </span>
       </div>
 
-      {/* Events — max 2 affichés */}
-      <div className="flex flex-col gap-1 overflow-hidden relative z-10">
+      {/* Events desktop — max 2 affichés */}
+      <div className="hidden md:flex flex-col gap-1 overflow-hidden relative z-10">
         {events.slice(0, 2).map((event, i) => (
           <button
             key={i}
@@ -125,6 +137,20 @@ export function DayCell({
           >
             +{events.length - 2} autre{events.length - 2 > 1 ? "s" : ""}
           </button>
+        )}
+      </div>
+
+      {/* Events mobile dots */}
+      <div className="flex md:hidden flex-wrap gap-1 justify-center mt-auto pb-1 relative z-10">
+        {events.slice(0, 3).map((event, i) => (
+          <span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full shrink-0"
+            style={{ backgroundColor: event.color }}
+          />
+        ))}
+        {events.length > 3 && (
+          <span className="text-[8px] font-bold text-slate-400 leading-none">+</span>
         )}
       </div>
     </div>

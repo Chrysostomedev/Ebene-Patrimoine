@@ -72,18 +72,18 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl" />
+        <div className="h-1 w-full bg-gradient-to-r from-orange-700 to-orange-900 rounded-xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
+            <Image src="/images/logoci.png" alt="Ebene" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
               <Mail size={26} className="text-white" />
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function ForgetEmail({ onEmailSent, backHref = "/login" }: Forget
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 mt-2 rounded-xl bg-gray-900 text-white font-semibold text-sm
+              className="w-full py-3.5 mt-2 rounded-xl bg-theme-primary text-white font-semibold text-sm
                          hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed
                          transition-all duration-200 shadow-lg shadow-gray-900/20
                          flex items-center justify-center gap-2 group"

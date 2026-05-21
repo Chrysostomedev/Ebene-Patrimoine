@@ -313,17 +313,16 @@ export default function ProviderRapportsPage() {
   const filterRef = useRef<HTMLDivElement>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const PER_PAGE = 10;
 
   const {
     filteredReports, stats, selectedReport,
     loading, statsLoading, submitting,
-    error,
+    error, meta,
     isPanelOpen, isCreateOpen, isEditOpen, filters,
     openPanel, closePanel, openCreate, closeCreate, openEdit, closeEdit,
     setFilters, createReport, updateReport, exportXlsx,
-    submitSuccess, submitError // 👈 Réintroduction ici
-  } = useProviderReports({ type: "curatif" });
+    submitSuccess, submitError
+  } = useProviderReports({ type: "curatif", page: currentPage });
 
   useEffect(() => { if (submitSuccess) toast.success(submitSuccess); }, [submitSuccess]);
   useEffect(() => { if (submitError) toast.error(submitError); }, [submitError]);
@@ -338,10 +337,14 @@ export default function ProviderRapportsPage() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  const applyFilters = (f: ReportFilterState) => { setFilters(f); setCurrentPage(1); setFiltersOpen(false); };
-  const activeCount = Object.values(filters).filter(Boolean).length;
-  const totalPages = Math.ceil(filteredReports.length / PER_PAGE);
-  const paginated = filteredReports.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+  const applyFilters = (f: ReportFilterState) => { 
+    setFilters({ ...f, page: 1 }); 
+    setCurrentPage(1); 
+    setFiltersOpen(false); 
+  };
+  const activeCount = Object.values(filters).filter((v, i) => i !== Object.keys(filters).indexOf("page") && !!v).length;
+  const totalPages = meta?.last_page || 1;
+  const paginated = filteredReports;
 
   // ── Date range ────────────────────────────────────────────────────────────
   const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
@@ -379,24 +382,12 @@ export default function ProviderRapportsPage() {
     });
   };
 
-  // Stats calculées depuis les rapports curatifs filtrés (pas les stats globales de l'API)
-  const curatifReports = filteredReports; // déjà filtrés sur type=curatif
-  const curatifStats = {
-    total: curatifReports.length,
-    validated: curatifReports.filter(r => r.status === "validated").length,
-    pending: curatifReports.filter(r => r.status === "submitted" || r.status === "pending").length,
-    avg_rating: (() => {
-      const rated = curatifReports.filter(r => r.rating);
-      if (!rated.length) return null;
-      return (rated.reduce((s, r) => s + (r.rating ?? 0), 0) / rated.length).toFixed(1);
-    })(),
-  };
 
   const kpis = [
-    { label: "Total rapports", value: loading ? "-" : curatifStats.total, delta: "", trend: "up" as const },
-    { label: "Rapports validés", value: loading ? "-" : curatifStats.validated, delta: "", trend: "up" as const },
-    { label: "En attente", value: loading ? "-" : curatifStats.pending, delta: "", trend: "up" as const },
-    { label: "Note moyenne", value: loading ? "-" : (curatifStats.avg_rating ? `${curatifStats.avg_rating}/5` : "—"), delta: "", trend: "up" as const },
+    { label: "Total rapports", value: statsLoading ? "-" : (stats?.total_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "Rapports validés", value: statsLoading ? "-" : (stats?.validated_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "En attente", value: statsLoading ? "-" : (stats?.pending_reports ?? 0), delta: "", trend: "up" as const },
+    { label: "Note moyenne", value: statsLoading ? "-" : (stats?.average_rating ? `${Number(stats.average_rating).toFixed(1)}/5` : "—"), delta: "", trend: "up" as const },
   ];
 
   const pageActions = [
@@ -406,11 +397,11 @@ export default function ProviderRapportsPage() {
 
   const columns: ColumnConfig<InterventionReport>[] = [
     {
-      header: "Ticket / Planning", key: "ticket", render: (_: any, row: InterventionReport) => (
+      header: "Ticket", key: "ticket", render: (_: any, row: InterventionReport) => (
         <span className="text-xs text-slate-600 font-medium">
           {row.intervention_type === "preventif"
             ? (row.planning?.codification ?? `Planning #${row.planning_id ?? "—"}`)
-            : (row.ticket?.subject ?? `Ticket #${row.ticket_id ?? "—"}`)}
+            : (row.ticket?.code_ticket ?? `Ticket #${row.ticket_id ?? "—"}`)}
         </span>
       )
     },
@@ -499,33 +490,19 @@ export default function ProviderRapportsPage() {
             {/* Chip type masqué car implicite */}
           </div>
         )}
-
-        {/* DataTable */}
+        {/* Table */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">Liste des rapports</h3>
-            <span className="text-xs text-slate-400">
-              {filteredReports.length} rapport{filteredReports.length > 1 ? "s" : ""}
-            </span>
-          </div>
-          <div className="px-6 py-4">
-            {loading
-              ? <div className="space-y-3 animate-pulse">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded-xl" />
-                ))}
-              </div>
-              : <DataTable
-                title="Liste des rapports soumis"
-                columns={columns}
-                data={paginated}
-                onViewAll={() => { }}
-              />
-            }
-          </div>
+          <DataTable
+            title="Liste des rapports soumis"
+            columns={columns}
+            data={paginated}
+            isLoading={loading}
+            onSearchChange={(s) => setFilters({ search: s })}
+            onViewAll={() => { }}
+          />
           {totalPages > 1 && (
             <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-              <Paginate currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+              <Paginate currentPage={filters.page || 1} totalPages={totalPages} onPageChange={(p) => setFilters({ page: p })} />
             </div>
           )}
         </div>

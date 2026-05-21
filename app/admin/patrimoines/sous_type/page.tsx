@@ -10,17 +10,19 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 import UniversalImportPreview, { ColumnDef, ImportResult } from "@/components/UniversalImportPreview";
+import RichContent from "@/components/RichContent";
 
 import { useSubTypeAssets } from "../../../../hooks/admin/useSubTypeAssets";
 import { useTypes } from "../../../../hooks/admin/useTypes";
 import { SubTypeAssetService } from "../../../../services/admin/sub-type-asset.service";
 import { useToast } from "@/contexts/ToastContext";
+import { parseApiError } from "../../../../core/error";
 
 // Colonnes attendues par SubTypesImport.php : nom*, code*, type_asset*, description
 const IMPORT_COLUMNS: ColumnDef[] = [
-  { key: "nom",         label: "Nom",         required: true  },
-  { key: "code",        label: "Code",        required: true  },
-  { key: "type_asset",  label: "Type parent", required: true  },
+  { key: "nom", label: "Nom", required: true },
+  { key: "code", label: "Code", required: true },
+  { key: "type_asset", label: "Type parent", required: true },
   { key: "description", label: "Description", required: false },
 ];
 
@@ -58,15 +60,15 @@ function FilterDropdown({ isOpen, onClose, types, selectedTypeId, onApply }: {
 
 export default function SousTypePage() {
   const filterRef = useRef<HTMLDivElement>(null);
-  const [isModalOpen,   setIsModalOpen]   = useState(false);
-  const [selectedItem,  setSelectedItem]  = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [editingData,   setEditingData]   = useState<Record<string, any> | null>(null);
-  const [filtersOpen,   setFiltersOpen]   = useState(false);
+  const [editingData, setEditingData] = useState<Record<string, any> | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedTypeId, setSelectedTypeId] = useState<number | undefined>(undefined);
   const [exportLoading, setExportLoading] = useState(false);
-  const [previewFile,   setPreviewFile]   = useState<File | null>(null);
-  const [previewOpen,   setPreviewOpen]   = useState(false);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
 
   const { subTypes, isLoading, fetchSubTypes } = useSubTypeAssets();
@@ -89,10 +91,9 @@ export default function SousTypePage() {
       title: item.name, reference: item.id,
       fields: [
         { label: "Famille / Type", value: item.type?.name || "-" },
-        { label: "Codification",   value: item.code },
-        { label: "Sous-type",      value: item.name },
-        { label: "Description",    value: item.description || "-" },
-        { label: "Date d'ajout",   value: item.created_at?.split("T")[0] || "-" },
+        { label: "Codification", value: item.code },
+        { label: "Sous-type", value: item.name },
+        { label: "Date d'ajout", value: item.created_at?.split("T")[0] || "-" },
       ],
       description: item.description, rawData: item,
     });
@@ -119,7 +120,10 @@ export default function SousTypePage() {
       setIsModalOpen(false);
       setEditingData(null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Erreur serveur.");
+      console.error("[PatrimoineSubType] Erreur:", err);
+      // Utilisation de parseApiError pour des messages précis (ex: "Sous-type déja existant")
+      const msg = parseApiError(err, { name: "Sous-type", code: "Codification" });
+      toast.error(msg);
     }
   };
 
@@ -133,10 +137,10 @@ export default function SousTypePage() {
 
   const handleConfirmImport = async (rows: Record<string, any>[]): Promise<ImportResult> => {
     const XLSX = await import("xlsx");
-    const ws   = XLSX.utils.json_to_sheet(rows);
-    const wb   = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "SousTypes");
-    const buf  = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     const file = new File([buf], "import_sous_types.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     try {
       await SubTypeAssetService.importSubTypes(file);
@@ -163,15 +167,15 @@ export default function SousTypePage() {
   };
 
   const columns = [
-    { header: "Type",         key: "type",        render: (_: any, row: any) => row.type?.name || "-" },
+    { header: "Type", key: "type", render: (_: any, row: any) => row.type?.name || "-" },
     { header: "Codification", key: "code" },
-    { header: "Sous-type",    key: "name" },
-    { header: "Description",  key: "description", render: (_: any, row: any) => row.description || "-" },
+    { header: "Sous-type", key: "name" },
+    { header: "Description", key: "description", render: (_: any, row: any) => <RichContent content={row.description || "-"} isTruncated /> },
     {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
         <button onClick={() => handleOpenDetails(row)} className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
-          <Eye size={18} /> Aperçu
+          <Eye size={18} />
         </button>
       ),
     },
@@ -179,10 +183,18 @@ export default function SousTypePage() {
 
   const subTypeFields: FieldConfig[] = [
     { name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true, options: types.map((t: any) => ({ label: t.name, value: String(t.id) })) },
-    { name: "name",        label: "Sous-type",    type: "text",      required: true },
-    { name: "code",        label: "Codification", type: "text",      required: true },
-    { name: "description", label: "Description",  type: "rich-text", gridSpan: 2 },
+    { name: "name", label: "Sous-type", type: "text", required: true, placeholder: "Automobile." },
+    { name: "code", label: "Codification", type: "text", required: true, placeholder: "AUT .", minLength: 2, maxLength: 2 },
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, placeholder: "Decrivez le sous-type." },
   ];
+
+  // Auto-génération de la codification (2 premières lettres)
+  const handleFieldChange = (name: string, value: any, setter: (n: string, v: any) => void) => {
+    if (name === "name" && !editingData) {
+      const code = value.substring(0, 2).toUpperCase();
+      setter("code", code);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -191,7 +203,7 @@ export default function SousTypePage() {
         <PageHeader title="Sous-type de patrimoine" subtitle="Gérez les sous-types de patrimoine" />
 
         <div className="shrink-0 flex justify-end items-center gap-3">
-         
+
           <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition">
             <Download size={16} /> Importer
             <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileSelect} />
@@ -223,9 +235,9 @@ export default function SousTypePage() {
         )}
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-          <DataTable columns={columns as any} data={isLoading ? [] : filteredSubTypes} onViewAll={() => {}} />
+          <DataTable columns={columns as any} data={isLoading ? [] : filteredSubTypes} onViewAll={() => { }} />
           <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
-            <Paginate currentPage={1} totalPages={1} onPageChange={() => {}} />
+            <Paginate currentPage={1} totalPages={1} onPageChange={() => { }} />
           </div>
         </div>
 
@@ -236,6 +248,7 @@ export default function SousTypePage() {
           subtitle="Remplissez les informations ci-dessous."
           fields={subTypeFields}
           onSubmit={handleCreateOrUpdate}
+          onFieldChange={handleFieldChange}
           initialValues={editingData || {}}
         />
 

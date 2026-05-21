@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   providerInvoiceService,
   Invoice, InvoiceStats, InvoiceMeta,
@@ -27,6 +25,7 @@ export interface UseProviderInvoicesReturn {
   openCreate:      () => void;
   closeCreate:     () => void;
   setStatusFilter: (s: string) => void;
+  search:          (s: string) => void; // Ajouté
   setPage:         (p: number) => void;
   setDateRange:    (debut?: string, fin?: string) => void;
   createInvoice:   (p: CreateInvoicePayload) => Promise<boolean>;
@@ -52,9 +51,13 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [statusFilter, setStatusFilterState] = useState("");
+  const [searchQuery,  setSearchQuery]       = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage,  setCurrentPage]       = useState(1);
   const [dateDebut,    setDateDebut]          = useState<string | undefined>(undefined);
   const [dateFin,      setDateFin]            = useState<string | undefined>(undefined);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── flash helpers ─────────────────────────────────────────────────────────
   const flash = (type: "success" | "error", msg: string) => {
@@ -67,15 +70,27 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
     }
   };
 
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchQuery]);
+
   // ── Fetch liste ───────────────────────────────────────────────────────────
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const params: InvoiceFilters = { page: currentPage, per_page: 10 };
-      if (statusFilter) params.payment_status = statusFilter;
-      if (dateDebut)    params.date_debut      = dateDebut;
-      if (dateFin)      params.date_fin        = dateFin;
+      if (statusFilter)    params.payment_status = statusFilter;
+      if (debouncedSearch) params.search         = debouncedSearch;
+      if (dateDebut)       params.date_debut      = dateDebut;
+      if (dateFin)         params.date_fin        = dateFin;
 
       const res = await providerInvoiceService.getInvoices(params);
       setInvoices(res.items);
@@ -85,7 +100,7 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, statusFilter, dateDebut, dateFin]);
+  }, [currentPage, statusFilter, debouncedSearch, dateDebut, dateFin]);
 
   // ── Fetch stats ───────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
@@ -105,6 +120,11 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
   // ── Setters avec reset page ───────────────────────────────────────────────
   const setStatusFilter = (s: string) => {
     setStatusFilterState(s);
+    setCurrentPage(1);
+  };
+
+  const search = (s: string) => {
+    setSearchQuery(s);
     setCurrentPage(1);
   };
 
@@ -166,7 +186,7 @@ export function useProviderInvoices(): UseProviderInvoicesReturn {
     statusFilter, currentPage,
     openPanel, closePanel,
     openCreate, closeCreate,
-    setStatusFilter, setPage, setDateRange,
+    setStatusFilter, search, setPage, setDateRange,
     createInvoice, exportXlsx,
     refresh: fetchInvoices,
   };

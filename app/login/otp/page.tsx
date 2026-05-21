@@ -206,18 +206,18 @@ export default function OtpPage() {
       <div className="absolute " />
 
       <div className="relative z-10 w-full max-w-md">
-        <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-2xl" />
+        <div className="h-1 w-full bg-gradient-to-r from-orange-700 to-orange-900 rounded-2xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <Image src="/images/logo_canal.png" alt="CANAL+" width={160} height={40} priority />
+            <Image src="/images/logoci.png" alt="CANAL+" width={160} height={40} priority />
           </div>
 
           {/* Icône */}
           <div className="flex justify-center mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
+            <div className="w-14 h-14 rounded-2xl bg-theme-primary flex items-center justify-center shadow-lg">
               <ShieldCheck size={26} className="text-white" />
             </div>
           </div>

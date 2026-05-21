@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import AttachmentViewer from "@/components/AttachmentViewer";
+import RichContent from "@/components/RichContent";
 import StatsCard from "@/components/StatsCard";
 
 import {
@@ -401,6 +403,13 @@ export default function DevisDetailsPage() {
   const isRejected = quote?.status === "rejected";
   const isRevision = quote?.status === "revision";
 
+  const history = quote?.history ?? [];
+  const revisionsCount = history.filter((h: any) => h.action === "revision_requested").length;
+  const modificationsCount = history.filter((h: any) => h.action === "updated").length;
+
+  // S'il y a eu au moins une modification après la création, on peut le considérer comme modifié/resoumis
+  const isResubmitted = isRevision && modificationsCount > 0;
+
   const totalHT = quote?.amount_ht ?? quote?.items?.reduce((s, i) => s + i.quantity * i.unit_price, 0) ?? 0;
   const taxAmount = quote?.tax_amount ?? totalHT * 0.18;
   const totalTTC = quote?.amount_ttc ?? totalHT + taxAmount;
@@ -420,14 +429,12 @@ export default function DevisDetailsPage() {
       url: QuoteService.getPdfUrl(path),
     }));
 
-  // Historique
-  const history = quote?.history ?? [];
+  // Historique (déjà défini plus haut)
 
-  // KPIs
   const kpis = [
     { label: "Prestataire", value: providerName, delta: "", trend: "up" as const },
     { label: "Site", value: siteName, delta: "", trend: "up" as const },
-    { label: "Nombre d'articles", value: quote?.items?.length ?? 0, delta: "", trend: "up" as const },
+    // { label: "Nombre de modifications", value: modificationsCount, delta: "", trend: "up" as const },
     { label: "Montant TTC", value: formatCurrency(totalTTC), delta: "", trend: "up" as const },
   ];
 
@@ -453,6 +460,11 @@ export default function DevisDetailsPage() {
                     {isLoading ? "Chargement..." : quote?.reference ?? `Devis #${quoteId}`}
                   </h1>
                   {quote && <StatusBadge status={quote.status} />}
+                  {isResubmitted && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black border bg-purple-50 border-purple-200 text-purple-700">
+                      <RefreshCw size={14} /> Révisé par le prestataire
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 text-slate-400 mt-1">
                   <Briefcase size={18} />
@@ -471,7 +483,7 @@ export default function DevisDetailsPage() {
                 <div className="flex flex-col gap-2 text-sm">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-400 font-medium">Créé le</span>
-                    <span className="font-bold text-slate-900">{formatDate(quote?.created_at)}</span>
+                    <span className="font-bold text-slate-900">{formatDate(quote?.created_at)} </span>
                   </div>
                   {isApproved && quote?.approved_at && (
                     <div className="flex justify-between items-center">
@@ -498,22 +510,26 @@ export default function DevisDetailsPage() {
             </div>
 
             {/* Actions Admin */}
-            {isPending && (
+            {(isPending || isRevision) && (
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => setModalMode("reject")}
-                  disabled={actionLoading}
-                  className="px-6 py-3 rounded-2xl bg-white border border-red-100 text-red-600 text-sm font-black hover:bg-red-50 transition flex items-center gap-2 disabled:opacity-50"
-                >
-                  <ThumbsDown size={16} /> Rejeter
-                </button>
-                <button
-                  onClick={() => setModalMode("revision")}
-                  disabled={actionLoading}
-                  className="px-6 py-3 rounded-2xl bg-white border border-amber-100 text-amber-600 text-sm font-black hover:bg-amber-50 transition flex items-center gap-2 disabled:opacity-50"
-                >
-                  <RefreshCw size={16} /> Révision
-                </button>
+                {isPending && (
+                  <>
+                    <button
+                      onClick={() => setModalMode("reject")}
+                      disabled={actionLoading}
+                      className="px-6 py-3 rounded-2xl bg-white border border-red-100 text-red-600 text-sm font-black hover:bg-red-50 transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <ThumbsDown size={16} /> Rejeter
+                    </button>
+                    <button
+                      onClick={() => setModalMode("revision")}
+                      disabled={actionLoading}
+                      className="px-6 py-3 rounded-2xl bg-white border border-amber-100 text-amber-600 text-sm font-black hover:bg-amber-50 transition flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <RefreshCw size={16} /> Révision
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={handleApprove}
                   disabled={actionLoading}
@@ -526,7 +542,7 @@ export default function DevisDetailsPage() {
           </div>
 
           {/* ── KPIs ──────────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {kpis.map((k, i) => (
               <StatsCard key={i} {...k} />
             ))}
@@ -541,11 +557,7 @@ export default function DevisDetailsPage() {
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">
                   Description
                 </h3>
-                {quote?.description ? (
-                  <p className="text-sm text-slate-700 leading-relaxed">{quote.description}</p>
-                ) : (
-                  <p className="text-slate-400 text-sm italic">Aucune description renseignée.</p>
-                )}
+                <RichContent html={quote?.description} placeholder="Aucune description renseignée." />
               </div>
 
               {/* Articles du devis */}

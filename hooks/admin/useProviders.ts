@@ -60,8 +60,8 @@ export const useProviders = () => {
   const fetchSimple = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await ProviderService.getProviders();
-      if (Array.isArray(data)) setProviders(data as Provider[]);
+      const data = await ProviderService.getSelectProviders();
+      setProviders(data);
     } catch (err) {
       console.error(err);
     } finally {

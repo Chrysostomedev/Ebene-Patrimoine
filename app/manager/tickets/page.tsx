@@ -168,7 +168,7 @@ function TicketSidePanel({
 export default function TicketsPage() {
   const {
     tickets, stats, meta, filters, isLoading, setFilters, refresh, exportTickets
-  } = useTickets({ type: "curatif" });
+  } = useTickets();
 
   const { toast } = useToast();
 
@@ -297,7 +297,7 @@ export default function TicketsPage() {
 
   const columns: ColumnConfig<Ticket>[] = [
     {
-      header: "Code",
+      header: "Référence",
       key: "id",
       render: (_: any, row: Ticket) => (
         <span className="font-mono text-[10px] font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">
@@ -380,6 +380,8 @@ export default function TicketsPage() {
               title="Liste des interventions"
               columns={columns}
               data={tickets}
+              isLoading={isLoading}
+              onSearchChange={(s) => setFilters({ search: s })}
             />
             <div className="p-8 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-between gap-6 bg-slate-50/30">
               <p className="text-xs text-slate-400 font-black uppercase tracking-[0.1em]">

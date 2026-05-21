@@ -7,7 +7,7 @@ import {
   CheckCircle2, Clock, FileText, Star,
   ArrowUpRight,
 } from "lucide-react";
-
+import ActionGroup from "@/components/ActionGroup";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable, { ColumnConfig } from "@/components/DataTable";
@@ -32,7 +32,6 @@ const STATUS_STYLES: Record<string, string> = {
 };
 const STATUS_LABELS: Record<string, string> = {
   validated: "Validé",
-  pending: "En attente",
   submitted: "Soumis",
   rejected: "Rejeté",
 };
@@ -126,12 +125,21 @@ export default function RapportsPage() {
   const {
     reports, stats, meta, filters, isLoading, error: apiError,
     setFilters, exportReports
-  } = useReports();
+  } = useReports({ type: "curatif" });
 
   const [selectedReport, setSelectedReport] = useState<InterventionReport | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  const handleDateRange = (range: import("react-day-picker").DateRange | undefined) => {
+    setDateRange(range);
+    setFilters({
+      date_debut: range?.from ? range.from.toISOString().split("T")[0] : undefined,
+      date_fin: range?.to ? range.to.toISOString().split("T")[0] : undefined,
+    });
+  };
 
   const activeCount = Object.values(filters).filter((v, i) => i > 1 && !!v).length;
 
@@ -139,7 +147,7 @@ export default function RapportsPage() {
     { label: "Total rapports", value: stats?.total ?? 0, delta: "", trend: "up" as const },
     { label: "Rapports validés", value: stats?.validated ?? 0, delta: "", trend: "up" as const },
     { label: "En attente", value: stats?.pending ?? 0, delta: "", trend: "up" as const },
-    { label: "Note moyenne", value: stats?.average_rating ? `${stats.average_rating}/5` : "-", delta: "", trend: "up" as const },
+    { label: "Note moyenne", value: stats?.average_rating ? `${Number(stats.average_rating).toFixed(1)}/5` : "-", delta: "", trend: "up" as const },
   ];
 
   const columns: ColumnConfig<InterventionReport>[] = [
@@ -190,7 +198,7 @@ export default function RapportsPage() {
               <Filter size={16} /> Filtrer les rapports
               {activeCount > 0 && <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">{activeCount}</span>}
             </button>
-            
+
             {filtersOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setFiltersOpen(false)} />
@@ -237,35 +245,31 @@ export default function RapportsPage() {
               </>
             )}
           </div>
-          <button
-            onClick={exportReports}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-white border border-slate-200 text-slate-800 text-sm font-black hover:border-slate-900 transition shadow-sm"
-          >
-            <Download size={16} /> Exporter (.xlsx)
-          </button>
+          <ActionGroup
+            actions={[
+              { label: "Exporter (.xlsx)", icon: Download, onClick: exportReports, variant: "secondary" as const },
+            ]}
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRange}
+            dateRangePlaceholder="Filtrer par date"
+          />
         </div>
 
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[500px]">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-              <div className="w-10 h-10 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Chargement en cours</p>
+          <div className="p-2">
+            <DataTable
+              title="Liste des rapports soumis"
+              columns={columns}
+              data={reports}
+              isLoading={isLoading}
+              onSearchChange={(q) => setFilters({ search: q || undefined })}
+              onViewAll={() => { }}
+            />
+          </div>
+          {meta && meta.last_page > 1 && (
+            <div className="px-8 py-6 border-t border-slate-50 flex justify-end bg-slate-50/20">
+              <Paginate currentPage={meta.current_page} totalPages={meta.last_page} onPageChange={(p) => setFilters({ page: p })} />
             </div>
-          ) : (
-            <>
-              <div className="p-2">
-                <DataTable
-                  title="Liste des rapports soumis"
-                  columns={columns}
-                  data={reports}
-                  onViewAll={() => { }}
-                />    </div>
-              {meta && meta.last_page > 1 && (
-                <div className="px-8 py-6 border-t border-slate-50 flex justify-end bg-slate-50/20">
-                  <Paginate currentPage={meta.current_page} totalPages={meta.last_page} onPageChange={(p) => setFilters({ page: p })} />
-                </div>
-              )}
-            </>
           )}
         </div>
 

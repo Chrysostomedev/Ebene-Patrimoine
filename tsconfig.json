@@ -12,18 +12,44 @@
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": ".",
-   "paths": {
-  "@/*": ["./app/*"],
-  "@services/*": ["./services/*"],
-  "@core/*": ["./core/*"],
-  "@hooks/*": ["./hooks/*"]
-},
+    "paths": {
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/contexts/*": [
+        "./contexts/*"
+      ],
+      "@/services/*": [
+        "./services/*"
+      ],
+      "@/core/*": [
+        "./core/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/*": [
+        "./app/*"
+      ],
+      "@contexts/*": [
+        "./contexts/*"
+      ],
+      "@services/*": [
+        "./services/*"
+      ],
+      "@core/*": [
+        "./core/*"
+      ],
+      "@hooks/*": [
+        "./hooks/*"
+      ]
+    },
     "plugins": [
       {
         "name": "next"
@@ -36,7 +62,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "../../page-STOMAPLUS.tsx"
   ],
   "exclude": [
     "node_modules"

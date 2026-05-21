@@ -8,10 +8,12 @@ import StatsCard from "@/components/StatsCard";
 import ReusableForm from "@/components/ReusableForm";
 import type { FieldConfig } from "@/components/ReusableForm";
 
+// Ajoute AlertTriangle dans l'import existant
 import {
-  ChevronLeft, CheckCircle2, Clock, FileText,
-  Eye, Download, X, Star, AlertCircle,
-  MapPin, Wrench, Edit2, AlertTriangle, ArrowUpRight,
+  ChevronLeft, MapPin, Wrench, Tag, Clock, CheckCircle2,
+  FileText, Eye, Download, X, Star, User, Calendar,
+  Shield, AlertCircle, RefreshCw, ArrowUpRight, AlertTriangle, // ← ajouter
+  Edit2
 } from "lucide-react";
 
 import AttachmentViewer, { isImage, isPdf } from "@/components/AttachmentViewer";
@@ -22,7 +24,7 @@ import {
   TYPE_LABELS, TYPE_STYLES,
   RESULT_LABELS, RESULT_STYLES,
   getAttachmentUrl,
-  getSiteName, getProviderName, isEditable,
+  getSiteName, getProviderName, getActorName, isEditable,
 } from "../../../../services/provider/providerReportService";
 import { formatDate } from "@/lib/utils";
 import { useProviderReports } from "../../../../hooks/provider/useProviderReports";
@@ -112,13 +114,12 @@ interface TimelineEvent {
 
 function buildTimeline(report: InterventionReport): TimelineEvent[] {
   const events: TimelineEvent[] = [];
+  const technicianName = getActorName(report.provider);
+  const validatorName = getActorName(report.validator);
 
-  // 1. Soumission du rapport (étape 5 logique métier)
+  // 1. Soumission du rapport
   events.push({
-    label: "Rapport soumis",
-    sublabel: report.ticket?.subject
-      ? `Ticket : "${report.ticket.subject}"`
-      : `Ticket #${report.ticket_id}`,
+    label: `Rapport soumis par ${technicianName}`,
     date: report.created_at,
     icon: <FileText size={14} />,
     dotColor: "text-blue-500",
@@ -126,13 +127,10 @@ function buildTimeline(report: InterventionReport): TimelineEvent[] {
     borderColor: "border-blue-200",
   });
 
-  // 2. Intervention effectuée (étape 2)
+  // 2. Intervention effectuée
   if (report.start_date) {
     events.push({
-      label: `Intervention ${TYPE_LABELS[report.intervention_type ?? ""]}`,
-      sublabel: report.end_date
-        ? `Du ${formatDate(report.start_date)} au ${formatDate(report.end_date)}`
-        : `Le ${formatDate(report.start_date)}`,
+      label: `Intervention ${TYPE_LABELS[report.intervention_type ?? ""]} par ${technicianName}`,
       date: report.start_date,
       icon: <Wrench size={14} />,
       dotColor: "text-purple-500",
@@ -141,14 +139,11 @@ function buildTimeline(report: InterventionReport): TimelineEvent[] {
     });
   }
 
-  // 3. Résultat renseigné (étape 4)
+  // 3. Résultat renseigné
   if (report.result) {
     const isAnomal = report.result === "anomalie";
     events.push({
-      label: `Résultat : ${RESULT_LABELS[report.result]}`,
-      sublabel: report.findings
-        ? `"${report.findings.slice(0, 80)}${report.findings.length > 80 ? "…" : ""}"`
-        : undefined,
+      label: `Résultat : ${RESULT_LABELS[report.result]} par ${technicianName}`,
       date: report.updated_at ?? report.created_at,
       icon: isAnomal ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />,
       dotColor: isAnomal ? "text-red-500" : "text-green-500",
@@ -157,29 +152,10 @@ function buildTimeline(report: InterventionReport): TimelineEvent[] {
     });
   }
 
-  // 4. Pièces jointes déposées (étape 3)
-  const count = report.attachments?.length ?? 0;
-  if (count > 0) {
-    const pdfsN = (report.attachments ?? []).filter(a => a.file_type === "document").length;
-    const photosN = (report.attachments ?? []).filter(a => a.file_type === "photo").length;
-    events.push({
-      label: `${count} pièce${count > 1 ? "s" : ""} jointe${count > 1 ? "s" : ""} déposée${count > 1 ? "s" : ""}`,
-      sublabel: `${pdfsN} document${pdfsN > 1 ? "s" : ""} · ${photosN} photo${photosN > 1 ? "s" : ""}`,
-      date: report.created_at,
-      icon: <FileText size={14} />,
-      dotColor: "text-slate-500",
-      bgColor: "bg-slate-50",
-      borderColor: "border-slate-200",
-    });
-  }
-
-  // 5. Validation par le gestionnaire
+  // 4. Validation par le gestionnaire
   if (report.status === "validated") {
     events.push({
-      label: "Rapport validé par le gestionnaire",
-      sublabel: report.manager_comment
-        ? `Commentaire : "${report.manager_comment.slice(0, 80)}${report.manager_comment.length > 80 ? "…" : ""}"`
-        : report.rating ? `Note attribuée : ${report.rating}/5` : undefined,
+      label: `Rapport validé par ${validatorName || "le gestionnaire"}`,
       date: report.validated_at,
       icon: <CheckCircle2 size={14} />,
       dotColor: "text-emerald-500",
@@ -369,10 +345,10 @@ export default function ProviderRapportsDetailPage() {
                 <div className="flex flex-col gap-4 min-w-[270px]">
                   <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 space-y-2.5">
                     {[
-                      { label: "Créé le", value: formatDate(report.created_at), show: true },
-                      { label: "Début", value: formatDate(report.start_date), show: true },
-                      { label: "Fin", value: formatDate(report.end_date), show: !!report.end_date },
-                      { label: "Validé le", value: formatDate(report.validated_at), show: !!report.validated_at, green: true },
+                      { label: "Rapport créé le", value: formatDate(report.created_at), show: true },
+                      // { label: "Début", value: formatDate(report.start_date), show: true },
+                      // { label: "Fin", value: formatDate(report.end_date), show: !!report.end_date },
+                      { label: "Rapport validé le", value: formatDate(report.validated_at), show: !!report.validated_at, green: true },
                     ].filter(r => r.show).map((r, i) => (
                       <div key={i} className="flex justify-between items-center text-sm">
                         <span className="text-slate-400 font-medium">{r.label}</span>
@@ -505,7 +481,7 @@ export default function ProviderRapportsDetailPage() {
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Ticket lié</h3>
                       <div className="space-y-2.5">
                         {[
-                          { label: "ID", value: `#${report.ticket.id}` },
+                          { label: "Référence", value: `${report.ticket.code_ticket}` },
                           { label: "Sujet", value: report.ticket.subject ?? "-" },
                           { label: "Type", value: report.ticket.type === "curatif" ? "Curatif" : "Préventif" },
                           { label: "Statut", value: report.ticket.status ?? "-" },

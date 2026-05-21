@@ -25,14 +25,46 @@ export function useDashboard(): UseDashboardReturn {
     setError(null);
     try {
       const [statsData, ticketsData] = await Promise.all([
-        DashboardService.getStats(),
-        TicketService.getTickets({ per_page: 5 }),
+        DashboardService.getStats().catch(err => {
+          if (err?.response?.status === 403) {
+            return {
+              site_info: { id: 0, nom: "Aucun site assigné" },
+              kpis: {
+                nombre_total_tickets: 0,
+                nombre_tickets_traités: 0,
+                nombre_tickets_non_traités: 0,
+                nombre_prestataires: 0,
+                cout_global_maintenance: 0,
+                nombre_sites: 0,
+                nombre_sites_actifs: 0,
+                nombre_sites_inactifs: 0,
+                loyer_moyen: 0,
+                nombre_equipements: 0
+              },
+              tickets_stats_par_statut: {},
+              tendance_annuelle_maintenance: [],
+              sites_les_plus_frequentes: [],
+              prochains_plannings: []
+            };
+          }
+          throw err;
+        }),
+        TicketService.getTickets({ per_page: 5 }).catch(err => {
+          if (err?.response?.status === 403) {
+            return { items: [], meta: { current_page: 1, last_page: 1, per_page: 5, total: 0 } };
+          }
+          throw err;
+        }),
       ]);
       setStats(statsData);
       setRecentTickets(ticketsData.items);
     } catch (err: any) {
       console.error("Dashboard data fetch error:", err);
-      setError(err?.response?.data?.message ?? "Erreur lors du chargement des données du tableau de bord.");
+      if (err?.response?.status === 403) {
+        setError(null);
+      } else {
+        setError(err?.response?.data?.message ?? "Erreur lors du chargement des données du tableau de bord.");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -17,7 +17,7 @@ import { useLanguage } from "../../../contexts/LanguageContext";
 
 // Colonnes attendues par ServiceImport.php : nom (ou name)*, description
 const IMPORT_COLUMNS: ColumnDef[] = [
-  { key: "nom",         label: "Nom",         required: true  },
+  { key: "nom", label: "Nom", required: true },
   { key: "description", label: "Description", required: false },
 ];
 
@@ -28,10 +28,10 @@ export default function ServicesPage() {
   const [editingData, setEditingData] = useState<Record<string, any> | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewOpen,   setPreviewOpen]   = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
 
-  const { services, isLoading, fetchServices } = useServices();
+  const { services, isLoading, fetchServices, page, setPage, setSearch, meta } = useServices();
   const { t } = useLanguage();
 
 
@@ -95,10 +95,10 @@ export default function ServicesPage() {
 
   const handleConfirmImport = async (rows: Record<string, any>[]): Promise<ImportResult> => {
     const XLSX = await import("xlsx");
-    const ws   = XLSX.utils.json_to_sheet(rows);
-    const wb   = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Services");
-    const buf  = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     const file = new File([buf], "import_services.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     try {
       await ServiceService.importServices(file);
@@ -145,7 +145,7 @@ export default function ServicesPage() {
           onClick={() => handleOpenDetails(row)}
           className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
         >
-          <Eye size={18} /> Aperçu
+          <Eye size={18} />
         </button>
       ),
     },
@@ -174,70 +174,75 @@ export default function ServicesPage() {
     <div className="flex-1 flex flex-col">
       <Navbar />
       <main className="mt-20 p-6 space-y-8">
-          <PageHeader title={t("services.title")} subtitle={t("services.subtitle")} />
+        <PageHeader title={t("services.title")} subtitle={t("services.subtitle")} />
 
-          <div className="shrink-0 flex justify-end items-center gap-3">
+        <div className="shrink-0 flex justify-end items-center gap-3">
 
 
-            {/* Import */}
-            <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition`}>
-              <Download size={16} />
-              Importer
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            </label>
+          {/* Import */}
+          <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition`}>
+            <Download size={16} />
+            Importer
+            <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+          </label>
 
-            {/* Export */}
-            <button
-              onClick={handleExport}
-              disabled={exportLoading}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50"
-            >
-              {exportLoading ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" /> : <Upload size={16} />}
-              Exporter
-            </button>
+          {/* Export */}
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition disabled:opacity-50"
+          >
+            {exportLoading ? <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" /> : <Upload size={16} />}
+            Exporter
+          </button>
 
-            {/* Ajouter */}
-            <button
-              onClick={() => { setEditingData(null); setIsModalOpen(true); }}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
-            >
-              <Briefcase size={16} /> Ajouter un service
-            </button>
-          </div>
+          {/* Ajouter */}
+          <button
+            onClick={() => { setEditingData(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
+          >
+            <Briefcase size={16} /> Ajouter un service
+          </button>
+        </div>
 
-          {/* Table - pas de pagination (Services::all() retourne tout) */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <DataTable
-              title="Liste des services"
-              columns={columns}
-              data={isLoading ? [] : services}
-              onViewAll={() => {}}
-            />
-          </div>
-
-          {/* Formulaire */}
-          <ReusableForm
-            isOpen={isModalOpen}
-            onClose={() => { setIsModalOpen(false); setEditingData(null); }}
-            title={editingData ? "Modifier un service" : "Ajouter un nouveau service"}
-            subtitle="Remplissez les informations ci-dessous."
-            fields={serviceFields}
-            onSubmit={handleCreateOrUpdate}
-            initialValues={editingData || {}}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden h-[calc(100vh-320px)]">
+          <DataTable
+            title="Liste des services"
+            columns={columns}
+            data={isLoading ? [] : services}
+            isLoading={isLoading}
+            onSearchChange={setSearch}
+            pagination={{
+              currentPage: page,
+              totalPages: meta?.last_page || 1,
+              onPageChange: setPage,
+            }}
           />
+        </div>
 
-          {/* Détail panel */}
-          <SideDetailsPanel
-            isOpen={isDetailsOpen}
-            onClose={() => setIsDetailsOpen(false)}
-            title={selectedService?.title || ""}
-            reference={selectedService?.reference}
-            fields={selectedService?.fields || []}
-            descriptionContent={selectedService?.description}
-            onEdit={handleEdit}
-          />
+        {/* Formulaire */}
+        <ReusableForm
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingData(null); }}
+          title={editingData ? "Modifier un service" : "Ajouter un nouveau service"}
+          subtitle="Remplissez les informations ci-dessous."
+          fields={serviceFields}
+          onSubmit={handleCreateOrUpdate}
+          initialValues={editingData || {}}
+        />
 
-        </main>
+        {/* Détail panel */}
+        <SideDetailsPanel
+          isOpen={isDetailsOpen}
+          onClose={() => setIsDetailsOpen(false)}
+          title={selectedService?.title || ""}
+          reference={selectedService?.reference}
+          fields={selectedService?.fields || []}
+          descriptionContent={selectedService?.description}
+          onEdit={handleEdit}
+        />
+
+      </main>
 
       <UniversalImportPreview
         isOpen={previewOpen}

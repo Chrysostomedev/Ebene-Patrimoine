@@ -2,20 +2,20 @@
 import { useState, useEffect } from "react";
 import { TicketService, Ticket, TicketStats } from "../../services/admin/ticket.service";
 
-export const useTickets = () => {
+export const useTickets = (initialFilters: {
+  search?: string;
+  status?: string;
+  priority?: string;
+  type?: string;
+  site_id?: number;
+} = {}) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meta, setMeta] = useState<{ current_page: number; last_page: number; per_page: number; total: number } | null>(null);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<{
-    search?: string;
-    status?: string;
-    priority?: string;
-    type?: string;
-    site_id?: number;
-  }>({ type: "curatif" });
+  const [filters, setFilters] = useState(initialFilters);
 
   const fetchTickets = async () => {
     setIsLoading(true);
@@ -81,8 +81,8 @@ export const useTickets = () => {
       }
       const userMsg = status === 422
         ? (err?.response?.data?.errors
-            ? Object.values(err.response.data.errors).flat().join(" | ")
-            : msg || "Transition de statut impossible.")
+          ? Object.values(err.response.data.errors).flat().join(" | ")
+          : msg || "Transition de statut impossible.")
         : msg || "Erreur lors de l'assignation.";
       setError(userMsg);
       return false;

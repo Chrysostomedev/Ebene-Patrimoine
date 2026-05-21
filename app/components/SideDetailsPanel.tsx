@@ -22,7 +22,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { X, Copy, Check } from "lucide-react";
+import { X, Copy, Check, ChevronLeft } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import FormButton from "./form/FormButton";
@@ -100,7 +100,16 @@ export default function SideDetailsPanel({
       />
 
       {/* Panneau latéral */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-[550px] bg-white z-[9999] shadow-2xl flex flex-col animate-in slide-in-from-right">
+      <div className={`side-details-panel fixed right-0 top-0 h-full w-full max-w-[550px] bg-white z-[9999] shadow-2xl flex flex-col animate-in slide-in-from-right ${isOpen ? "side-details-panel--open" : ""}`}>
+
+        {/* Bouton retour mobile */}
+        <button
+          onClick={onClose}
+          className="side-details-panel__mobile-back border-none bg-transparent text-slate-800 flex items-center gap-2 px-4 py-3"
+        >
+          <ChevronLeft size={20} />
+          <span>{t("common.back")}</span>
+        </button>
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="p-8 pb-4 space-y-4">
@@ -121,7 +130,7 @@ export default function SideDetailsPanel({
         </div>
 
         {/* ── Corps scrollable ─────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-8 py-4 space-y-6 custom-scrollbar">
+        <div className="side-details-panel__content flex-1 overflow-y-auto px-8 py-4 space-y-6 custom-scrollbar">
 
           {/* Bloc référence avec copie */}
           {reference && (

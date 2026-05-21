@@ -114,7 +114,7 @@ Ces fichiers sont TES pages actuelles **avec modifications minimales** :
   render: (_: any, row: Quote) => (
     <button onClick={() => { setSelectedQuote(row); setIsDetailsOpen(true); }}
       className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
-      <Eye size={18} /> Aperçu
+      <Eye size={18} /> 
     </button>
   ),
 },

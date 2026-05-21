@@ -33,9 +33,13 @@ const STATUS_MAP: Record<string, { label: string; icon: any; color: string }> = 
   pending: { label: "En attente", icon: Clock, color: "bg-orange-50 border-orange-200 text-orange-600" },
   "en attente": { label: "En attente", icon: Clock, color: "bg-orange-50 border-orange-200 text-orange-600" },
   approved: { label: "Approuvé", icon: ThumbsUp, color: "bg-green-50 border-green-200 text-green-700" },
+  approuvé: { label: "Approuvé", icon: ThumbsUp, color: "bg-green-50 border-green-200 text-green-700" },
   rejected: { label: "Rejeté", icon: ThumbsDown, color: "bg-red-50 border-red-200 text-red-600" },
+  rejeté: { label: "Rejeté", icon: ThumbsDown, color: "bg-red-50 border-red-200 text-red-600" },
   validated: { label: "Validé", icon: CheckCircle2, color: "bg-blue-50 border-blue-200 text-blue-700" },
+  validé: { label: "Validé", icon: CheckCircle2, color: "bg-blue-50 border-blue-200 text-blue-700" },
   revision: { label: "À réviser", icon: RefreshCw, color: "bg-amber-50 border-amber-200 text-amber-700" },
+  "en révision": { label: "À réviser", icon: RefreshCw, color: "bg-amber-50 border-amber-200 text-amber-700" },
   invalidated: { label: "Invalidé", icon: AlertCircle, color: "bg-rose-50 border-rose-200 text-rose-700" },
 };
 
@@ -199,10 +203,7 @@ export default function DevisDetailsPage({ params }: { params: Promise<{ id: str
               </div>
 
               <div className="flex flex-wrap gap-6 text-sm">
-                <div className="flex items-center gap-2 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-                  <Briefcase size={14} className="text-slate-400" />
-                  <span className="font-bold text-slate-700">{quote.ticket?.reference || "Sans ticket"}</span>
-                </div>
+
                 <div className="flex items-center gap-2 text-slate-500 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
                   <MapPin size={14} className="text-slate-400" />
                   <span className="font-bold text-slate-700">{quote.site?.nom || quote.site?.name}</span>
@@ -301,6 +302,32 @@ export default function DevisDetailsPage({ params }: { params: Promise<{ id: str
                 />
               </div>
             )}
+
+            {/* Motif révision */}
+            {(quote.status === "revision" || quote.status === "en révision") && quote.revision_reason && (
+              <div className="bg-blue-50 border border-blue-200 rounded-[32px] p-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <RefreshCw size={16} className="text-blue-500 animate-spin-slow" />
+                  <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">Motif de révision</h3>
+                </div>
+                <p className="text-sm text-blue-700 leading-relaxed bg-white/50 p-6 rounded-2xl border border-blue-100 italic">
+                  {quote.revision_reason}
+                </p>
+              </div>
+            )}
+
+            {/* Motif rejet */}
+            {quote.status === "rejected" && quote.rejection_reason && (
+              <div className="bg-red-50 border border-red-200 rounded-[32px] p-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <ThumbsDown size={16} className="text-red-500" />
+                  <h3 className="text-sm font-black text-red-900 uppercase tracking-widest">Motif de rejet</h3>
+                </div>
+                <p className="text-sm text-red-700 leading-relaxed bg-white/50 p-6 rounded-2xl border border-red-100 italic">
+                  {quote.rejection_reason}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="space-y-8">
@@ -337,7 +364,7 @@ export default function DevisDetailsPage({ params }: { params: Promise<{ id: str
                               onClick={() => setPdfPreview({ url: file.url, name: file.name })}
                               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
                             >
-                              <Eye size={13} /> Aperçu
+                              <Eye size={13} />
                             </button>
                             <a
                               href={file.url}
@@ -363,7 +390,7 @@ export default function DevisDetailsPage({ params }: { params: Promise<{ id: str
             })()}
 
             {/* HISTORIQUE */}
-            <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
+            {/* <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm p-8">
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-6 border-b border-slate-50 pb-4">Historique de validation</h3>
               <div className="space-y-6">
                 {(quote.history || []).length === 0 ? (
@@ -379,12 +406,17 @@ export default function DevisDetailsPage({ params }: { params: Promise<{ id: str
                         <p className="text-[10px] font-black uppercase text-slate-400">{h.action}</p>
                         <p className="text-sm font-bold text-slate-900">{h.performed_by_name}</p>
                         <p className="text-[10px] text-slate-400 font-medium">{formatDate(h.created_at)}</p>
+                        {(h.reason || h.comment) && (
+                          <div className="mt-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                            <p className="text-xs text-slate-600 italic">"{h.reason || h.comment}"</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
                 )}
               </div>
-            </div>
+            </div> */}
 
             {/* TICKET RÉFÉRENCÉ */}
             {quote.ticket && (

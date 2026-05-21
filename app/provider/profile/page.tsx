@@ -67,6 +67,11 @@ export default function ProviderProfilePage() {
         email: data.email ?? "",
         phone: data.phone ?? "",
       });
+      if (data.first_name || data.last_name || data.company_name) {
+        localStorage.setItem("first_name", data.first_name ?? "");
+        localStorage.setItem("last_name", data.last_name ?? "");
+        window.dispatchEvent(new CustomEvent("profile-updated"));
+      }
       const photoUrl = data.url || (data.profile_picture_path ? resolveStorageUrl(data.profile_picture_path) : null);
       if (photoUrl) syncNavbar(photoUrl);
     } catch (e: any) {
@@ -101,6 +106,11 @@ export default function ProviderProfilePage() {
       console.log("[Profile] réponse update :", data);
       const photoUrl = data?.url || (data?.profile_picture_path ? resolveStorageUrl(data.profile_picture_path) : null);
       if (photoUrl) syncNavbar(photoUrl);
+
+      // Force immediate update of localStorage for the Navbar to react instantly
+      localStorage.setItem("first_name", formData.first_name);
+      localStorage.setItem("last_name", formData.last_name);
+      window.dispatchEvent(new CustomEvent("profile-updated"));
 
       showFlash("success", "Profil mis à jour avec succès.");
       fetchProfile();

@@ -1,16 +1,15 @@
-
 "use client";
 
 import { useState } from "react";
 import SideModal from "@/components/form/SideModal";
 import FormButton from "@/components/form/FormButton";
-import { FormField, Input, Select, PasswordInput, DateInput, DateRangeInput, RichTextEditor, ImageUpload, PdfUpload, PhoneInput, Checkbox, QuoteItemsInput } from "@/components/form/FormInput";
+import { FormField, Input, Select, PasswordInput, DateInput, DateRangeInput, RichTextEditor, ImageUpload, PdfUpload, PhoneInput, Checkbox } from "@/components/form/FormInput";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 export interface FieldConfig {
   name: string;
   label: string;
-  type: "text" | "password" | "date" | "date-range" | "select" | "email" | "number" | "rich-text" | "image-upload" | "pdf-upload" | "textarea" | "tel" | "checkbox" | "quote-items";
+  type: "text" | "password" | "date" | "date-range" | "select" | "email" | "number" | "rich-text" | "image-upload" | "pdf-upload" | "textarea" | "tel" | "checkbox";
   placeholder?: string;
   required?: boolean;
   gridSpan?: 1 | 2;
@@ -39,6 +38,7 @@ interface ReusableFormProps {
   isSubmitting?: boolean;
   error?: string | null;
   success?: string | null;
+  children?: React.ReactNode;
 }
 
 export default function ReusableForm({
@@ -55,6 +55,7 @@ export default function ReusableForm({
   isSubmitting = false,
   error = null,
   success = null,
+  children,
 }: ReusableFormProps) {
   const [localSubmitting, setLocalSubmitting] = useState(false);
   const [customValues, setCustomValues] = useState<Record<string, any>>({});
@@ -83,7 +84,10 @@ export default function ReusableForm({
     e.preventDefault();
     if (busy) return;
     const data = new FormData(e.currentTarget);
-    const formDataObj = Object.fromEntries(data.entries());
+    const formDataObj = {
+      ...initialValues,
+      ...Object.fromEntries(data.entries())
+    };
 
     // Remplacer les valeurs natives par les customValues (utile pour les files array)
     Object.keys(customValues).forEach((key) => {
@@ -102,31 +106,16 @@ export default function ReusableForm({
     <SideModal isOpen={isOpen} onClose={onClose} title={title} subtitle={subtitle}>
       <form onSubmit={handleSubmit} className="flex flex-col h-[calc(100vh-180px)]">
         {/* Messages de retour API - Fixes en haut */}
-        {(error || success) && (
-          <div className="shrink-0 space-y-3 mb-4">
-            {error && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 animate-in fade-in slide-in-from-top-1">
-                <AlertCircle className="shrink-0 mt-0.5" size={16} />
-                <div className="text-xs font-bold leading-relaxed">{error}</div>
-              </div>
-            )}
-            {success && (
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 animate-in fade-in slide-in-from-top-1">
-                <CheckCircle2 className="shrink-0 mt-0.5" size={16} />
-                <div className="text-xs font-bold leading-relaxed">{success}</div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* Messages de retour supprimés car doublon avec Toasts */}
+
 
         <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
-
-
-          <div className="grid grid-cols-2 gap-x-4 gap-y-6 pb-8">
+          {children}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6 pb-8">
             {fields.map((field) => (
               <div
                 key={field.name}
-                className={field.gridSpan === 2 ? "col-span-2" : "col-span-1"}
+                className={field.gridSpan === 2 ? "col-span-1 md:col-span-2" : "col-span-1 md:col-span-1"}
               >
                 <FormField label={field.label} required={field.required}>
 
@@ -136,7 +125,7 @@ export default function ReusableForm({
                       maxImages={field.maxImages ?? 3}
                       maxSizeMB={field.maxSizeMB}
                       defaultValue={getDefault(field)}
-                      onChange={(files: File[]) => handleCustomChange(field.name, files)}
+                      onChange={(data: any) => handleCustomChange(field.name, data)}
                       isLoading={busy}
                     />
 
@@ -147,20 +136,12 @@ export default function ReusableForm({
                       maxPDFs={field.maxPDFs ?? 1}
                       maxSizeMB={field.maxSizeMB}
                       defaultValue={getDefault(field)}
-                      onChange={(files: File[]) => handleCustomChange(field.name, files)}
+                      onChange={(data: any) => handleCustomChange(field.name, data)}
                       accept={field.accept}
                       placeholder={field.placeholder}
                       isLoading={busy}
                     />
 
-                  ) : field.type === "quote-items" ? (
-                    <QuoteItemsInput
-                      name={field.name}
-                      required={field.required}
-                      disabled={field.disabled}
-                      defaultValue={getDefault(field)}
-                      onChange={(val: any) => handleCustomChange(field.name, val)}
-                    />
 
                   ) : field.type === "select" ? (
                     <Select
@@ -249,17 +230,29 @@ export default function ReusableForm({
                     />
 
                   ) : (
-                    <Input
-                      name={field.name}
-                      type={field.type}
-                      placeholder={field.placeholder}
-                      required={field.required}
-                      disabled={field.disabled}
-                      defaultValue={getDefault(field)} // ✅ CORRIGÉ
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        onFieldChange?.(field.name, e.target.value)
-                      }
-                    />
+                    <>
+                      <Input
+                        name={field.name}
+                        type={field.type}
+                        placeholder={field.placeholder}
+                        required={field.required}
+                        disabled={field.disabled}
+                        // Priorité à customValues si défini pour permettre le contrôle par le parent
+                        value={customValues[field.name] !== undefined ? String(customValues[field.name]) : undefined}
+                        defaultValue={customValues[field.name] === undefined ? String(getDefault(field)) : undefined}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          handleCustomChange(field.name, e.target.value)
+                        }
+                      />
+                      {/* Si le champ est désactivé, on ajoute un input caché pour qu'il soit quand même soumis par le FormData */}
+                      {field.disabled && (
+                        <input
+                          type="hidden"
+                          name={field.name}
+                          value={customValues[field.name] !== undefined ? String(customValues[field.name]) : String(getDefault(field))}
+                        />
+                      )}
+                    </>
                   )}
 
                 </FormField>

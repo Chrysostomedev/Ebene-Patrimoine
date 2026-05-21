@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable, { ColumnConfig } from "@/components/DataTable";
+import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import ActionGroup from "@/components/ActionGroup";
 import {
@@ -179,7 +180,7 @@ function ValidationModal({
   const [comment, setComment] = useState("");
   const [rejectReason, setRejectReason] = useState("");
 
-  const canValidate = rating > 0;
+  const canValidate = true;
   const canReject = rejectReason.trim().length > 10;
 
   return (
@@ -201,7 +202,7 @@ function ValidationModal({
               </div>
               <h2 className="text-xl font-black text-slate-900">{ticket.reference || `#${ticket.id}`}</h2>
               <p className="text-slate-400 text-xs mt-0.5">
-                {ticket.provider?.name} · {ticket.site?.nom ?? "-"} · {formatDate(ticket.start_date)}
+                {ticket.provider?.company_name || ticket.provider?.name || "-"} · {ticket.site?.nom ?? "-"} · {formatDate(ticket.start_date)}
               </p>
             </div>
             <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-xl transition mt-1">
@@ -220,14 +221,14 @@ function ValidationModal({
               >
                 <ThumbsUp size={15} /> Valider
               </button>
-              {/* <button
+              <button
                 type="button"
                 onClick={() => setMode("reject")}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition
                   ${mode === "reject" ? "bg-white shadow-sm text-red-600" : "text-slate-500 hover:text-slate-700"}`}
               >
                 <ThumbsDown size={15} /> Rejeter
-              </button> */}
+              </button>
             </div>
 
             {/* Mode VALIDER */}
@@ -235,7 +236,7 @@ function ValidationModal({
               <div className="space-y-4">
                 <div className="flex flex-col gap-3">
                   <label className="text-sm font-bold text-slate-900">
-                    Notation du rapport <span className="text-red-500">*</span>
+                    Note de satisfaction
                   </label>
                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col items-center gap-2">
                     <StarRating value={rating} onChange={setRating} />
@@ -249,13 +250,13 @@ function ValidationModal({
 
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-bold text-slate-900">
-                    Commentaire <span className="text-slate-400 font-normal">(optionnel)</span>
+                    Commentaire
                   </label>
                   <textarea
                     rows={3}
                     value={comment}
                     onChange={e => setComment(e.target.value)}
-                    placeholder="Observations sur la qualité du rapport, points à améliorer…"
+                    placeholder="Observations sur la quality du rapport, points à améliorer…"
                     className="w-full bg-slate-50 rounded-2xl p-4 text-sm text-slate-700 placeholder:text-slate-400
                       outline-none focus:ring-2 focus:ring-slate-900 transition resize-none"
                   />
@@ -277,7 +278,7 @@ function ValidationModal({
               </div>
             )}
 
-            {/* Mode REJETER
+            {/* Mode REJETER */}
             {mode === "reject" && (
               <div className="space-y-4">
                 <div className="flex flex-col gap-2">
@@ -307,7 +308,7 @@ function ValidationModal({
                   {submitting ? "Rejet en cours…" : "Rejeter le rapport"}
                 </button>
               </div>
-            )} */}
+            )}
           </div>
         </div>
       </div>
@@ -347,7 +348,7 @@ function MaintenancePreviewPanel({
           <div className="space-y-0 text-sm">
             {[
               { label: "Référence", value: ticket.reference || `#${ticket.id}` },
-              { label: "Prestataire", value: ticket.provider?.name ?? "-" },
+              { label: "Prestataire", value: ticket.provider?.company_name || ticket.provider?.name || "-" },
               { label: "Site", value: ticket.site?.nom ?? "-" },
               { label: "Date réalisation", value: formatDate(ticket.start_date) },
             ].map((f, i) => (
@@ -398,7 +399,7 @@ export default function ManagerEntretienPage() {
     setFilters,
     filters,
     refresh
-  } = useReports({ intervention_type: "preventif" });
+  } = useReports({ type: "preventif" });
 
   const [selectedTicket, setSelectedTicket] = useState<InterventionReport | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -407,6 +408,15 @@ export default function ManagerEntretienPage() {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
+
+  const handleDateRange = (range: import("react-day-picker").DateRange | undefined) => {
+    setDateRange(range);
+    setFilters({
+      date_debut: range?.from ? range.from.toISOString().split("T")[0] : undefined,
+      date_fin: range?.to ? range.to.toISOString().split("T")[0] : undefined,
+    });
+  };
 
   const openPanel = (t: InterventionReport) => { setSelectedTicket(t); setIsPanelOpen(true); };
   const closePanel = () => setIsPanelOpen(false);
@@ -439,13 +449,15 @@ export default function ManagerEntretienPage() {
 
   const handleReject = async (reason: string) => {
     if (!validationTarget) return;
+    const ticketId = validationTarget.ticket_id || (validationTarget as any).ticket?.id;
+    if (!ticketId) {
+      setSubmitError("Impossible de rejeter : ID de ticket introuvable.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await ReportService.validateReport(validationTarget.id, {
-        result: "ANOMALIE",
-        comment: `REJET: ${reason}`,
-      });
+      await ReportService.rejectReport(ticketId, { reason });
       // Refresh depuis l'API pour avoir les données à jour
       refresh();
       closeValidation();
@@ -462,7 +474,7 @@ export default function ManagerEntretienPage() {
     { label: "Total entretiens", value: meta?.total ?? apiStats?.total ?? 0, trend: "up" as const },
     { label: "À valider", value: apiStats?.pending ?? tickets?.filter(t => t.status === "submitted").length ?? 0, trend: "up" as const },
     // { label: "Validés", value: apiStats?.validated ?? 0, trend: "up" as const },
-    { label: "Note moyenne", value: apiStats?.average_rating ? `${apiStats.average_rating}/5` : "-", trend: "up" as const },
+    { label: "Note moyenne", value: apiStats?.average_rating ? `${Number(apiStats.average_rating).toFixed(1)}/5` : "-", trend: "up" as const },
   ];
 
   const columns: ColumnConfig<InterventionReport>[] = [
@@ -472,7 +484,11 @@ export default function ManagerEntretienPage() {
     },
     {
       header: "Prestataire", key: "provider",
-      render: (_: any, row: InterventionReport) => <span className="text-xs text-slate-600 font-medium">{row.provider?.name ?? "-"}</span>,
+      render: (_: any, row: InterventionReport) => (
+        <span className="text-xs text-slate-600 font-medium">
+          {row.provider?.company_name || row.provider?.name || (row.provider?.first_name ? `${row.provider.first_name} ${row.provider.last_name || ""}` : "-")}
+        </span>
+      ),
     },
     // {
     //   header: "Site", key: "site",
@@ -505,7 +521,7 @@ export default function ManagerEntretienPage() {
               <ShieldCheck size={13} /> Valider
             </button>
           )}
-          <button onClick={() => router.push(`/manager/rapports/${row.id}`)} className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 transition">
+          <button onClick={() => router.push(`/manager/entretien/${row.id}`)} className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 transition">
             <Eye size={15} className="group-hover:text-white group-hover:rotate-45 transition-all" />
           </button>
         </div>
@@ -530,27 +546,31 @@ export default function ManagerEntretienPage() {
             {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
           </div>
 
-          <div className="flex justify-between items-center gap-4"> 
-            <div className="flex items-center gap-2">
-              <Filter size={16} className="text-slate-400" />
-              <select
-                value={filters.status || ""}
-                onChange={e => setFilters({ status: e.target.value || undefined })}
-                className="bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-700 shadow-sm"
-              >
-                <option value="">Tous les statuts</option>
-                {ALL_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>)}
-              </select>
-            </div>
-          </div>
+            <ActionGroup
+              actions={[]}
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRange}
+              dateRangePlaceholder="Filtrer par date"
+            />
 
           <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center p-20 gap-4">
-                <div className="w-8 h-8 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
+            <DataTable
+              columns={columns}
+              data={tickets || []}
+              isLoading={isLoading}
+              onSearchChange={(q) => setFilters({ search: q || undefined })}
+              title="Liste des entretiens"
+              onViewAll={() => { }}
+            />
+
+            {meta && meta.last_page > 1 && (
+              <div className="p-6 border-t border-slate-50 flex justify-end">
+                <Paginate
+                  currentPage={meta.current_page}
+                  totalPages={meta.last_page}
+                  onPageChange={(p) => setFilters({ ...filters, page: p })}
+                />
               </div>
-            ) : (
-              <DataTable columns={columns} data={tickets || []} title="Liste des entretiens" onViewAll={() => { }} />
             )}
           </div>
         </main>

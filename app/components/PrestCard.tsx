@@ -51,11 +51,11 @@ export default function PrestCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center shrink-0 border border-slate-200">
+          <div className="w-10 h-10 rounded-xl bg-theme-primary overflow-hidden flex items-center justify-center shrink-0 border border-slate-200">
             {logo ? (
               <Image src={logo} alt={name} width={40} height={40} className="object-cover" />
             ) : (
-              <span className="text-slate-500 font-black text-sm">{initial}</span>
+              <span className="text-white font-black text-sm">{initial}</span>
             )}
           </div>
           <div className="min-w-0">

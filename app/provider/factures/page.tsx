@@ -82,9 +82,13 @@ function InvoiceSidePanel({ invoice, onClose }: { invoice: Invoice; onClose: () 
   const pdfName = invoice.pdf_path?.split("/").pop() ?? "facture.pdf";
   const report = getReport(invoice);
 
-  const amountHT = toNum(invoice.amount_ht);
-  const taxAmount = toNum(invoice.tax_amount);
-  const amountTTC = toNum(invoice.amount_ttc);
+  const rawHT = toNum(invoice.amount_ht);
+  const rawTax = toNum(invoice.tax_amount);
+  const rawTTC = toNum(invoice.amount_ttc);
+
+  const displayTTC = rawTTC;
+  const displayTax = rawTax;
+  const displayHT = (rawHT === 0 && rawTTC > 0) ? (rawTTC - rawTax) : rawHT;
 
   const copyRef = () => {
     navigator.clipboard.writeText(invoice.reference);
@@ -137,7 +141,7 @@ function InvoiceSidePanel({ invoice, onClose }: { invoice: Invoice; onClose: () 
               { label: "Date", value: formatDate(invoice.invoice_date) },
               { label: "Échéance", value: formatDate(invoice.due_date) },
               { label: "Site", value: getSiteName(invoice.site) },
-              { label: "Montant HT", value: formatMontant(amountHT) },
+              { label: "Montant HT", value: formatMontant(displayHT) },
             ].map((f, i) => (
               <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                 <p className="text-xs text-slate-400 font-medium">{f.label}</p>
@@ -157,8 +161,8 @@ function InvoiceSidePanel({ invoice, onClose }: { invoice: Invoice; onClose: () 
           {/* Récap montants */}
           <div className="bg-slate-50 rounded-2xl border border-slate-100 px-4 py-3 space-y-1.5">
             {[
-              { label: "Montant HT", value: formatMontant(amountHT) },
-              { label: "TVA", value: formatMontant(taxAmount) },
+              { label: "Montant HT", value: formatMontant(displayHT) },
+              { label: "TVA", value: formatMontant(displayTax) },
             ].map((r) => (
               <div key={r.label} className="flex justify-between text-xs">
                 <span className="text-slate-500">{r.label}</span>
@@ -167,7 +171,7 @@ function InvoiceSidePanel({ invoice, onClose }: { invoice: Invoice; onClose: () 
             ))}
             <div className="flex justify-between text-sm border-t border-slate-200 pt-1.5">
               <span className="font-black text-slate-900">Montant TTC</span>
-              <span className="font-black text-slate-900">{formatMontant(amountTTC)}</span>
+              <span className="font-black text-slate-900">{formatMontant(displayTTC)}</span>
             </div>
           </div>
 
@@ -223,7 +227,7 @@ function InvoiceSidePanel({ invoice, onClose }: { invoice: Invoice; onClose: () 
                   onClick={() => setPdfPreview({ url: pdfUrl, name: pdfName })}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition shrink-0"
                 >
-                  <Eye size={13} /> Aperçu
+                  <Eye size={13} />
                 </button>
                 <a href={pdfUrl} download target="_blank" rel="noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition shrink-0">
@@ -284,7 +288,7 @@ export default function ProviderFacturesPage() {
     statusFilter, currentPage,
     openPanel, closePanel,
     openCreate, closeCreate,
-    setStatusFilter, setPage,
+    setStatusFilter, search, setPage,
     createInvoice, exportXlsx,
   } = useProviderInvoices();
 
@@ -373,7 +377,7 @@ export default function ProviderFacturesPage() {
     { label: "Coût moyen par facture", value: statsLoading ? "-" : formatMontant(avgCost), delta: "", trend: "up" as const },
     { label: "Nombre total de factures", value: statsLoading ? "-" : totalInvoices, delta: "", trend: "up" as const },
     { label: "Factures en attente", value: statsLoading ? "-" : (stats?.total_unpaid ?? 0), delta: "", trend: "up" as const },
-    { label: "Factures payées", value: statsLoading ? "-" : (stats?.total_paid ?? 0), delta: "", trend: "up" as const },
+    { label: "Factures Validées", value: statsLoading ? "-" : (stats?.total_paid ?? 0), delta: "", trend: "up" as const },
   ];
 
   // ── ActionGroup ───────────────────────────────────────────────────────────
@@ -381,7 +385,7 @@ export default function ProviderFacturesPage() {
 
   const pageActions = [
     { label: "Exporter", icon: Download, onClick: exportXlsx, variant: "secondary" as const },
-    { label: "Nouvelle facture", icon: PlusCircle, onClick: openCreate, variant: "primary" as const },
+    // { label: "Nouvelle facture", icon: PlusCircle, onClick: openCreate, variant: "primary" as const },
   ];
 
   // Filtre date côté client
@@ -539,16 +543,14 @@ export default function ProviderFacturesPage() {
             {meta && <span className="text-xs text-slate-400">{meta.total} facture{meta.total > 1 ? "s" : ""}</span>}
           </div>
 
-          <div className="px-6 py-4">
-            {loading
-              ? <div className="space-y-3 animate-pulse">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded-xl" />
-                ))}
-              </div>
-              : <DataTable title="Liste des factures" columns={columns} data={filteredInvoices} onViewAll={() => { }} />
-            }
-          </div>
+          <DataTable
+            title="Liste des factures"
+            columns={columns}
+            data={filteredInvoices}
+            onSearchChange={search}
+            isLoading={loading}
+            onViewAll={() => { }}
+          />
 
           {/* Pagination */}
           {totalPages > 1 && (
@@ -573,12 +575,12 @@ export default function ProviderFacturesPage() {
       <ReusableForm
         isOpen={isCreateOpen}
         onClose={closeCreate}
-        title="Générer une facture"
+        title="Créer une facture"
         subtitle="Les informations ci-dessous permettront de générer une nouvelle facture à partir d'un rapport d'intervention."
         fields={invoiceFields}
         onSubmit={handleCreate}
         isSubmitting={submitting}
-        submitLabel={submitting ? "Génération en cours..." : "Générer la facture"}
+        submitLabel={submitting ? "Création en cours..." : "Créer la facture"}
       />
 
     </div>

@@ -270,7 +270,7 @@ export default function AttachmentViewer({
                       onClick={() => setPdfModal({ url, name })}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
                     >
-                      <Eye size={12} /> Aperçu
+                      <Eye size={12} />
                     </button>
                     <a
                       href={url}

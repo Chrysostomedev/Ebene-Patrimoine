@@ -7,11 +7,15 @@ import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import ReusableForm from "@/components/ReusableForm";
 import type { FieldConfig } from "@/components/ReusableForm";
+import RichContent from "@/components/RichContent";
 
+import Link from "next/link";
 import {
   ChevronLeft, CheckCircle2, Clock, FileText,
   Eye, Download, X, Star, AlertCircle,
   MapPin, Wrench, Edit2, AlertTriangle, ArrowUpRight,
+  CheckSquare, Info, PenSquare, MessageSquare,
+  User
 } from "lucide-react";
 
 import AttachmentViewer, { isImage, isPdf } from "@/components/AttachmentViewer";
@@ -24,7 +28,9 @@ import {
   getAttachmentUrl,
   getSiteName, getProviderName, isEditable,
 } from "../../../../services/provider/providerReportService";
-import { formatDate } from "@/lib/utils";
+import { providerQuoteService } from "../../../../services/provider/providerQuoteService";
+import { providerInvoiceService } from "../../../../services/provider/providerInvoiceService";
+import { formatDate, formatCurrency } from "@/lib/utils";
 import { useProviderReports } from "../../../../hooks/provider/useProviderReports";
 
 // ─── Badges ────────────────────────────────────────────────────────────────────
@@ -229,6 +235,8 @@ export default function ProviderEntretienDetailPage() {
   const reportId = Number(params?.id);
 
   const [report, setReport] = useState<InterventionReport | null>(null);
+  const [quotes, setQuotes] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
@@ -246,7 +254,20 @@ export default function ProviderEntretienDetailPage() {
     const load = async () => {
       setLoading(true); setError("");
       try {
-        setReport(await providerReportService.getReportById(reportId));
+        const data = await providerReportService.getReportById(reportId);
+        setReport(data);
+        // Charger devis & factures liées au ticket
+        const ticketId = data.ticket_id || (data.ticket as any)?.id;
+        if (ticketId) {
+          try {
+            const invRes = await providerInvoiceService.getInvoices({ per_page: 100 });
+            setInvoices(invRes.items.filter((i: any) => i.ticket_id && Number(i.ticket_id) === Number(ticketId)));
+          } catch { /* silently ignore */ }
+          try {
+            const allQs = await providerQuoteService.getQuotes({ per_page: 100, ticket_id: ticketId });
+            setQuotes(allQs);
+          } catch { /* silently ignore */ }
+        }
       } catch (e: any) {
         setError(
           e.response?.data?.message ??
@@ -282,6 +303,7 @@ export default function ProviderEntretienDetailPage() {
   const photos = (report?.attachments ?? []).filter(a => isImage(a));
   const timeline = report ? buildTimeline(report) : [];
   const editable = report ? isEditable(report) : false;
+  const isValidated = report?.status === "validated";
 
   const kpis = [
     { label: "Prestataire", value: getProviderName(report?.provider), delta: "", trend: "up" as const },
@@ -294,13 +316,7 @@ export default function ProviderEntretienDetailPage() {
     <div className="flex min-h-screen bg-gray-50 text-gray-900 font-sans">
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="mt-4 p-8 space-y-8">
-
-          <button onClick={() => router.back()}
-            className="flex items-center gap-2 text-slate-500 hover:text-black transition
-              bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium">
-            <ChevronLeft size={16} /> Retour
-          </button>
+        <main className="mt-20 p-8 space-y-8">
 
           {flash && (
             <div className={`px-5 py-4 rounded-2xl text-sm font-semibold border
@@ -329,226 +345,376 @@ export default function ProviderEntretienDetailPage() {
 
           {report && (
             <>
-              <div className="bg-white flex flex-col md:flex-row md:items-start justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <h1 className="text-5xl font-black text-slate-900 tracking-tight uppercase">
-                      Entretien #{reportId}
-                    </h1>
-                    <StatusBadge status={report.status} />
-                    <TypeBadge type={report.intervention_type} />
-                  </div>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <MapPin size={16} />
-                    <span className="font-medium text-base">{getSiteName(report.site)}</span>
-                  </div>
-                  {report.ticket?.subject && (
-                    <div className="flex items-center gap-2 text-slate-500">
-                      <Wrench size={14} />
-                      <span className="text-sm font-medium">{report.ticket.subject}</span>
+              {/* ── Header Premium Uniformisé ── */}
+              <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="space-y-4">
+                  <button
+                    onClick={() => router.back()}
+                    className="flex items-center gap-2 text-slate-500 hover:text-black transition-colors bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
+                  >
+                    <ChevronLeft size={18} /> Retour
+                  </button>
+                  <div>
+                    <div className="flex items-center gap-4 mb-1">
+                      <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">
+                        Rapport de visite préventive {report.reference || report.id}
+                      </h1>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[report.status || "pending"] || "bg-slate-50 text-slate-600 border border-slate-100"}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${report.status === 'validated' ? 'bg-emerald-500' : report.status === 'submitted' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                        {STATUS_LABELS[report.status || "pending"] || report.status}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-700">
+                        <Wrench size={11} />
+                        Préventif
+                      </span>
                     </div>
-                  )}
-                  {report.result && <ResultBadge result={report.result} />}
+                    <div className="flex items-center gap-2 text-slate-400 mt-1">
+                      <MapPin size={18} />
+                      <span className="font-medium text-lg">{getSiteName(report.site)}</span>
+                    </div>
+                    {report.planning?.codification && (
+                      <div className="flex items-center gap-2 text-slate-500 mt-1">
+                        <Clock size={15} />
+                        <span className="text-sm font-medium">Planning : {report.planning.codification}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-4 min-w-[270px]">
-                  <div className="bg-slate-50/50 p-5 rounded-[24px] border border-slate-100 space-y-2.5">
-                    {[
-                      { label: "Créé le", value: formatDate(report.created_at), show: true },
-                      { label: "Début", value: formatDate(report.start_date), show: true },
-                      { label: "Fin", value: formatDate(report.end_date), show: !!report.end_date },
-                      { label: "Validé le", value: formatDate(report.validated_at), show: !!report.validated_at, green: true },
-                    ].filter(r => r.show).map((r, i) => (
-                      <div key={i} className="flex justify-between items-center text-sm">
-                        <span className="text-slate-400 font-medium">{r.label}</span>
-                        <span className={`font-bold ${(r as any).green ? "text-emerald-700" : "text-slate-900"}`}>{r.value}</span>
+                {/* Bloc droit - info validation + bouton édition si modifiable */}
+                <div className="flex flex-col gap-4">
+                  <div className="bg-slate-50/50 p-6 rounded-[24px] border border-slate-100 flex flex-col gap-4 min-w-[300px]">
+                    <div className="flex flex-col gap-2 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 font-medium">Effectué le</span>
+                        <span className="font-bold text-slate-900">{formatDate(report.start_date)}</span>
                       </div>
-                    ))}
-                    {report.status === "validated" && report.rating && (
+                      {isValidated && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-400 font-medium">Rapport validé le</span>
+                          <span className="font-bold text-emerald-700">
+                            {formatDate(report.validated_at)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {isValidated && report.rating && (
                       <div className="border-t border-slate-100 pt-3">
                         <StarRatingDisplay value={report.rating} />
                       </div>
                     )}
                   </div>
+
                   {editable && (
-                    <button onClick={() => setIsEditOpen(true)}
-                      className="flex items-center justify-center gap-2 bg-slate-900 text-white py-3 px-6 rounded-2xl font-bold hover:bg-black transition">
-                      <Edit2 size={15} /> Modifier le rapport
+                    <button
+                      onClick={() => setIsEditOpen(true)}
+                      className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white py-3 px-6 rounded-2xl font-bold transition-colors"
+                    >
+                      <Edit2 size={15} /> Modifier le Rapport
                     </button>
                   )}
                 </div>
               </div>
 
+              {/* ── KPIs Premium Uniformisés ── */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Description</h3>
-                    {report.action_taken
-                      ? <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: report.action_taken }} />
-                      : <p className="text-slate-400 text-sm italic">Aucune description renseignée.</p>
-                    }
-                  </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: Side Info & Tickets */}
+                <div className="space-y-8">
+                  {/* Tickets de Suivi - Toujours en haut pour visibilité */}
+                  {(() => {
+                    const ticketsFromPlanning = (report as any).planning?.tickets || [];
+                    const ticketsFromResults = ((report as any).asset_results || (report as any).results || []).filter((r: any) => r.preventive_ticket_id).map((r: any) => ({
+                      id: r.preventive_ticket_id,
+                      code_ticket: r.preventive_ticket_code || `TKP-${r.preventive_ticket_id}`,
+                      status: "EN_COURS",
+                      asset: r.asset
+                    }));
 
-                  {report.findings && (
-                    <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
-                        Observations / Constatations
-                      </h3>
-                      <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-4 border border-slate-100">
-                        {report.findings}
-                      </p>
-                    </div>
-                  )}
+                    // Fusion unique par ID
+                    const allTicketsMap = new Map();
+                    [...ticketsFromPlanning, ...ticketsFromResults].forEach(t => {
+                      if (t.id || t.preventive_ticket_id) {
+                        allTicketsMap.set(t.id || t.preventive_ticket_id, t);
+                      }
+                    });
+                    const allTickets = Array.from(allTicketsMap.values());
 
-                  {report.status === "validated" && report.manager_comment && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-[24px] p-6">
-                      <h3 className="text-xs font-black text-emerald-800 uppercase tracking-widest mb-3">
-                        Commentaire du gestionnaire
-                      </h3>
-                      <p className="text-sm text-emerald-700 leading-relaxed">{report.manager_comment}</p>
-                    </div>
-                  )}
+                    if (allTickets.length === 0) return null;
 
-                  {photos.length > 0 && (
-                    <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                      <AttachmentViewer attachments={report.attachments ?? []} title="Pièces jointes" />
-                    </div>
-                  )}
-
-                  <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">
-                      Historique des mouvements
-                    </h3>
-                    {timeline.length > 0
-                      ? <div>
-                        {timeline.map((evt, i) => (
-                          <TimelineItem key={i} event={evt} isLast={i === timeline.length - 1} />
-                        ))}
+                    return (
+                      <div className="bg-slate-900 rounded-[32px] p-6 shadow-xl shadow-slate-200 space-y-4 border border-slate-800">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <AlertTriangle size={14} className="text-amber-500" /> Tickets de Suivi ({allTickets.length})
+                          </h3>
+                        </div>
+                        <div className="space-y-2">
+                          {allTickets.map((t: any, idx: number) => (
+                            <Link
+                              key={idx}
+                              href={`/provider/preventif/${t.id || t.preventive_ticket_id}`}
+                              className="flex items-center justify-between p-3 rounded-2xl bg-slate-800/50 border border-slate-700 hover:border-white transition-all group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-400 group-hover:text-white shadow-sm">
+                                  <Wrench size={14} />
+                                </div>
+                                <div>
+                                  <p className="text-[10px] font-black text-white uppercase tracking-tight">
+                                    {t.code_ticket || `TKP-${t.id || t.preventive_ticket_id}`}
+                                  </p>
+                                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-0.5 truncate max-w-[120px]">
+                                    {t.asset?.designation || t.designation || "Intervention"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest px-1.5 py-0.5 bg-slate-900 rounded border border-slate-700">
+                                  {t.status || "OUVERT"}
+                                </span>
+                                <ArrowUpRight size={14} className="text-slate-500 group-hover:text-white transition-colors" />
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
                       </div>
-                      : <p className="text-sm text-slate-400 italic">Aucun mouvement enregistré.</p>
-                    }
+                    );
+                  })()}
+
+                  <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm space-y-8 sticky top-28">
+                    <div>
+                      <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <FileText size={14} /> Observations / Constatations
+                      </label>
+                      <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 min-h-[120px]">
+                        <div className="prose prose-slate max-w-none text-slate-900 font-bold text-sm leading-relaxed">
+                          <RichContent html={report.findings || (report as any).description} placeholder="Aucune observation rédigée." />
+                        </div>
+                      </div>
+                    </div>
+
+                    {report.action_taken && (
+                      <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <Wrench size={14} /> Actions Menées
+                        </label>
+                        <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 min-h-[120px]">
+                          <div className="prose prose-slate max-w-none text-slate-900 font-bold text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: report.action_taken }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Context Info Cards */}
+                    <div className="pt-6 border-t border-slate-100 space-y-5">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+                          <MapPin size={18} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Site concerné</p>
+                          <p className="text-sm font-bold text-slate-900">{getSiteName(report.site)}</p>
+                        </div>
+                      </div>
+
+                      {/* Nouveau : Manager du site */}
+                      {(report.site as any)?.manager && (
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 border border-blue-100">
+                            <User size={18} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Gestionnaire Site</p>
+                            <p className="text-sm font-bold text-slate-900">
+                              {(report.site as any).manager.first_name} {(report.site as any).manager.last_name}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+                          <Clock size={18} />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Date de soumission</p>
+                          <p className="text-sm font-bold text-slate-900">{formatDate(report.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  {/* <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">
-                      Documents ({pdfs.length})
-                    </h3>
-                    {pdfs.length > 0 ? (
-                      <div className="space-y-3">
-                        {pdfs.map(att => {
-                          const url = getAttachmentUrl(att.file_path);
-                          const name = att.file_path.split("/").pop() ?? "document.pdf";
+                {/* Right Column: Asset Checklist (Read Only) */}
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-[32px] border border-slate-100 p-8 shadow-sm">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900 tracking-tight">Diagnostic Technique</h3>
+                        <p className="text-xs text-slate-400 font-medium">Contrôle individuel des patrimoines effectué</p>
+                      </div>
+                      <div className="px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          {(() => {
+                            const res = (report as any).asset_results || (report as any).results || (report as any).assets || (report as any).items || (report as any).diagnostic || [];
+                            if (res.length > 0) return res.length;
+                            const single = (report as any).asset || (report as any).company_asset || (report as any).patrimoine || (report as any).equipment || report.ticket?.asset;
+                            return single ? 1 : 0;
+                          })()} Équipements
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {(() => {
+                        // --- LOGIQUE DE RÉCUPÉRATION DES ÉQUIPEMENTS ---
+                        let results = (report as any).asset_results || (report as any).results || (report as any).assets || (report as any).items || (report as any).diagnostic || [];
+
+                        // Si pas de résultats multiples, on simule un résultat unique si l'asset est présent
+                        if (results.length === 0) {
+                          const singleAsset = (report as any).asset || (report as any).company_asset || (report as any).patrimoine || (report as any).equipment || report.ticket?.asset;
+                          if (singleAsset) {
+                            results = [{
+                              asset: singleAsset,
+                              status: (report.result === "anomalie" || !!(report as any).anomaly_detected) ? "ANOMALIE" : "RAS",
+                              comment: report.findings || report.description || (report as any).anomaly_description
+                            }];
+                          }
+                        }
+
+                        return results.map((res: any, idx: number) => {
+                          const status = (res.status || "RAS").toUpperCase();
+                          const isAnomalie = status === "ANOMALIE";
+                          const isObservation = status === "OBSERVATION";
+                          const isRas = status === "RAS";
+
                           return (
-                            <div key={att.id} className="flex flex-col gap-2 p-3 rounded-xl border border-slate-100 bg-slate-50">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
-                                  <FileText size={16} className="text-red-500" />
+                            <div key={idx} className={`p-5 rounded-2xl border transition-all ${isAnomalie ? "bg-red-50/30 border-red-100 shadow-sm shadow-red-50" :
+                              isObservation ? "bg-amber-50/30 border-amber-100 shadow-sm shadow-amber-50" :
+                                "bg-emerald-50/10 border-emerald-100 shadow-sm shadow-emerald-50"
+                              }`}>
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-start gap-3">
+                                  <div className={`mt-1 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${isAnomalie ? "bg-red-500 text-white" :
+                                    isObservation ? "bg-amber-500 text-white" :
+                                      "bg-emerald-500 text-white"
+                                    }`}>
+                                    {isRas && <CheckCircle2 size={16} />}
+                                    {isObservation && <Info size={16} />}
+                                    {isAnomalie && <AlertCircle size={16} />}
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold text-slate-900">{res.asset?.designation || res.designation || "Équipement"}</p>
+                                    <p className="text-[10px] font-medium text-slate-400 tracking-wider uppercase mt-0.5">
+                                      {res.asset?.codification || res.codification || "N/A"}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-slate-900 truncate">{name}</p>
-                                  <p className="text-[10px] text-slate-400">PDF</p>
+
+                                {/* Status Buttons Selector Style (Read Only) */}
+                                <div className="flex items-center bg-slate-100/50 p-1 rounded-xl shrink-0 self-end md:self-auto">
+                                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-tight transition-all ${isRas ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500/50"
+                                    }`}>
+                                    <CheckCircle2 size={12} /> RAS
+                                  </div>
+                                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-tight transition-all ${isObservation ? "bg-white text-amber-600 shadow-sm" : "text-slate-500/50"
+                                    }`}>
+                                    <Info size={12} /> OBSERVATION
+                                  </div>
+                                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black tracking-tight transition-all ${isAnomalie ? "bg-white text-red-600 shadow-sm" : "text-slate-500/50"
+                                    }`}>
+                                    <AlertCircle size={12} /> ANOMALIE
+                                  </div>
+                                  {res.preventive_ticket_id && (
+                                    <Link
+                                      href={`/provider/preventif/${res.preventive_ticket_id}`}
+                                      className="ml-2 p-1.5 bg-white rounded-lg border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-900 transition shadow-sm"
+                                      title="Voir le ticket préventif"
+                                    >
+                                      <Eye size={14} />
+                                    </Link>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex gap-2">
-                                <button onClick={() => setPdfPreview({ url, name })}
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition">
-                                  <Eye size={13} /> Aperçu
-                                </button>
-                                <a href={url} download target="_blank" rel="noreferrer"
-                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition">
-                                  <Download size={13} /> Télécharger
-                                </a>
+
+                              {(isAnomalie || isObservation) && res.comment && (
+                                <div className="mt-4 pt-4 border-t border-slate-100/50">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <MessageSquare size={12} className={isAnomalie ? "text-red-400" : "text-amber-400"} />
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                      {isAnomalie ? "Description de l'anomalie" : "Commentaire / Observation"}
+                                    </p>
+                                  </div>
+                                  <p className={`w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all min-h-[80px] ${isAnomalie ? "bg-white border-red-100 text-red-900" : "bg-white border-amber-100 text-amber-900"
+                                    }`}>
+                                    "{res.comment}"
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Devis & Factures liés au ticket */}
+              {(quotes.length > 0 || invoices.length > 0) && (
+                <div className="space-y-4 mt-6">
+                  {quotes.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Devis associés ({quotes.length})</h3>
+                      <div className="space-y-3">
+                        {quotes.map((q: any, i: number) => {
+                          const st = (q.status || "").toLowerCase();
+                          const isApproved = ["approved", "approuvé", "validé"].includes(st);
+                          const isRejected = ["rejected", "rejeté"].includes(st);
+                          return (
+                            <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                              <div>
+                                <p className="text-sm font-bold text-slate-900">{q.reference ?? `Devis #${q.id}`}</p>
+                                <p className="text-xs text-slate-500">{q.amount_ttc ? formatCurrency(Number(q.amount_ttc)) : "—"}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${isApproved ? "bg-emerald-50 border-emerald-200 text-emerald-700" : isRejected ? "bg-red-50 border-red-200 text-red-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                                  {isApproved ? "Approuvé" : isRejected ? "Rejeté" : "En attente"}
+                                </span>
+                                <Link href={`/provider/devis/${q.id}`}
+                                  className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition">
+                                  <Eye size={14} />
+                                </Link>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    ) : (
-                      <div className="border border-dashed border-slate-200 rounded-xl px-4 py-5 flex items-center gap-3 text-slate-400">
-                        <FileText size={16} className="shrink-0" />
-                        <p className="text-sm font-medium">Aucun document</p>
-                      </div>
-                    )}
-                  </div> */}
-
-                  <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Statut actuel</h3>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                        style={{ backgroundColor: `${STATUS_DOT[report.status] ?? "#94a3b8"}18` }}>
-                        {report.status === "validated"
-                          ? <CheckCircle2 size={18} className="text-green-500" />
-                          : <Clock size={18} className="text-amber-500" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-900">
-                          {STATUS_LABELS[report.status] ?? report.status}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">Màj : {formatDate(report.updated_at)}</p>
-                      </div>
-                    </div>
-
-                    {report.status === "pending" && (
-                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 font-medium">
-                        En attente de validation par le gestionnaire du site.
-                      </p>
-                    )}
-                    {report.status === "validated" && (
-                      <p className="text-xs text-green-600 bg-green-50 border border-green-100 rounded-xl px-4 py-3 font-medium">
-                        Rapport validé le {formatDate(report.validated_at)}.
-                      </p>
-                    )}
-                    {!editable && (
-                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 font-medium mt-2">
-                        Ce rapport ne peut plus être modifié.
-                      </p>
-                    )}
-                  </div>
-
-                  {report.ticket && (
-                    <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Ticket lié</h3>
-                      <div className="space-y-2.5">
-                        {[
-                          { label: "ID", value: `#${report.ticket.id}` },
-                          { label: "Sujet", value: report.ticket.subject ?? "-" },
-                          { label: "Type", value: report.ticket.type === "curatif" ? "Curatif" : "Préventif" },
-                          { label: "Statut", value: report.ticket.status ?? "-" },
-                        ].map((f, i) => (
-                          <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
-                            <span className="text-xs text-slate-400 font-medium">{f.label}</span>
-                            <span className="text-xs font-bold text-slate-900">{f.value}</span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   )}
-
-                  {report.provider && (
-                    <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Prestataire</h3>
-                      <div className="space-y-2.5">
-                        {[
-                          { label: "Nom", value: getProviderName(report.provider) },
-                          { label: "Email", value: report.provider.email ?? "-" },
-                          { label: "Téléphone", value: report.provider.phone ?? "-" },
-                        ].map((f, i) => (
-                          <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
-                            <span className="text-xs text-slate-400 font-medium">{f.label}</span>
-                            <span className="text-xs font-bold text-slate-900">{f.value}</span>
+                  {invoices.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Factures ({invoices.length})</h3>
+                      <div className="space-y-3">
+                        {invoices.map((inv: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{inv.reference ?? `Facture #${inv.id}`}</p>
+                              <p className="text-xs text-slate-500">{inv.amount_ttc ? formatCurrency(Number(inv.amount_ttc)) : "—"}</p>
+                            </div>
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${inv.payment_status === "paid" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                              {inv.payment_status === "paid" ? "Validée" : "En attente"}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </>
           )}
         </main>

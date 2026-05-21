@@ -31,9 +31,17 @@ import {
   FileText, FileSignature, AlertTriangle,
   ChartNoAxesColumnIncreasing, MapPinHouse,
   Layers, FolderSync, Bell, User as UserIcon, UserCog,
-  ChevronLeft, Menu,
+  ChevronLeft, Menu, X,
+  Tag,
+  Gauge,
+  ClipboardList,
+  ShieldCheck,
+  BellRing,
+  Activity,
+  Hammer,
 } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
+
 
 // ─── Sidebar Context ──────────────────────────────────────────────────────────
 
@@ -41,16 +49,30 @@ interface SidebarContextType {
   collapsed: boolean;
   setCollapsed: (val: boolean) => void;
   toggleSidebar: () => void;
+  isMobileOpen: boolean;
+  setIsMobileOpen: (val: boolean) => void;
+  toggleMobileOpen: () => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const toggleSidebar = () => setCollapsed((prev) => !prev);
+  const toggleMobileOpen = () => setIsMobileOpen((prev) => !prev);
 
   return (
-    <SidebarContext.Provider value={{ collapsed, setCollapsed, toggleSidebar }}>
+    <SidebarContext.Provider
+      value={{
+        collapsed,
+        setCollapsed,
+        toggleSidebar,
+        isMobileOpen,
+        setIsMobileOpen,
+        toggleMobileOpen,
+      }}
+    >
       {children}
     </SidebarContext.Provider>
   );
@@ -59,7 +81,14 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 export function useSidebar() {
   const context = useContext(SidebarContext);
   if (context === undefined) {
-    return { collapsed: false, setCollapsed: () => { }, toggleSidebar: () => { } };
+    return {
+      collapsed: false,
+      setCollapsed: () => {},
+      toggleSidebar: () => {},
+      isMobileOpen: false,
+      setIsMobileOpen: () => {},
+      toggleMobileOpen: () => {},
+    };
   }
   return context;
 }
@@ -82,7 +111,7 @@ interface BottomItem {
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function Sidebar() {
-  const { collapsed, toggleSidebar } = useSidebar();
+  const { collapsed, toggleSidebar, isMobileOpen, setIsMobileOpen } = useSidebar();
   const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
@@ -106,6 +135,8 @@ export default function Sidebar() {
       href: "/admin/administration",
       subItems: [
         { label: t("nav.tickets"), icon: <Ticket size={20} />, href: "/admin/tickets" },
+        { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/admin/rapports" },
+
         {
           label: t("nav.patrimoines"),
           icon: <Building2 size={20} />,
@@ -113,15 +144,22 @@ export default function Sidebar() {
           subItems: [
             { label: t("nav.types"), icon: <Building2 size={18} />, href: "/admin/patrimoines/type" },
             { label: t("nav.subtypes"), icon: <Building2 size={18} />, href: "/admin/patrimoines/sous_type" },
+            { label: t("nav.designation"), icon: <Tag size={18} />, href: "/admin/patrimoines/designation" },
+            { label: t("nav.capacite"), icon: <Gauge size={18} />, href: "/admin/patrimoines/capacite" },
+
           ],
         },
         { label: t("nav.sites"), icon: <MapPinHouse size={20} />, href: "/admin/sites" },
         { label: t("nav.planning"), icon: <Calendar size={20} />, href: "/admin/planning" },
-        { label: t("nav.entretien"), icon: <Calendar size={20} />, href: "/admin/entretien" },
-        // { label: t("nav.prestataires"), icon: <Users size={20} />,                         href: "/admin/prestataires" },
+        { label: t("nav.report-planning"), icon: <ClipboardList size={20} />, href: "/admin/report-planning" },
+        { label: t("nav.preventif"), icon: <Hammer size={20} />, href: "/admin/preventif" },
+        { label: t("nav.entretien"), icon: <ClipboardList size={20} />, href: "/admin/entretien" },
+        /* 
+         * ── NOUVEAU MENU PREMIUM : RAPPORTS DE PLANNING POUR L'ADMINISTRATEUR ──
+         * Permet de suivre les rapports d'intervention globaux reliés à une planification
+         */
         { label: t("nav.devis"), icon: <FileSignature size={20} />, href: "/admin/devis" },
         { label: t("nav.factures"), icon: <FileText size={20} />, href: "/admin/factures" },
-        { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/admin/rapports" },
         { label: t("nav.services"), icon: <Layers size={20} />, href: "/admin/services" },
         { label: t("nav.transfert"), icon: <FolderSync size={20} />, href: "/admin/transfert" },
       ],
@@ -139,11 +177,17 @@ export default function Sidebar() {
   const buildMenuProvider = (): MenuItem[] => [
     { label: t("nav.dashboard"), icon: <LayoutDashboard size={20} />, href: "/provider/dashboard" },
     { label: t("nav.tickets"), icon: <Ticket size={20} />, href: "/provider/tickets" },
+    { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/provider/rapports" },
     { label: t("nav.planning"), icon: <Calendar size={20} />, href: "/provider/planning" },
+    { label: t("nav.report-planning"), icon: <ClipboardList size={20} />, href: "/provider/report-planning" },
+    { label: t("nav.preventif"), icon: <Hammer size={20} />, href: "/provider/preventif" },
+    { label: t("nav.entretien"), icon: <ClipboardList size={20} />, href: "/provider/entretien" },
+    /* 
+     * ── NOUVEAU MENU PREMIUM : RAPPORTS DE PLANNING POUR LE PRESTATAIRE ──
+     * Affiche les rapports globaux par site ainsi que les rapports individuels d'anomalies
+     */
     { label: t("nav.devis"), icon: <FileSignature size={20} />, href: "/provider/devis" },
     { label: t("nav.factures"), icon: <FileText size={20} />, href: "/provider/factures" },
-    { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/provider/rapports" },
-    { label: t("nav.entretien"), icon: <Calendar size={20} />, href: "/provider/entretien" },
     { label: t("nav.notifications"), icon: <Bell size={20} />, href: "/provider/notifications" },
   ];
 
@@ -152,12 +196,18 @@ export default function Sidebar() {
     { label: t("nav.sites"), icon: <MapPinHouse size={20} />, href: "/manager/site" },
     { label: t("nav.patrimoines"), icon: <Building2 size={20} />, href: "/manager/patrimoines" },
     { label: t("nav.tickets"), icon: <Ticket size={20} />, href: "/manager/tickets" },
-    { label: t("nav.entretien"), icon: <Calendar size={20} />, href: "/manager/entretien" },
+    { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/manager/rapports" },
     { label: t("nav.planning"), icon: <Calendar size={20} />, href: "/manager/planning" },
+    { label: t("nav.report-planning"), icon: <ClipboardList size={20} />, href: "/manager/report-planning" },
+    { label: t("nav.preventif"), icon: <Hammer size={20} />, href: "/manager/preventif" },
+    { label: t("nav.entretien"), icon: <ClipboardList size={20} />, href: "/manager/entretien" },
+    /* 
+     * ── NOUVEAU MENU PREMIUM : RAPPORTS DE PLANNING POUR LE SITE MANAGER ──
+     * Affiche les rapports d'entretien globaux relatifs aux plannings sur les sites du manager
+     */
     { label: t("nav.prestataires"), icon: <Users size={20} />, href: "/manager/prestataires" },
     { label: t("nav.devis"), icon: <FileSignature size={20} />, href: "/manager/devis" },
     { label: t("nav.factures"), icon: <FileText size={20} />, href: "/manager/factures" },
-    { label: t("nav.rapports"), icon: <ChartNoAxesColumnIncreasing size={20} />, href: "/manager/rapports" },
     { label: t("nav.notifications"), icon: <Bell size={20} />, href: "/manager/notifications" },
   ];
 
@@ -275,6 +325,7 @@ export default function Sidebar() {
           <Link
             href={item.href || "#"}
             onClick={(e) => {
+              setIsMobileOpen(false); // Ferme le tiroir sur mobile
               if (hasSubItems) {
                 toggleSubMenu(item.label);
                 if (!item.href || item.href === "#") {
@@ -317,19 +368,30 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`fixed top-0 left-0 h-screen bg-white shadow-lg border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${collapsed ? "w-16" : "w-64"
-          }`}
+        className={`sidebar fixed top-0 left-0 h-screen bg-white shadow-lg border-r border-gray-200 flex flex-col z-40 transition-all duration-300 ${
+          collapsed ? "w-16" : "w-64"
+        } ${isMobileOpen ? "sidebar--mobile-open" : ""}`}
       >
         {/* Logo & Toggle */}
         <div
-          className={`px-4 py-6 border-b border-gray-100 flex items-center ${collapsed ? "justify-center" : "justify-between"
-            }`}
+          className={`px-4 py-6 border-b border-gray-100 flex items-center ${
+            collapsed ? "justify-center" : "justify-between"
+          }`}
         >
           {!collapsed && (
             <div className="flex-1 flex justify-center">
-              <Image src="/images/logo_canal.png" alt="CANAL+" width={140} height={40} priority />
+              <Image src="/images/logoci.png" alt="Ebene Patrimoine" width={140} height={40} priority />
             </div>
           )}
+
+          {/* Bouton de fermeture mobile */}
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="sidebar__mobile-close p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 transition-colors mr-2"
+          >
+            <X size={20} />
+          </button>
+
           <button
             onClick={toggleSidebar}
             className="p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 transition-colors"
@@ -353,11 +415,14 @@ export default function Sidebar() {
               <Link
                 key={item.label}
                 href={item.href}
-                className={`flex items-center transition-all font-medium text-[15px] py-2 rounded-xl ${collapsed ? "justify-center px-0" : "gap-3 px-3"
-                  } ${active
+                onClick={() => setIsMobileOpen(false)}
+                className={`flex items-center transition-all font-medium text-[15px] py-2 rounded-xl ${
+                  collapsed ? "justify-center px-0" : "gap-3 px-3"
+                } ${
+                  active
                     ? "bg-theme-primary text-white shadow-md"
                     : "text-gray-600 hover:bg-gray-50"
-                  }`}
+                }`}
               >
                 <span className={`shrink-0 ${collapsed ? "flex items-center justify-center w-full" : ""}`}>
                   {item.icon}

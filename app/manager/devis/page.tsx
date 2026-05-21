@@ -1,137 +1,112 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
-import { Download, FileText, CheckCircle2, Clock, XCircle, AlertCircle, Eye, X, Copy, Info } from "lucide-react";
+import Paginate from "@/components/Paginate";
+import { Download, FileText, CheckCircle2, Clock, XCircle, AlertCircle, Eye, X, Filter, ChevronDown, ListFilter } from "lucide-react";
 import type { ColumnConfig } from "@/components/DataTable";
-
 import { useQuotes } from "../../../hooks/manager/useQuotes";
 import type { Quote } from "../../../types/manager.types";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
-/* -------------------------------------------------------------------------- */
-/*                                  STATUS                                     */
-/* -------------------------------------------------------------------------- */
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  approved: { label: "Approuvé", color: "green", icon: CheckCircle2 },
-  pending: { label: "En attente", color: "orange", icon: Clock },
-  rejected: { label: "Rejeté", color: "red", icon: XCircle },
-  validated: { label: "Validé", color: "blue", icon: CheckCircle2 },
-  invalidated: { label: "Invalidé", color: "rose", icon: AlertCircle },
-  revision: { label: "À réviser", color: "amber", icon: Clock },
-  "en attente": { label: "En attente", color: "orange", icon: Clock },
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; className: string }> = {
+  approved: { label: "Approuvé", color: "green", icon: CheckCircle2, className: "bg-emerald-50 text-emerald-600 border border-emerald-200" },
+  approuvé: { label: "Approuvé", color: "green", icon: CheckCircle2, className: "bg-emerald-50 text-emerald-600 border border-emerald-200" },
+  pending: { label: "En attente", color: "orange", icon: Clock, className: "bg-amber-50 text-amber-600 border border-amber-200" },
+  rejected: { label: "Rejeté", color: "red", icon: XCircle, className: "bg-rose-50 text-rose-600 border border-rose-200" },
+  rejeté: { label: "Rejeté", color: "red", icon: XCircle, className: "bg-rose-50 text-rose-600 border border-rose-200" },
+  revision: { label: "À réviser", color: "amber", icon: Clock, className: "bg-sky-50 text-sky-600 border border-sky-200" },
+  "en révision": { label: "À réviser", color: "amber", icon: Clock, className: "bg-sky-50 text-sky-600 border border-sky-200" },
+  "en attente": { label: "En attente", color: "orange", icon: Clock, className: "bg-amber-50 text-amber-600 border border-amber-200" },
 };
-
-/* -------------------------------------------------------------------------- */
-/*                                   PAGE                                     */
-/* -------------------------------------------------------------------------- */
 
 export default function DevisPage() {
   const {
     quotes,
     stats,
+    meta,
     isLoading,
     error,
     setFilters,
-    exportQuotes
+    exportQuotes,
+    filters: currentFilters
   } = useQuotes();
 
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const router = useRouter();
 
-  const handleTabChange = (status: string) => {
-    setActiveTab(status);
-    setFilters({ status: status === "all" ? undefined : status });
-  };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-  // ─── Fallback stats if API returns 0 but list is not empty ────────────────
   const fallbackTotalAmount = quotes.reduce((acc, q) => acc + (q.amount_ttc ?? q.total_amount_ttc ?? 0), 0);
   const fallbackTotalQuotes = quotes.length;
   const fallbackApproved = quotes.filter(q => q.status === "approved" || q.status === "validated").length;
   const fallbackPending = quotes.filter(q => q.status === "pending" || q.status === "en attente").length;
 
   const kpis = [
-    {
-      label: "Total Approuvé",
-      value: `${(stats?.total_approved_amount || fallbackTotalAmount).toLocaleString()} FCFA`,
-      delta: `${stats?.total ?? fallbackTotalQuotes} devis total`,
-      trend: "up" as const
-    },
-    {
-      label: "Devis Approuvés",
-      value: `${(stats?.approved || fallbackApproved)}`,
-      delta: "Validés par manager",
-      trend: "up" as const
-    },
-    {
-      label: "En attente",
-      value: `${(stats?.pending || fallbackPending)}`,
-      delta: "Action requise",
-      trend: "down" as const
-    }
+    { label: "Total des devis", value: isLoading ? 0 : (stats?.total ?? fallbackTotalQuotes), delta: "+0%", trend: "up" as const },
+    { label: "Devis en attente", value: isLoading ? 0 : (stats?.pending ?? fallbackPending), delta: "+0%", trend: "up" as const },
+    { label: "Devis approuvés", value: isLoading ? 0 : (stats?.approved ?? fallbackApproved), delta: "+0%", trend: "up" as const },
+    { label: "Montant approuvé", value: isLoading ? 0 : formatCurrency(stats?.total_approved_amount ?? fallbackTotalAmount), delta: "+0%", trend: "up" as const, isCurrency: true },
   ];
-
-  /* ------------------------------ COLUMNS ---------------------------------- */
 
   const columns: ColumnConfig<Quote>[] = [
     {
       header: "Référence",
       key: "reference",
-      render: (val) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-            <FileText size={16} />
-          </div>
-          <span className="font-black text-slate-900">{val as string}</span>
-        </div>
-      )
+      render: (val) => <span className="font-black text-slate-900 text-sm">{val as string}</span>
     },
     {
       header: "Prestataire",
       key: "provider",
       render: (_, row) => (
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-700">{row.provider?.company_name || row.provider?.name || "-"}</span>
-        </div>
+        <span className="font-bold text-slate-700">{row.provider?.company_name || row.provider?.name || "-"}</span>
       )
     },
-
     {
-      header: "Date",
-      key: "created_at",
-      render: (val) => <span className="text-slate-500">{val ? new Date(val as string).toLocaleDateString() : "-"}</span>
+      header: "Site",
+      key: "site",
+      render: (_, row) => (
+        <span className="text-slate-600">{row.site?.nom || row.site?.name || "-"}</span>
+      )
     },
     {
       header: "Montant TTC",
       key: "amount_ttc",
       render: (_, row) => (
-        <span className="font-black text-slate-900">
-          {(row.amount_ttc ?? 0).toLocaleString()} <small className="text-[10px] text-slate-400">FCFA</small>
+        <span className="font-bold text-slate-900">
+          {formatCurrency(row.amount_ttc ?? 0)}
         </span>
       )
+    },
+    {
+      header: "Date",
+      key: "created_at",
+      render: (val) => <span className="text-slate-500">{formatDate(val as string)}</span>
     },
     {
       header: "Statut",
       key: "status",
       render: (val) => {
-        const s = (val as string)?.toLowerCase() || "pending";
+        const s = (val as string)?.toLowerCase().trim() || "pending";
         const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.pending;
-        const Icon = cfg.icon;
         return (
-          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider
-            ${s === "approved" || s === "validated" ? "bg-green-50 text-green-600" :
-              s === "pending" || s === "en attente" || s === "revision" ? "bg-orange-50 text-orange-600" :
-                s === "rejected" || s === "invalidated" ? "bg-red-50 text-red-600" :
-                  "bg-slate-50 text-slate-600"}`}
-          >
-            <Icon size={12} />
+          <span className={`inline-flex items-center justify-center min-w-[90px] px-3 py-1.5 rounded-xl text-xs font-bold ${cfg.className}`}>
             {cfg.label}
-          </div>
+          </span>
         );
       }
     },
@@ -139,14 +114,13 @@ export default function DevisPage() {
       header: "Actions",
       key: "id",
       render: (_, row) => (
-        <div className="flex items-center gap-2">
-
+        <div className="flex items-center gap-3">
           <button
             onClick={() => router.push(`/manager/devis/details/${row.id}`)}
-            className="p-2 hover:bg-slate-900 hover:text-white border border-slate-100 rounded-xl transition text-slate-400"
+            className="group p-2 rounded-xl bg-white border border-slate-100 transition flex items-center justify-center hover:bg-slate-900 hover:text-white"
             title="Voir la fiche complète"
           >
-            <Eye size={18} />
+            <Eye size={16} />
           </button>
         </div>
       )
@@ -158,10 +132,10 @@ export default function DevisPage() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <Navbar />
 
-        <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
+        <main className="mt-20 p-6 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
           <PageHeader
             title="Devis"
-            subtitle="Consultez et validez les devis transmis par vos prestataires."
+            subtitle="Consultez et suivez les devis transmis par vos prestataires."
           />
 
           {error && (
@@ -170,109 +144,113 @@ export default function DevisPage() {
             </div>
           )}
 
-          {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
           </div>
 
-          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-            {/* Tabs */}
-            <div className="flex items-center justify-between px-8 border-b border-slate-50 bg-slate-50/50">
-              <div className="flex gap-8">
-                {(["all", "pending", "approved", "rejected"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabChange(tab)}
-                    className={`py-5 text-xs font-black uppercase tracking-widest transition relative
-                      ${activeTab === tab ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
-                  >
-                    {tab === "all" ? "Tous" : STATUS_CONFIG[tab].label}
-                    {activeTab === tab && (
-                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900 rounded-full" />
-                    )}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={exportQuotes}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase text-slate-600 hover:text-slate-900 transition"
-                >
-                  <Download size={14} /> Exporter
-                </button>
-              </div>
+          <div className="shrink-0 flex justify-end items-center gap-3">
+            <div className="relative" ref={filterRef}>
+              <button
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-bold transition ${filtersOpen || currentFilters.status ? "bg-slate-900 text-white border-slate-900" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+              >
+                <Filter size={16} /> Filtrer par
+                {currentFilters.status && <span className="ml-1 bg-white text-slate-900 text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">1</span>}
+              </button>
+              <FilterDropdown isOpen={filtersOpen} onClose={() => setFiltersOpen(false)} currentStatus={currentFilters.status} onApply={(s) => setFilters({ status: s || undefined })} />
             </div>
 
-            <div className="p-8 space-y-6">
+            <button
+              onClick={exportQuotes}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 transition"
+            >
+              <Download size={16} /> Exporter
+            </button>
+          </div>
 
-              <DataTable
-                columns={columns}
-                data={quotes}
-                title="Liste des devis"
-              />
+          {currentFilters.status && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
+              <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                {STATUS_CONFIG[currentFilters.status]?.label ?? currentFilters.status}
+                <button onClick={() => setFilters({ status: undefined })} className="hover:opacity-70 transition"><X size={12} /></button>
+              </span>
             </div>
+          )}
+
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <DataTable
+              columns={columns}
+              data={isLoading ? [] : quotes}
+              title="Liste des devis"
+              onSearchChange={(q) => setFilters({ search: q || undefined })}
+              isLoading={isLoading}
+            />
+            {meta && meta.last_page > 1 && (
+              <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
+                <Paginate currentPage={meta.current_page} totalPages={meta.last_page} onPageChange={(p) => setFilters({ page: p })} />
+              </div>
+            )}
           </div>
         </main>
       </div>
-
-      {/* ── SideModal Devis ── */}
-      {selectedQuote && (
-        <>
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setSelectedQuote(null)} />
-          <div className="fixed right-0 top-0 h-full w-[420px] bg-white z-50 shadow-2xl flex flex-col rounded-l-3xl overflow-hidden">
-            <div className="flex items-start px-6 pt-6 pb-0 shrink-0">
-              <button onClick={() => setSelectedQuote(null)} className="p-1.5 hover:bg-slate-100 rounded-xl transition -ml-1">
-                <X size={18} className="text-slate-500" />
-              </button>
-            </div>
-            <div className="px-6 pt-4 pb-5 shrink-0">
-              <h2 className="text-2xl font-black text-slate-900">Devis #{selectedQuote.id}</h2>
-              <p className="text-slate-400 text-xs mt-0.5">Retrouvez les détails du devis en dessous</p>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-0">
-              {[
-                { label: "Référence", value: selectedQuote.reference },
-                { label: "Prestataire", value: selectedQuote.provider?.company_name ?? selectedQuote.provider?.name ?? "-" },
-                { label: "Site", value: selectedQuote.site?.nom ?? selectedQuote.site?.name ?? "-" },
-                { label: "Date", value: selectedQuote.created_at ? new Date(selectedQuote.created_at).toLocaleDateString("fr-FR") : "-" },
-                { label: "Montant HT", value: `${(selectedQuote.amount_ht ?? 0).toLocaleString()} FCFA` },
-                { label: "Montant TTC", value: `${(selectedQuote.amount_ttc ?? selectedQuote.total_amount_ttc ?? 0).toLocaleString()} FCFA` },
-              ].map((f, i) => (
-                <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                  <p className="text-xs text-slate-400 font-medium">{f.label}</p>
-                  <p className="text-sm font-bold text-slate-900">{f.value}</p>
-                </div>
-              ))}
-              <div className="flex items-center justify-between py-3">
-                <p className="text-xs text-slate-400 font-medium">Statut</p>
-                {(() => {
-                  const s = (selectedQuote.status ?? "pending").toLowerCase();
-                  const cfg = STATUS_CONFIG[s] ?? STATUS_CONFIG.pending;
-                  const Icon = cfg.icon;
-                  return (
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase ${s === "approved" || s === "validated" ? "bg-green-50 text-green-600" :
-                      s === "pending" || s === "en attente" ? "bg-orange-50 text-orange-600" :
-                        s === "rejected" ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-600"
-                      }`}>
-                      <Icon size={12} />{cfg.label}
-                    </div>
-                  );
-                })()}
-              </div>
-              {selectedQuote.description && (
-                <div className="pt-4">
-                  <p className="text-xs text-slate-400 font-medium mb-2">Description</p>
-                  <div
-                    className="prose prose-sm max-w-none text-slate-700 bg-slate-50 rounded-xl p-4 border border-slate-100 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: selectedQuote.description ?? "" }}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      )}
     </>
+  );
+}
+
+function FilterDropdown({
+  isOpen, onClose, currentStatus, onApply,
+}: {
+  isOpen: boolean; onClose: () => void;
+  currentStatus?: string; onApply: (status: string) => void;
+}) {
+  const [local, setLocal] = useState(currentStatus || "");
+  useEffect(() => { setLocal(currentStatus || ""); }, [currentStatus]);
+  if (!isOpen) return null;
+
+  const options = [
+    { val: "", label: "Tous" },
+    { val: "pending", label: "En attente" },
+    { val: "approved", label: "Approuvés" },
+    { val: "rejected", label: "Rejetés" },
+    { val: "revision", label: "En révision" },
+  ];
+
+  return (
+    <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <span className="text-sm font-black text-slate-900 uppercase tracking-widest">Filtres</span>
+        <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition">
+          <X size={16} className="text-slate-500" />
+        </button>
+      </div>
+      <div className="p-5">
+        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Statut</label>
+        <div className="flex flex-col gap-2 mt-2">
+          {options.map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setLocal(val)}
+              className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${local === val
+                ? "bg-slate-900 text-white"
+                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="px-5 py-4 border-t border-slate-100 flex gap-3">
+        <button onClick={() => { setLocal(""); onApply(""); onClose(); }}
+          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition">
+          Réinitialiser
+        </button>
+        <button onClick={() => { onApply(local); onClose(); }}
+          className="flex-1 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition">
+          Appliquer
+        </button>
+      </div>
+    </div>
   );
 }

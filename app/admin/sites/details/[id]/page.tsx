@@ -5,8 +5,9 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Filter, Download, Upload, Building2,
-  Eye, ChevronLeft, MapPin, Phone, Mail, CalendarClock, X, Copy, CheckCheck, Pencil,
+  Eye, ChevronLeft, MapPin, Search, Plus, Tag, Pencil, ArrowUpRight, Wrench, Calendar, X, AlertCircle, Phone, Mail, CalendarClock, Copy, CheckCheck,
 } from "lucide-react";
+import RichContent from "@/components/RichContent";
 
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
@@ -18,6 +19,8 @@ import { FieldConfig } from "@/components/ReusableForm";
 
 import { useTypes } from "../../../../../hooks/admin/useTypes";
 import { useSubTypeAssets } from "../../../../../hooks/admin/useSubTypeAssets";
+import { useDesignation } from "../../../../../hooks/admin/useDesignation";
+import { useCapacity } from "../../../../../hooks/admin/useCapacity";
 import { AssetService, CompanyAsset } from "../../../../../services/admin/asset.service";
 import {
   getSiteById,
@@ -249,12 +252,9 @@ function AssetSidePanel({
             ))}
           </div>
           {patrimoine.description && (
-            <div className="mt-5">
+            <div className="mb-6 bg-slate-50 p-4 rounded-xl">
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Description</p>
-              <div
-                className="bg-slate-50 rounded-2xl p-4 border border-slate-100 text-sm text-slate-700 leading-relaxed prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: patrimoine.description }}
-              />
+              <RichContent html={patrimoine.description} />
             </div>
           )}
         </div>
@@ -281,6 +281,8 @@ export default function SiteDetailsPage() {
 
   const { types } = useTypes();
   const { subTypes } = useSubTypeAssets();
+  const { designations } = useDesignation();
+  const { capacities } = useCapacity();
 
   const [site, setSite] = useState<any>(null);
   const [siteStats, setSiteStats] = useState<any>(null);
@@ -297,6 +299,8 @@ export default function SiteDetailsPage() {
   const [filters, setFilters] = useState<AssetFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedTypeId, setSelectedTypeId] = useState<string>("");
+  const [selectedSubTypeId, setSelectedSubTypeId] = useState<string>("");
+  const [selectedDesignationId, setSelectedDesignationId] = useState<string>("");
   const { toast } = useToast();
   const [modalError, setModalError] = useState<string | null>(null); // Erreur spécifique à la modale
   const [isSubmitting, setIsSubmitting] = useState(false);               // État de soumission global
@@ -372,6 +376,8 @@ export default function SiteDetailsPage() {
     if (!selectedPatrimoine) return;
     setEditingData(selectedPatrimoine);
     setSelectedTypeId(String((selectedPatrimoine as any).type_company_asset_id ?? ""));
+    setSelectedSubTypeId(String((selectedPatrimoine as any).sub_type_company_asset_id ?? ""));
+    setSelectedDesignationId(String((selectedPatrimoine as any).asset_designation_id ?? ""));
     setIsDetailsOpen(false);
     setIsModalOpen(true);
     setModalError(null);
@@ -405,18 +411,72 @@ export default function SiteDetailsPage() {
 
   const handleUpdateSite = async (formData: any) => {
     try {
-      const payload = {
-        ...formData,
-        manager_id: formData.manager_id ? Number(formData.manager_id) : undefined,
-      };
+      const payload: any = {};
+      if (formData.nom?.trim()) payload.nom = formData.nom.trim();
+      if (formData.status) payload.status = formData.status;
+
+      const strFields = ["responsable_name", "phone_responsable", "ville", "localisation", "ref_contrat"];
+      for (const f of strFields) {
+        const v = formData[f]?.toString().trim();
+        if (v) payload[f] = v;
+        else payload[f] = null;
+      }
+
+      if (formData.superficie?.toString().trim()) {
+        const n = parseFloat(formData.superficie);
+        if (!isNaN(n)) payload.superficie = n;
+        else payload.superficie = null;
+      } else {
+        payload.superficie = null;
+      }
+
+      if (formData.effectifs?.toString().trim()) {
+        const n = parseInt(formData.effectifs, 10);
+        if (!isNaN(n) && n >= 0) payload.effectifs = n;
+        else payload.effectifs = null;
+      } else {
+        payload.effectifs = null;
+      }
+
+      if (formData.loyer?.toString().trim()) {
+        const n = parseFloat(formData.loyer);
+        if (!isNaN(n) && n >= 0) payload.loyer = n;
+        else payload.loyer = null;
+      } else {
+        payload.loyer = null;
+      }
+
+      if (formData.date_deb_contrat?.trim()) payload.date_deb_contrat = formData.date_deb_contrat.trim();
+      else payload.date_deb_contrat = null;
+
+      if (formData.date_fin_contrat?.trim()) payload.date_fin_contrat = formData.date_fin_contrat.trim();
+      else payload.date_fin_contrat = null;
+
+      if (formData.manager_id) {
+        payload.manager_id = Number(formData.manager_id);
+        const manager = managers.find((m: any) => String(m.id) === String(formData.manager_id));
+        if (manager) {
+          const fullName = resolveManagerName(manager);
+          const phone = (manager as any).phone_number ?? (manager as any).phone ?? "";
+          if (fullName && fullName !== "—") {
+            payload.responsable_name = fullName;
+          }
+          if (phone) {
+            payload.phone_responsable = phone;
+          }
+        }
+      } else {
+        payload.manager_id = null;
+      }
+
       await updateSite(siteId, payload);
-      setFlashMessage({ type: "success", message: "Site mis à jour avec succès." });
+      toast.success("Site mis à jour avec succès.");
       setIsEditSiteModalOpen(false);
       // Refresh site data
       const data = await getSiteById(siteId);
       setSite(data);
     } catch (err: any) {
-      setFlashMessage({ type: "error", message: err?.response?.data?.message ?? "Erreur lors de la mise à jour." });
+      toast.error(err?.response?.data?.message ?? "Erreur lors de la mise à jour.");
     }
   };
 
@@ -440,9 +500,9 @@ export default function SiteDetailsPage() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      setFlashMessage({ type: "success", message: "Export téléchargé." });
+      toast.success("Export téléchargé.");
     } catch {
-      setFlashMessage({ type: "error", message: "Erreur lors de l'exportation." });
+      toast.error("Erreur lors de l'exportation.");
     } finally {
       setExportLoading(false);
     }
@@ -462,9 +522,9 @@ export default function SiteDetailsPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       await fetchPatrimoines();
-      setFlashMessage({ type: "success", message: `"${file.name}" importé avec succès.` });
+      toast.success(`"${file.name}" importé avec succès.`);
     } catch (err: any) {
-      setFlashMessage({ type: "error", message: err?.response?.data?.message ?? "Erreur lors de l'import." });
+      toast.error(err?.response?.data?.message ?? "Erreur lors de l'import.");
     } finally {
       setImportLoading(false);
     }
@@ -530,10 +590,12 @@ export default function SiteDetailsPage() {
     {
       header: "Actions", key: "actions",
       render: (_: any, row: CompanyAsset) => (
-        <button onClick={() => handleOpenDetails(row)}
-          className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
-          <Eye size={18} /> Aperçu
-        </button>
+        <div className="flex items-center gap-1">
+
+          <Link href={`/admin/patrimoines/${row.id}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
+            <Eye size={16} />
+          </Link>
+        </div>
       ),
     },
   ];
@@ -544,6 +606,14 @@ export default function SiteDetailsPage() {
     ? subTypes.filter((st: any) => String(st.type_company_asset_id) === selectedTypeId)
     : subTypes;
 
+  const filteredDesignationsForForm = selectedSubTypeId
+    ? designations.filter((d: any) => String(d.sub_type_company_asset_id) === selectedSubTypeId)
+    : [];
+
+  const filteredCapacitiesForForm = selectedDesignationId
+    ? capacities.filter((c: any) => String(c.asset_designation_id) === selectedDesignationId)
+    : [];
+
   const assetFields: FieldConfig[] = [
     {
       name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true,
@@ -553,7 +623,17 @@ export default function SiteDetailsPage() {
       name: "sub_type_company_asset_id", label: "Sous-type", type: "select", required: true,
       options: filteredSubTypesForForm.map((st: any) => ({ label: st.name, value: String(st.id) })),
     },
-    { name: "designation", label: "Désignation", type: "text", required: true },
+    // site_id est implicite dans cette vue
+    {
+      name: "asset_designation_id", label: "Désignation", type: "select", required: true,
+      options: filteredDesignationsForForm.map((d: any) => ({ label: d.name, value: String(d.id) })),
+    },
+    {
+      name: "asset_capacity_id", label: "Capacité", type: "select", required: false,
+      options: filteredCapacitiesForForm.map((c: any) => ({ label: c.name, value: String(c.id) })),
+    },
+    // { name: "serial_number", label: "N° de Série", type: "text", placeholder: "Ex: SN123456789" },
+    // { name: "product_type_code", label: "Code Produit", type: "text", placeholder: "Ex: 03 (2 chiffres)", minLength: 2, maxLength: 2 },
     {
       name: "status", label: "Statut", type: "select", required: true,
       options: [
@@ -570,12 +650,11 @@ export default function SiteDetailsPage() {
       ],
     },
     { name: "date_entree", label: "Date d'entrée", type: "date", required: true, icon: CalendarClock },
-    { name: "valeur_entree", label: "Valeur d'entrée", type: "number", required: true },
-    { name: "images", label: "Photos du patrimoine", type: "image-upload", gridSpan: 2, maxImages: 3 },
-    {
-      name: "description", label: "Description", type: "rich-text", gridSpan: 2,
-      placeholder: "Décrivez plus en détail le patrimoine"
-    },
+    { name: "valeur_entree", label: "Valeur d'entrée", type: "number", required: true, placeholder: "200000" },
+    { name: "dimension", label: "Dimension", type: "text", required: false, placeholder: "22 m " },
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, placeholder: "Donnez plus de details sur ce equipement" },
+    { name: "images", label: "Photos", type: "image-upload", gridSpan: 2, maxImages: 3 },
+
   ];
 
 
@@ -769,13 +848,21 @@ export default function SiteDetailsPage() {
 
       <ReusableForm
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingData(null); setSelectedTypeId(""); }}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingData(null);
+          setSelectedTypeId("");
+          setSelectedSubTypeId("");
+          setSelectedDesignationId("");
+        }}
         title={editingData ? "Modifier le patrimoine" : "Ajouter un patrimoine"}
         subtitle="Renseignez les informations du patrimoine"
         fields={assetFields}
         initialValues={editingData ? {
           type_company_asset_id: String((editingData as any).type_company_asset_id ?? ""),
           sub_type_company_asset_id: String((editingData as any).sub_type_company_asset_id ?? ""),
+          asset_designation_id: String((editingData as any).asset_designation_id ?? ""),
+          asset_capacity_id: String((editingData as any).asset_capacity_id ?? ""),
           site_id: String(siteId), // On force l'ID du site actuel
           designation: editingData.designation,
           status: editingData.status,
@@ -788,7 +875,23 @@ export default function SiteDetailsPage() {
         onFieldChange={(name, value, setter) => {
           if (name === "type_company_asset_id") {
             setSelectedTypeId(String(value));
+            setSelectedSubTypeId("");
+            setSelectedDesignationId("");
             setter("sub_type_company_asset_id", "");
+            setter("asset_designation_id", "");
+            setter("asset_capacity_id", "");
+          }
+          if (name === "sub_type_company_asset_id") {
+            setSelectedSubTypeId(String(value));
+            setSelectedDesignationId("");
+            setter("asset_designation_id", "");
+            setter("asset_capacity_id", "");
+          }
+          if (name === "asset_designation_id") {
+            setSelectedDesignationId(String(value));
+            setter("asset_capacity_id", "");
+            const selected = designations.find(d => String(d.id) === String(value));
+            if (selected) setter("designation", selected.name);
           }
         }}
         onSubmit={handleCreateOrUpdate}
@@ -805,7 +908,7 @@ export default function SiteDetailsPage() {
         subtitle="Modifiez les informations de ce site"
         fields={[
           { name: "nom", label: "Nom du site", type: "text", required: true },
-          { name: "ref_contrat", label: "Référence contrat", type: "text", required: true },
+          // { name: "ref_contrat", label: "Référence contrat", type: "text", required: false },
           {
             name: "manager_id",
             label: managersLoading ? "Gestionnaire (chargement...)" : "Gestionnaire",
@@ -823,7 +926,7 @@ export default function SiteDetailsPage() {
           { name: "effectifs", label: "Effectifs", type: "number" },
           { name: "loyer", label: "Loyer mensuel (FCFA)", type: "number" },
           { name: "superficie", label: "Superficie (m²)", type: "number" },
-          { name: "localisation", label: "Localisation", type: "text", gridSpan: 2 },
+          { name: "localisation", label: "Localisation", type: "text" },
           { name: "date_deb_contrat", label: "Date de début de contrat", type: "date" },
           { name: "date_fin_contrat", label: "Date de fin de contrat", type: "date" },
         ]}

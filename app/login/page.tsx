@@ -16,8 +16,8 @@
 
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ChevronDown } from "lucide-react";
 import { authService, getDashboardRoute } from "../../services/AuthService";
@@ -61,7 +61,17 @@ const flagUrl = (code: string) =>
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Chargement...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get("message") === "session_expired";
 
   const [email, setEmail]               = useState("");
   const [password, setPassword]         = useState("");
@@ -146,14 +156,14 @@ export default function LoginPage() {
       {/* Card */}
       <div className="relative z-10 w-full max-w-md">
         {/* Barre d'accent top */}
-        <div className="h-1 w-full bg-gradient-to-r from-gray-700 to-gray-900 rounded-xl" />
+        <div className="h-1 w-full bg-theme-primary rounded-xl" />
 
         <div className="bg-white rounded-b-3xl shadow-2xl px-8 py-10">
 
           {/* Logo */}
           <div className="flex justify-center mb-8">
             <Image
-              src="/images/logo_canal.png"
+              src="/images/logoci.png"
               alt="CANAL+"
               width={160}
               height={40}
@@ -187,7 +197,7 @@ export default function LoginPage() {
                 onClick={() => setCountryOpen((v) => !v)}
                 className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl
                            border border-gray-200 bg-gray-50 text-gray-900 text-sm
-                           hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900
+                           hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-theme-primary
                            focus:border-transparent focus:bg-white transition-all"
               >
                 <span className="flex items-center gap-2.5 min-w-0">
@@ -221,7 +231,7 @@ export default function LoginPage() {
                       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left
                                   transition-colors hover:bg-gray-50
                                   ${selectedCountry.code === country.code
-                                    ? "bg-gray-100 font-semibold text-gray-900"
+                                    ? "bg-orange-50 font-semibold text-gray-900"
                                     : "text-gray-700"}`}
                     >
                       <img
@@ -292,6 +302,14 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {/* Session Expirée */}
+            {sessionExpired && !error && (
+              <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-xl text-sm">
+                <span className="mt-0.5 shrink-0 text-blue-500">ℹ</span>
+                <span>Votre session a expiré par mesure de sécurité. Veuillez vous reconnecter.</span>
+              </div>
+            )}
+
             {/* Erreur */}
             {error && (
               <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
@@ -304,8 +322,8 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 mt-2 rounded-xl bg-gray-900 text-white font-semibold text-sm
-                         hover:bg-black disabled:bg-gray-300 disabled:cursor-not-allowed
+              className="w-full py-3.5 mt-2 rounded-xl bg-theme-primary text-white font-semibold text-sm
+                         hover:bg-black disabled:bg-theme-primary disabled:cursor-not-allowed
                          transition-all duration-200 shadow-lg shadow-gray-900/20
                          flex items-center justify-center gap-2 group"
             >

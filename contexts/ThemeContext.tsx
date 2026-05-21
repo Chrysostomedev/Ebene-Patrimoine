@@ -31,13 +31,16 @@ function applyThemeToDom(color: ThemeColor, mode: ThemeMode) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>({ color: 'slate', mode: 'light' });
+  const [theme, setTheme] = useState<Theme>({ color: 'orange', mode: 'light' });
   const [mounted, setMounted] = useState(false);
 
   // Charger le thème sauvegardé au mount
   useEffect(() => {
-    const savedColor = (localStorage.getItem('theme-color') as ThemeColor) || 'slate';
-    const savedMode  = (localStorage.getItem('theme-mode')  as ThemeMode)  || 'light';
+    const saved = localStorage.getItem('theme-color') as ThemeColor | null;
+    // Si aucune préférence sauvegardée OU si c'était l'ancien défaut slate,
+    // on force orange comme nouveau défaut
+    const savedColor: ThemeColor = (!saved || saved === 'slate') ? 'orange' : saved;
+    const savedMode  = (localStorage.getItem('theme-mode') as ThemeMode) || 'light';
     setTheme({ color: savedColor, mode: savedMode });
     applyThemeToDom(savedColor, savedMode);
     setMounted(true);

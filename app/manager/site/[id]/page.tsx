@@ -12,6 +12,7 @@ import Sidebar from "@/components/Sidebar";
 import Paginate from "@/components/Paginate";
 import StatsCard from "@/components/StatsCard";
 import DataTable, { ColumnConfig } from "@/components/DataTable";
+import { useParams } from "next/navigation";
 
 import { useSite } from "../../../../hooks/manager/useSite";
 import { useAssets } from "../../../../hooks/manager/useAssets";
@@ -71,13 +72,16 @@ function CopyButton({ text }: { text: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SitePage() {
-  const { site, stats: siteStats, isLoading: siteLoading, error: siteError } = useSite();
+  const params = useParams();
+  const siteId = params?.id as string;
+
+  const { site, stats: siteStats, isLoading: siteLoading, error: siteError } = useSite(siteId);
   const {
     assets,
     meta,
     isLoading: assetsLoading,
     setPage
-  } = useAssets({ per_page: 5 });
+  } = useAssets({ per_page: 5, site_id: siteId });
 
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
 
@@ -114,23 +118,23 @@ export default function SitePage() {
         </span>
       ),
     },
-    
+
     {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
         <div className="flex items-center gap-2">
-          <button
+          {/* <button
             onClick={() => setSelectedAsset(row)}
             className="flex items-center gap-2 font-bold text-slate-800 hover:text-blue-600 transition"
           >
             <Eye size={18} />
-          </button>
+          </button> */}
           <Link
             href={`/manager/patrimoines/${row.id}`}
             className="group p-2 rounded-xl bg-white hover:bg-black border border-slate-200 hover:border-black transition flex items-center justify-center"
             title="Voir le détail"
           >
-            <ChevronRight size={15} className="text-slate-600 group-hover:text-white transition-all" />
+            <Eye size={15} className="text-slate-600 group-hover:text-white transition-all" />
           </Link>
         </div>
       ),
@@ -161,7 +165,7 @@ export default function SitePage() {
             <div className="bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl border border-slate-100 shadow-sm">
               <div className="space-y-4">
                 <Link
-                  href="/manager/dashboard"
+                  href="/manager/site"
                   className="flex items-center gap-2 text-slate-500 hover:text-black transition bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium"
                 >
                   <ChevronLeft size={18} /> Retour

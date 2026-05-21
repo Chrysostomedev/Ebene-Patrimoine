@@ -149,7 +149,7 @@ export default function AssetDetailPage({ params }: { params: Promise<{ id: stri
 
   const ticketFields: FieldConfig[] = [
     { name: "subject", label: "Sujet du ticket", type: "text", placeholder: "Ex: Panne constatée...", required: true, icon: <TagIcon size={18} /> },
-    { name: "type", label: "Type", type: "select", options: [{ label: "Curatif", value: "curatif" }, { label: "Préventif", value: "preventif" }], required: true, icon: <Wrench size={18} /> },
+    { name: "type", label: "Type", type: "select", options: [{ label: "Curatif", value: "curatif" }], required: true, icon: <Wrench size={18} /> },
     { name: "priority", label: "Priorité", type: "select", options: [{ label: "Faible", value: "faible" }, { label: "Moyenne", value: "moyenne" }, { label: "Haute", value: "haute" }, { label: "Critique", value: "critique" }], required: true, icon: <AlertTriangle size={18} /> },
     { name: "planned_at", label: "Début souhaité", type: "date", disablePastDates: true, required: false, icon: <CalendarDays size={18} /> },
     { name: "description", label: "Détails supplémentaires", type: "rich-text", placeholder: "Décrivez précisément le problème...", required: true, gridSpan: 2 },

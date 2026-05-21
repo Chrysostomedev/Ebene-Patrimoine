@@ -25,25 +25,175 @@ export const FormField = ({ label, required, children }: any) => (
 export const Input = (props: any) => (
   <input
     {...props}
-    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 transition-all outline-none"
+    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-[16px] md:text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 transition-all outline-none"
   />
 );
 
-// Select (Style "Dropdown")
-export const Select = ({ children, disabled, ...props }: any) => (
-  <div className="relative">
-    <select
-      {...props}
-      disabled={disabled}
-      className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 appearance-none outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
-    >
-      {children}
-    </select>
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-      <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#64748B" strokeWidth="2" strokeLinecap="round" /></svg>
+// Select (Style "Dropdown" avec recherche intelligente)
+export const Select = ({ children, disabled, value, onChange, name, required, placeholder, ...props }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Extract options from <option> children
+  const options: { value: string; label: string; disabled: boolean; hidden: boolean }[] = [];
+  React.Children.forEach(children, (child: any) => {
+    if (child?.type === "option") {
+      options.push({
+        value: String(child.props.value ?? ""),
+        label: typeof child.props.children === "string" ? child.props.children : String(child.props.children ?? ""),
+        disabled: child.props.disabled ?? false,
+        hidden: child.props.hidden ?? false,
+      });
+    }
+  });
+
+  const visibleOptions = options.filter(o => !o.hidden);
+  const isSearchable = visibleOptions.length > 7;
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen]);
+
+  // Auto-focus search when opened
+  useEffect(() => {
+    if (isOpen && isSearchable && searchInputRef.current) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [isOpen, isSearchable]);
+
+  // ── For small lists, keep native <select> ──
+  if (!isSearchable) {
+    return (
+      <div className="relative">
+        <select
+          {...props}
+          name={name}
+          value={value}
+          onChange={onChange}
+          required={required}
+          disabled={disabled}
+          className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-[16px] md:text-sm text-slate-700 appearance-none outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
+        >
+          {children}
+        </select>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+          <svg width="12" height="8" viewBox="0 0 12 8" fill="none"><path d="M1 1L6 6L11 1" stroke="#64748B" strokeWidth="2" strokeLinecap="round" /></svg>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Searchable custom dropdown ──
+  const filteredOptions = search
+    ? visibleOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    : visibleOptions;
+
+  const selectedOption = options.find(o => String(o.value) === String(value) && o.value !== "");
+  const displayLabel = selectedOption
+    ? selectedOption.label
+    : (placeholder || options.find(o => o.value === "")?.label || "Sélectionner...");
+
+  const handleSelect = (optValue: string) => {
+    if (onChange) {
+      onChange({ target: { name: name || "", value: optValue }, currentTarget: { name: name || "", value: optValue } });
+    }
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <input type="hidden" name={name} value={value || ""} required={required} />
+
+      {/* Trigger */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-left text-[16px] md:text-sm outline-none focus:ring-2 focus:ring-slate-900 transition-all flex items-center justify-between gap-2 ${disabled ? "opacity-60 cursor-not-allowed bg-slate-100" : "cursor-pointer hover:bg-slate-100"
+          } ${!selectedOption ? "text-slate-400" : "text-slate-700"}`}
+      >
+        <span className="truncate">{displayLabel}</span>
+        <ChevronDown size={14} className={`text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-[200] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+          {/* Search */}
+          <div className="p-2 border-b border-slate-100">
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher..."
+                className="w-full pl-9 pr-8 py-2.5 text-sm text-slate-900 bg-slate-50 rounded-xl outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-400"
+                onKeyDown={e => {
+                  if (e.key === "Escape") { setIsOpen(false); setSearch(""); }
+                  if (e.key === "Enter" && filteredOptions.length === 1) { e.preventDefault(); handleSelect(filteredOptions[0].value); }
+                }}
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-slate-200 transition">
+                  <X size={12} className="text-slate-400" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="max-h-56 overflow-y-auto overscroll-contain">
+            {filteredOptions.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <p className="text-sm text-slate-400">Aucun résultat pour &quot;{search}&quot;</p>
+              </div>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const isSelected = String(opt.value) === String(value);
+                return (
+                  <button
+                    key={`${opt.value}-${idx}`}
+                    type="button"
+                    disabled={opt.disabled}
+                    onClick={() => handleSelect(opt.value)}
+                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between gap-2 ${isSelected ? "bg-slate-900 text-white font-semibold" : "text-slate-700 hover:bg-slate-50"
+                      } ${opt.disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Result count */}
+          {search && filteredOptions.length > 0 && (
+            <div className="px-4 py-2 border-t border-slate-100 bg-slate-50">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{filteredOptions.length} résultat{filteredOptions.length > 1 ? "s" : ""}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // Champ Password
 export const PasswordInput = ({ disabled, ...props }: any) => {
@@ -54,7 +204,7 @@ export const PasswordInput = ({ disabled, ...props }: any) => {
         {...props}
         disabled={disabled}
         type={show ? "text" : "password"}
-        className={`w-full bg-slate-50 border-none rounded-2xl p-4 pr-12 text-slate-700 outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
+        className={`w-full bg-slate-50 border-none rounded-2xl p-4 pr-12 text-[16px] md:text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
       />
       {!disabled && (
         <button
@@ -128,7 +278,7 @@ export const DateRangeInput = ({ name, required, disabled, disablePastDates, def
     if (!defaultValue) return undefined;
     if (typeof defaultValue === "object" && defaultValue.start_date) {
       const from = new Date(defaultValue.start_date);
-      const to   = defaultValue.end_date ? new Date(defaultValue.end_date) : from;
+      const to = defaultValue.end_date ? new Date(defaultValue.end_date) : from;
       return { from, to };
     }
     return undefined;
@@ -144,7 +294,7 @@ export const DateRangeInput = ({ name, required, disabled, disablePastDates, def
         className="w-full [&>button]:w-full [&>button]:justify-between [&>button]:bg-slate-50 [&>button]:border-slate-200 [&>button]:rounded-2xl [&>button]:px-4 [&>button]:py-4 [&>button]:text-slate-700 [&>button]:font-medium [&>button]:text-sm"
       />
       <input type="hidden" name="start_date" value={range?.from ? format(range.from, "yyyy-MM-dd") : ""} />
-      <input type="hidden" name="end_date"   value={range?.to   ? format(range.to,   "yyyy-MM-dd") : (range?.from ? format(range.from, "yyyy-MM-dd") : "")} />
+      <input type="hidden" name="end_date" value={range?.to ? format(range.to, "yyyy-MM-dd") : (range?.from ? format(range.from, "yyyy-MM-dd") : "")} />
     </div>
   );
 };
@@ -175,7 +325,7 @@ export const ImageUpload = ({
   maxSizeMB?: number;
   accept?: string;
   defaultValue?: any;
-  onChange?: (files: File[]) => void;
+  onChange?: (data: { files: File[]; existingIds: any[] }) => void;
   isLoading?: boolean;
 }) => {
   const { toast } = useToast();
@@ -193,15 +343,29 @@ export const ImageUpload = ({
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (Array.isArray(defaultValue)) {
+      setImages(defaultValue.map((att: any) => ({
+        id: att.id || Math.random().toString(36).slice(2),
+        preview: resolveUrl(att),
+        isExisting: true,
+        name: att.name || "Image existante",
+      })));
+    } else if (!defaultValue) {
+      setImages([]);
+    }
+  }, [defaultValue]);
+
   React.useEffect(() => {
     const newFiles = images.filter((img) => !img.isExisting && img.file).map((img) => img.file as File);
-    onChange?.(newFiles);
+    const existingIds = images.filter((img) => img.isExisting).map((img) => img.id);
+    onChange?.({ files: newFiles, existingIds });
   }, [images]);
 
   const addFiles = useCallback(
     (files: FileList | null) => {
       if (!files) return;
-      
+
       const fileArray = Array.from(files);
       const validFiles: File[] = [];
       const tooLargeFiles: string[] = [];
@@ -343,12 +507,12 @@ export const ImageUpload = ({
                 className="
                   absolute top-2 right-2 w-7 h-7 rounded-xl
                   flex items-center justify-center
-                  bg-white/90 hover:bg-white shadow-sm
-                  opacity-0 group-hover:opacity-100
+                  bg-slate-900 text-white shadow-lg
+                  opacity-100 z-10
                   transition-all duration-150 active:scale-90
                 "
               >
-                <X size={14} strokeWidth={2.5} className="text-slate-700" />
+                <X size={14} strokeWidth={3} />
               </button>
 
               {/* Index badge */}
@@ -502,7 +666,7 @@ export const PhoneInput = ({
           disabled={disabled}
           required={required}
           placeholder="07 00 00 00 00"
-          className={`flex-1 bg-transparent p-4 pl-3 text-slate-700 placeholder:text-slate-400 outline-none focus:ring-0 text-sm font-medium ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+          className={`flex-1 bg-transparent p-4 pl-3 text-[16px] md:text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-0 font-medium ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
         />
 
         {/* Dropdown */}
@@ -571,15 +735,25 @@ export const RichTextEditor = ({ label, placeholder, name, defaultValue }: any) 
     }
   }, [defaultValue]);
 
+  const syncHiddenInput = () => {
+    if (editorRef.current && hiddenRef.current) {
+      const raw = editorRef.current.innerHTML;
+      const cleaned = cleanHtml(raw);
+      hiddenRef.current.value = cleaned;
+    }
+  };
+
   const applyStyle = (command: string, value: string | undefined = undefined) => {
     document.execCommand(command, false, value);
     if (editorRef.current) editorRef.current.focus();
+    syncHiddenInput(); // ✅ Force la synchro
   };
 
   const changeFontSize = (delta: number) => {
     const selection = window.getSelection();
     if (!selection?.rangeCount) return;
     applyStyle("fontSize", delta > 0 ? "5" : "2");
+    // applyStyle appelle déjà syncHiddenInput()
   };
 
   /** Nettoie le HTML vide (<div><br></div>, <br> seul, etc.) */
@@ -590,10 +764,8 @@ export const RichTextEditor = ({ label, placeholder, name, defaultValue }: any) 
       .trim();
   };
 
-  const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const raw = e.currentTarget.innerHTML;
-    const cleaned = cleanHtml(raw);
-    if (hiddenRef.current) hiddenRef.current.value = cleaned;
+  const handleInput = () => {
+    syncHiddenInput();
   };
 
   return (
@@ -666,7 +838,7 @@ export const PdfUpload = ({
   maxPDFs?: number;
   maxSizeMB?: number;
   defaultValue?: any;
-  onChange?: (files: File[]) => void;
+  onChange?: (data: { files: File[]; existingIds: any[] }) => void;
   accept?: string;
   placeholder?: string;
   isLoading?: boolean;
@@ -674,20 +846,33 @@ export const PdfUpload = ({
   const { toast } = useToast();
   const [pdfs, setPdfs] = useState<PdfFile[]>(() => {
     if (Array.isArray(defaultValue)) {
-       return defaultValue.map((att: any) => ({
-         id: att.id || Math.random().toString(36).slice(2),
-         name: att.name || "Document existant",
-         isExisting: true
-       }));
+      return defaultValue.map((att: any) => ({
+        id: att.id || Math.random().toString(36).slice(2),
+        name: att.name || "Document existant",
+        isExisting: true
+      }));
     }
     return [];
   });
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (Array.isArray(defaultValue)) {
+      setPdfs(defaultValue.map((att: any) => ({
+        id: att.id || Math.random().toString(36).slice(2),
+        name: att.name || "Document existant",
+        isExisting: true
+      })));
+    } else if (!defaultValue) {
+      setPdfs([]);
+    }
+  }, [defaultValue]);
+
   React.useEffect(() => {
     const newFiles = pdfs.filter(i => !i.isExisting && i.file).map(i => i.file as File);
-    onChange?.(newFiles);
+    const existingIds = pdfs.filter(i => i.isExisting).map(i => i.id);
+    onChange?.({ files: newFiles, existingIds });
   }, [pdfs]);
 
   const addFiles = useCallback(
@@ -817,39 +1002,176 @@ export const PdfUpload = ({
               key={p.id}
               className="flex items-center gap-3 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm animate-in fade-in slide-in-from-top-1"
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                p.name.toLowerCase().endsWith(".pdf") ? "bg-red-50" :
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${p.name.toLowerCase().endsWith(".pdf") ? "bg-red-50" :
                 p.name.toLowerCase().match(/\.(doc|docx)$/) ? "bg-blue-50" :
-                p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? "bg-emerald-50" :
-                "bg-slate-50"
-              }`}>
+                  p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? "bg-emerald-50" :
+                    "bg-slate-50"
+                }`}>
                 {p.name.toLowerCase().endsWith(".pdf") ? <FileText size={20} className="text-red-500" /> :
-                 p.name.toLowerCase().match(/\.(doc|docx)$/) ? <FileText size={20} className="text-blue-500" /> :
-                 p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? <FileSpreadsheet size={20} className="text-emerald-500" /> :
-                 p.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? <ImageIcon size={20} className="text-slate-500" /> :
-                 <FileBox size={20} className="text-slate-500" />}
+                  p.name.toLowerCase().match(/\.(doc|docx)$/) ? <FileText size={20} className="text-blue-500" /> :
+                    p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? <FileSpreadsheet size={20} className="text-emerald-500" /> :
+                      p.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? <ImageIcon size={20} className="text-slate-500" /> :
+                        <FileBox size={20} className="text-slate-500" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-slate-900 truncate">{p.name}</p>
                 <p className="text-[10px] text-slate-400 uppercase font-black">
                   {p.name.toLowerCase().endsWith(".pdf") ? "Document PDF" :
-                   p.name.toLowerCase().match(/\.(doc|docx)$/) ? "Document Word" :
-                   p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? "Feuille de calcul" :
-                   p.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? "Image" :
-                   "Fichier"} chargé
+                    p.name.toLowerCase().match(/\.(doc|docx)$/) ? "Document Word" :
+                      p.name.toLowerCase().match(/\.(xls|xlsx|csv)$/) ? "Feuille de calcul" :
+                        p.name.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? "Image" :
+                          "Fichier"} chargé
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => remove(p.id)}
-                className="p-2 hover:bg-slate-50 rounded-xl transition text-slate-400 hover:text-red-500"
+                className="p-2 bg-slate-900 text-white hover:bg-black rounded-xl transition shadow-lg z-10"
               >
-                <X size={18} />
+                <X size={18} strokeWidth={3} />
               </button>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── QUOTE ITEMS DYNAMIC INPUT ────────────────────────────────────────────────
+export interface QuoteItemData {
+  designation: string;
+  quantity: number;
+  unit_price: number;
+}
+
+export const QuoteItemsInput = ({ name, defaultValue, onChange, disabled }: any) => {
+  const [items, setItems] = useState<QuoteItemData[]>(() => {
+    if (Array.isArray(defaultValue) && defaultValue.length > 0) {
+      return defaultValue.map((i: any) => ({
+        designation: i.designation || "",
+        quantity: Number(i.quantity) || 1,
+        unit_price: Number(i.unit_price) || 0,
+      }));
+    }
+    return [{ designation: "", quantity: 1, unit_price: 0 }];
+  });
+
+  // Notifie le parent quand les items changent
+  useEffect(() => {
+    onChange?.(items);
+  }, [items]);
+
+  const updateItem = (index: number, field: keyof QuoteItemData, value: string | number) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setItems(newItems);
+  };
+
+  const addItem = () => setItems([...items, { designation: "", quantity: 1, unit_price: 0 }]);
+  const removeItem = (index: number) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index));
+    }
+  };
+
+  const totalHT = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+  const tva = totalHT * 0.18;
+  const totalTTC = totalHT + tva;
+
+  return (
+    <div className="w-full flex flex-col gap-4">
+      <div className="border border-slate-100 rounded-[24px] overflow-hidden bg-white shadow-sm">
+        {/* Table header */}
+        <div className="hidden sm:grid grid-cols-[2fr_1fr_1.5fr_1fr_auto] gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Description</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Quantité</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Prix U. HT</div>
+          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total HT</div>
+          <div className="w-8"></div>
+        </div>
+
+        {/* Items */}
+        <div className="divide-y divide-slate-50">
+          {items.map((item, i) => (
+            <div key={i} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1.5fr_1fr_auto] gap-3 sm:gap-2 p-4 sm:p-2 sm:px-4 items-center group transition-colors hover:bg-slate-50/50">
+              <input
+                type="text"
+                value={item.designation}
+                onChange={e => updateItem(i, "designation", e.target.value)}
+                disabled={disabled}
+                placeholder="Ex: Main d'oeuvre"
+                className="w-full bg-slate-50 sm:bg-transparent border border-slate-200 sm:border-transparent rounded-xl px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+              />
+              <input
+                type="number"
+                min="1"
+                value={item.quantity || ""}
+                onChange={e => updateItem(i, "quantity", Math.max(1, parseInt(e.target.value) || 0))}
+                disabled={disabled}
+                placeholder="Qté"
+                className="w-full bg-slate-50 sm:bg-transparent border border-slate-200 sm:border-transparent rounded-xl px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 text-center focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+              />
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={item.unit_price || ""}
+                  onChange={e => updateItem(i, "unit_price", parseFloat(e.target.value) || 0)}
+                  disabled={disabled}
+                  placeholder="Prix"
+                  className="w-full bg-slate-50 sm:bg-transparent border border-slate-200 sm:border-transparent rounded-xl px-3 py-2 pr-10 text-sm text-slate-900 placeholder:text-slate-400 text-right focus:bg-white focus:border-slate-900 focus:ring-1 focus:ring-slate-900 outline-none transition-all tabular-nums"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 pointer-events-none">FCFA</span>
+              </div>
+              <div className="text-right text-sm font-bold text-slate-900 tabular-nums px-3 py-2">
+                {((item.quantity || 0) * (item.unit_price || 0)).toLocaleString()} <span className="text-[10px] text-slate-400 font-normal">FCFA</span>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  disabled={disabled || items.length === 1}
+                  onClick={() => removeItem(i)}
+                  className="p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"
+                >
+                  <Minus size={16} strokeWidth={3} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add button & Totals */}
+        <div className="bg-slate-50 border-t border-slate-100 p-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={addItem}
+              className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+            >
+              <Plus size={14} strokeWidth={3} />
+              Ajouter une ligne
+            </button>
+
+            <div className="w-full sm:w-64 space-y-2">
+              <div className="flex justify-between text-xs items-center">
+                <span className="text-slate-500 font-medium">Total HT</span>
+                <span className="font-bold text-slate-700 tabular-nums">{totalHT.toLocaleString()} FCFA</span>
+              </div>
+              <div className="flex justify-between text-xs items-center">
+                <span className="text-slate-500 font-medium">TVA (18%)</span>
+                <span className="text-slate-500 tabular-nums italic">calculé auto ({tva.toLocaleString()} FCFA)</span>
+              </div>
+              <div className="flex justify-between text-sm items-center pt-2 border-t border-slate-200/60 mt-2">
+                <span className="font-black text-slate-900">Total TTC</span>
+                <span className="font-black text-slate-900 tabular-nums">{totalTTC.toLocaleString()} FCFA</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

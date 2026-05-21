@@ -33,7 +33,7 @@ export default function ActionGroup({
   if (!hasDatePicker && (!actions || actions.length === 0)) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2 md:gap-3">
 
       {/* Date range picker intégré */}
       {hasDatePicker && (
@@ -54,7 +54,7 @@ export default function ActionGroup({
             key={`${action.label}-${index}`}
             onClick={action.onClick}
             className={`
-              flex items-center gap-2.5 px-5 py-2.5 rounded-xl font-bold text-[14px]
+              flex items-center gap-1.5 md:gap-2.5 px-3.5 py-2 md:px-5 md:py-2.5 rounded-xl font-bold text-[12px] md:text-[14px]
               transition-all duration-200 active:scale-95
               ${isPrimary
                 ? "bg-theme-primary text-white hover:opacity-90 shadow-md"
@@ -62,7 +62,7 @@ export default function ActionGroup({
               }
             `}
           >
-            {IconComponent && <IconComponent size={18} strokeWidth={2.5} />}
+            {IconComponent && <IconComponent className="w-4 h-4 md:w-[18px] md:h-[18px]" strokeWidth={2.5} />}
             <span className="tracking-tight">{action.label}</span>
           </button>
         );

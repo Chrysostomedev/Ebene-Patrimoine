@@ -24,6 +24,20 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 
 import { useToast } from "@/contexts/ToastContext";
 import type { FieldConfig } from "@/components/ReusableForm";
+import { Site } from "@/services/admin/site.service";
+
+// ─── Helpers Manager ─────────────────────────────────────────────────────────
+const resolveManagerName = (site: Site | any) => {
+  if (!site) return "";
+  if (site.manager) return `${site.manager.first_name || ""} ${site.manager.last_name || ""}`.trim();
+  return site.manager_name || "";
+};
+
+const resolveManagerPhone = (site: Site | any) => {
+  if (!site) return "";
+  if (site.manager) return site.manager.phone_number || site.manager.phone || "";
+  return site.manager_phone || "";
+};
 
 
 // ─── Filter Dropdown (pattern identique à SitesPage) ─────────────────────────
@@ -74,7 +88,7 @@ function PlanningFilterDropdown({
         <div className="flex flex-col gap-1.5">
           {[
             { val: "", label: "Tous les plannings" },
-            { val: "PLANIFIÉ", label: "Soumis" },
+            { val: "PLANIFIÉ", label: "Planifié" },
             { val: "EN_COURS", label: "En cours" },
             { val: "EN_RETARD", label: "En retard" },
             { val: "RÉALISÉ", label: "Réalisé" },
@@ -244,15 +258,11 @@ export default function PlanningPage() {
       type: "select", required: true,
       options: sites.map(s => ({ label: s.nom, value: s.id })),
     },
-    { name: "date_debut", label: "Date de début", type: "date", required: true, disablePastDates: true, icon: CalendarClock },
+    { name: "date_debut", label: "Date du planning", type: "date", required: true, disablePastDates: true, icon: CalendarClock },
     // { name: "date_fin", label: "Date de fin", type: "date", required: false, disablePastDates: true, icon: CalendarClock },
-    {
-      name: "company_asset_id", label: "Patrimoine / Équipement",
-      type: "select", required: true,
-      options: assets,
-    },
+
     { name: "responsable_name", label: "Nom du responsable", type: "text", required: false, disabled: true },
-    { name: "responsable_phone", label: "Téléphone du responsable", type: "text", required: false, disabled: true },
+    // { name: "responsable_phone", label: "Téléphone du responsable", type: "text", required: false, disabled: true },
     {
       name: "provider_id", label: "Prestataire assigné",
       type: "select", required: true,

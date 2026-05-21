@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
 import DataTable from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import SearchInput from "@/components/SearchInput";
-import { Download, FileText, CheckCircle2, AlertCircle, Clock, XCircle } from "lucide-react";
+import Paginate from "@/components/Paginate";
+import { Download, FileText, CheckCircle2, AlertCircle, Clock, XCircle, Eye } from "lucide-react";
 import type { ColumnConfig } from "@/components/DataTable";
 
 import { useInvoices } from "../../../hooks/manager/useInvoices";
@@ -17,11 +19,12 @@ import type { Invoice, InvoiceStatus } from "../../../types/manager.types";
 /* -------------------------------------------------------------------------- */
 
 const STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; icon: any }> = {
-  paid:      { label: "Payée",      color: "green",  icon: CheckCircle2 },
-  pending:   { label: "En attente", color: "orange", icon: Clock },
-  unpaid:    { label: "Non payée",  color: "red",    icon: AlertCircle },
-  overdue:   { label: "En retard",  color: "rose",   icon: AlertCircle },
-  cancelled: { label: "Annulée",    color: "slate",  icon: XCircle },
+  paid: { label: "Validée", color: "green", icon: CheckCircle2 },
+  pending: { label: "En attente", color: "orange", icon: Clock },
+  unpaid: { label: "Non Validée", color: "red", icon: AlertCircle },
+  overdue: { label: "En retard", color: "rose", icon: AlertCircle },
+  cancelled: { label: "Annulée", color: "slate", icon: XCircle },
+  rejected: { label: "Rejetée", color: "red", icon: XCircle },
 };
 
 /* -------------------------------------------------------------------------- */
@@ -35,6 +38,7 @@ export default function FacturesPage() {
     isLoading,
     error,
     search,
+    meta,
     setFilters,
     exportInvoices
   } = useInvoices();
@@ -54,9 +58,9 @@ export default function FacturesPage() {
       trend: "up" as const
     },
     {
-      label: "Montant Payé",
+      label: "Montant Validé",
       value: `${(stats?.paid_amount ?? stats?.total_paid_amount ?? 0).toLocaleString()} FCFA`,
-      delta: `${stats?.total_paid ?? 0} payée(s)`,
+      delta: `${stats?.total_paid ?? 0} Validée(s)`,
       trend: "up" as const
     },
     {
@@ -86,13 +90,13 @@ export default function FacturesPage() {
       header: "Prestataire",
       key: "provider",
       render: (_, row) => (
-         <div className="flex flex-col">
-            <span className="font-bold text-slate-700">{row.provider?.company_name || row.provider?.name || "-"}</span>
-            <span className="text-[10px] text-slate-400 uppercase font-black">{row.provider?.phone || "Pas de tel"}</span>
-         </div>
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-700">{row.provider?.company_name || row.provider?.name || "-"}</span>
+          <span className="text-[10px] text-slate-400 uppercase font-black">{row.provider?.phone || "Pas de tel"}</span>
+        </div>
       )
     },
-   
+
     {
       header: "Date",
       key: "invoice_date",
@@ -118,8 +122,8 @@ export default function FacturesPage() {
           <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider
             ${s === "paid" ? "bg-green-50 text-green-600" :
               s === "pending" ? "bg-orange-50 text-orange-600" :
-              s === "unpaid" || s === "overdue" ? "bg-red-50 text-red-600" :
-              "bg-slate-50 text-slate-600"}`}
+                s === "unpaid" || s === "overdue" || s === "rejected" ? "bg-red-50 text-red-600" :
+                  "bg-slate-50 text-slate-600"}`}
           >
             <Icon size={12} />
             {cfg.label}
@@ -130,8 +134,15 @@ export default function FacturesPage() {
     {
       header: "Actions",
       key: "id",
-      render: (_, row) => (
+      render: (_, row: any) => (
         <div className="flex items-center gap-2">
+          <Link
+            href={`/manager/factures/details/${row.id}`}
+            className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition flex items-center justify-center"
+            aria-label="Voir les détails"
+          >
+            <Eye size={18} />
+          </Link>
           {row.pdf_path && (
             <button
               onClick={() => window.open(row.pdf_path, "_blank")}
@@ -148,65 +159,75 @@ export default function FacturesPage() {
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-        <Navbar />
+      <Navbar />
 
-        <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
-          <PageHeader
-            title="Factures"
-            subtitle="Suivez les paiements et gérez la facturation de vos sites."
-          />
+      <main className="mt-20 p-8 space-y-8 overflow-y-auto h-[calc(100vh-80px)]">
+        <PageHeader
+          title="Factures"
+          subtitle="Suivez les paiements et gérez la facturation de vos sites."
+        />
 
-          {error && (
-            <div className="bg-red-50 border border-red-100 text-red-700 px-6 py-4 rounded-2xl text-sm font-semibold mb-4">
-              {error}
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-700 px-6 py-4 rounded-2xl text-sm font-semibold mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* KPIs */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        </div>
+
+        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
+          {/* Filter select */}
+          <div className="flex items-center justify-between px-8 py-4 border-b border-slate-50 bg-slate-50/50">
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Statut :</span>
+              <select
+                value={activeTab}
+                onChange={(e) => handleTabChange(e.target.value as any)}
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black text-slate-700 outline-none focus:border-slate-400 cursor-pointer shadow-sm min-w-[150px] uppercase tracking-wider"
+              >
+                <option value="all">Toutes</option>
+                <option value="paid">Validée</option>
+                <option value="pending">En attente</option>
+                <option value="unpaid">Non Validée</option>
+              </select>
             </div>
-          )}
 
-          {/* KPIs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={exportInvoices}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase text-slate-600 hover:text-slate-900 transition"
+              >
+                <Download size={14} /> Exporter (.xlsx)
+              </button>
+            </div>
           </div>
 
-          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-            {/* Tabs */}
-            <div className="flex items-center justify-between px-8 border-b border-slate-50 bg-slate-50/50">
-              <div className="flex gap-8">
-                {(["all", "paid", "pending", "unpaid"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabChange(tab)}
-                    className={`py-5 text-xs font-black uppercase tracking-widest transition relative
-                      ${activeTab === tab ? "text-slate-900" : "text-slate-400 hover:text-slate-600"}`}
-                  >
-                    {tab === "all" ? "Toutes" : STATUS_CONFIG[tab as InvoiceStatus].label}
-                    {activeTab === tab && (
-                      <div className="absolute bottom-0 left-0 w-full h-0.5 bg-slate-900 rounded-full" />
-                    )}
-                  </button>
-                ))}
+          <div className="p-8 space-y-6">
+
+
+            <DataTable
+              columns={columns}
+              data={invoices}
+              title="Liste des factures"
+              onSearchChange={search}
+              isLoading={isLoading}
+            />
+
+            {meta && meta.last_page > 1 && (
+              <div className="pt-6 border-t border-slate-50 flex justify-end">
+                <Paginate
+                  currentPage={meta.current_page}
+                  totalPages={meta.last_page}
+                  onPageChange={(p) => setFilters({ page: p })}
+                />
               </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={exportInvoices}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase text-slate-600 hover:text-slate-900 transition"
-                >
-                  <Download size={14} /> Exporter (.xlsx)
-                </button>
-              </div>
-            </div>
-
-            <div className="p-8 space-y-6">
-              
-
-               <DataTable
-                 columns={columns}
-                 data={invoices}
-                 title="Liste des factures"
-               />
-            </div>
+            )}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
+    </div>
   );
 }

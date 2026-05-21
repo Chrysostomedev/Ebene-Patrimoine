@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
+import RichContent from "@/components/RichContent";
 import {
   ChevronLeft, MapPin, Wrench, Tag, Clock, CheckCircle2,
   AlertTriangle, FileText, Eye, Download, X, Star,
@@ -65,18 +66,88 @@ const PRIORITY_LABEL: Record<string, string> = {
 };
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
-interface TLEvent { label: string; sub?: string; date?: string; icon: React.ReactNode; color: string; bg: string; border: string; }
+interface TLEvent { label: string; sub?: string; actor?: string; date?: string; icon: React.ReactNode; color: string; bg: string; border: string; }
 
 function buildTimeline(t: Ticket): TLEvent[] {
   const ev: TLEvent[] = [];
-  ev.push({ label: "Ticket créé", sub: t.subject ?? undefined, date: t.created_at, icon: <Tag size={13} />, color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-200" });
-  if (t.planned_at) ev.push({ label: "Signalé", date: t.planned_at, icon: <Calendar size={13} />, color: "text-sky-500", bg: "bg-sky-50", border: "border-sky-200" });
-  if ((t as any).assigned_at) ev.push({ label: "Assigné au prestataire", sub: (t.provider as any)?.company_name ?? (t.provider as any)?.name, date: (t as any).assigned_at, icon: <User size={13} />, color: "text-violet-500", bg: "bg-violet-50", border: "border-violet-200" });
-  if ((t as any).started_at) ev.push({ label: "Intervention démarrée", date: (t as any).started_at, icon: <Wrench size={13} />, color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" });
-  if ((t as any).reported_at) ev.push({ label: "Rapport soumis", date: (t as any).reported_at, icon: <FileText size={13} />, color: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200" });
-  if ((t as any).evaluated_at) ev.push({ label: "Rapport évalué", date: (t as any).evaluated_at, icon: <CheckCircle2 size={13} />, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200" });
-  if (t.resolved_at) ev.push({ label: "Résolu", date: t.resolved_at, icon: <CheckCircle2 size={13} />, color: "text-green-500", bg: "bg-green-50", border: "border-green-200" });
-  if (t.closed_at) ev.push({ label: "Clôturé", date: t.closed_at, icon: <Shield size={13} />, color: "text-slate-700", bg: "bg-slate-100", border: "border-slate-300" });
+
+  const getName = (obj: any) => {
+    if (!obj) return null;
+    const u = obj.user || obj;
+    const person = u.manager || u.admin || u;
+    const fn = person.first_name || u.first_name || obj.first_name || "";
+    const ln = person.last_name || u.last_name || obj.last_name || "";
+    const full = `${fn} ${ln}`.trim();
+    return full || person.name || u.name || obj.name || null;
+  };
+
+  const providerName = t.provider ? getName(t.provider) : null;
+  const siteManagerName = t.site?.manager ? getName(t.site.manager) : null;
+
+  const getAdminActor = (obj: any) => {
+    if (!obj) return null;
+    const u = obj.user || obj;
+    const person = u.manager || u.admin || u;
+
+    const fn = (person.first_name || u.first_name || obj.first_name || "").trim();
+    const ln = (person.last_name || u.last_name || obj.last_name || "").trim();
+    const full = `${fn} ${ln}`.trim();
+
+    const rawName = person.name || u.name || obj.name || "";
+    const nameToTest = (full || rawName).toUpperCase();
+
+    if (!nameToTest) return null;
+
+    // Si c'est l'admin Elder Akpa, on le prend direct
+    if (nameToTest.includes("ELDER") || nameToTest.includes("AKPA")) {
+      return full || rawName;
+    }
+
+    // Si c'est le prestataire du ticket, on l'exclut
+    if (providerName && nameToTest === providerName.toUpperCase()) return null;
+
+    // Liste noire stricte pour les entreprises uniquement
+    const companyKeywords = ["DESIGN", "SARL", "SA", "SOS", "GLOBAL", "SERVICE", "ENTREPRISE", "GROUPE", "CANAL", "CI", "SYSTEM"];
+    const isCompany = companyKeywords.some(k => {
+      const regex = new RegExp(`\\b${k}\\b`);
+      return regex.test(nameToTest);
+    });
+    if (isCompany) return null;
+
+    // On accepte le nom s'il existe et n'est pas une entreprise
+    return full || rawName || null;
+  };
+
+  const reports = (t as any).reports || [];
+  const lastReport = reports[reports.length - 1];
+  const adminFromReport = lastReport ? getAdminActor(lastReport.validator || lastReport.user) : null;
+
+  const creator = getAdminActor((t as any).user) || siteManagerName || "Administrateur";
+
+  ev.push({ label: "Ticket créé", sub: t.subject ?? undefined, actor: creator, date: t.created_at, icon: <Tag size={13} />, color: "text-slate-500", bg: "bg-slate-50", border: "border-slate-200" });
+  if (t.planned_at) ev.push({ label: "Signalé", actor: creator, date: t.planned_at, icon: <Calendar size={13} />, color: "text-sky-500", bg: "bg-sky-50", border: "border-sky-200" });
+
+  if ((t as any).assigned_at) {
+    const rawAssigner = getAdminActor((t as any).validator);
+    const assignerName = rawAssigner || "Administrateur";
+
+    ev.push({ label: "Assigné au prestataire", actor: assignerName, date: (t as any).assigned_at, icon: <User size={13} />, color: "text-violet-500", bg: "bg-violet-50", border: "border-violet-200" });
+  }
+
+  if ((t as any).started_at) ev.push({ label: "Intervention démarrée", actor: (t.provider as any)?.company_name ?? (t.provider as any)?.name, date: (t as any).started_at, icon: <Wrench size={13} />, color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-200" });
+  if ((t as any).reported_at) ev.push({ label: "Rapport soumis", actor: (t.provider as any)?.company_name ?? (t.provider as any)?.name, date: (t as any).reported_at, icon: <FileText size={13} />, color: "text-amber-500", bg: "bg-amber-50", border: "border-amber-200" });
+
+  if ((t as any).evaluated_at) {
+    const evalName = getAdminActor((t as any).validator) || adminFromReport || 'Administrateur';
+    ev.push({ label: "Rapport évalué", actor: evalName, date: (t as any).evaluated_at, icon: <CheckCircle2 size={13} />, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200" });
+  }
+
+  if (t.resolved_at) ev.push({ label: "Résolu", actor: (t.provider as any)?.company_name ?? (t.provider as any)?.name, date: t.resolved_at, icon: <CheckCircle2 size={13} />, color: "text-green-500", bg: "bg-green-50", border: "border-green-200" });
+
+  if (t.closed_at) {
+    const closerName = getAdminActor((t as any).validator) || adminFromReport || 'Administrateur';
+    ev.push({ label: "Clôturé", actor: closerName, date: t.closed_at, icon: <Shield size={13} />, color: "text-slate-700", bg: "bg-slate-100", border: "border-slate-300" });
+  }
   return ev;
 }
 
@@ -114,14 +185,10 @@ function TicketValidateModal({
   const [comment, setComment] = useState("");
 
   const handleSubmit = async () => {
-    if (!comment.trim()) {
-      alert("Le commentaire est obligatoire.");
-      return;
-    }
     await onConfirm({
-      result,
+      result: "RAS", // Forcé à RAS car non affiché dans l'UI
       rating: rating || null,
-      comment: comment.trim(),
+      comment: comment.trim() || "",
     });
   };
 
@@ -132,7 +199,7 @@ function TicketValidateModal({
         <div className="flex items-center justify-between px-7 py-6 border-b border-slate-100">
           <div>
             <h2 className="text-xl font-black text-slate-900">Valider le rapport</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{ticket.code_ticket || `#${ticket.id}`}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{ticket.code_ticket || `${ticket.id}`}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition">
             <X size={18} className="text-slate-500" />
@@ -182,7 +249,7 @@ function TicketValidateModal({
           </div>
           <div>
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">
-              Commentaire (obligatoire)
+              Commentaire
             </label>
             <textarea
               value={comment}
@@ -278,19 +345,53 @@ export default function AdminTicketDetailPage() {
       console.log("[AdminTicketDetail] merged ticket:", ticketWithData);
       setTicket(ticketWithData);
 
-      // Adaptation aux états existants (tableaux)
-      if (additionalInfo?.devis) {
-        setQuotes([additionalInfo.devis]);
-        if (additionalInfo.devis.invoice) {
-          setInvoices([additionalInfo.devis.invoice]);
+      // Adaptation aux états existants (tableaux) de quotes
+      let currentQuotes: Quote[] = [];
+      if (additionalInfo?.quotes && Array.isArray(additionalInfo.quotes)) {
+        currentQuotes = additionalInfo.quotes;
+      } else if (additionalInfo?.devis) {
+        currentQuotes = [additionalInfo.devis];
+      }
+      setQuotes(currentQuotes);
+
+      // --- RÉCUPÉRATION MANUELLE DES FACTURES (Solution robuste sans modif backend) ---
+      try {
+        // On récupère les 100 dernières factures globales
+        const globalInvoices = await InvoiceService.getInvoices({ per_page: 100 });
+
+        // On cherche le devis approuvé pour filtrer aussi par quote_id
+        const approvedQuote = currentQuotes.find((q: any) =>
+          ["approved", "approuvé", "validé", "validated"].includes(String(q?.status || "").toLowerCase())
+        );
+
+        const filteredInvoices = globalInvoices.filter((inv: any) => {
+          // Match par ticket_id (direct ou via le rapport)
+          const matchTicket = (inv.ticket_id && Number(inv.ticket_id) === Number(ticketId)) ||
+            (inv.intervention_report?.ticket_id && Number(inv.intervention_report.ticket_id) === Number(ticketId)) ||
+            (inv.interventionReport?.ticket_id && Number(inv.interventionReport.ticket_id) === Number(ticketId));
+
+          // Match par quote_id approuvé
+          const matchQuote = approvedQuote && inv.quote_id && Number(inv.quote_id) === Number(approvedQuote.id);
+
+          return matchTicket || matchQuote;
+        });
+
+        // Si on a trouvé des factures manuellement, on les utilise, sinon on check additionnalInfo
+        if (filteredInvoices.length > 0) {
+          setInvoices(filteredInvoices);
         } else {
-          setInvoices([]);
+          if (additionalInfo?.invoices && Array.isArray(additionalInfo.invoices)) {
+            setInvoices(additionalInfo.invoices);
+          } else if (additionalInfo?.factures && Array.isArray(additionalInfo.factures)) {
+            setInvoices(additionalInfo.factures);
+          } else if (additionalInfo?.devis?.invoice) {
+            setInvoices([additionalInfo.devis.invoice]);
+          } else {
+            setInvoices([]);
+          }
         }
-      } else if (additionalInfo?.quotes) {
-        setQuotes(additionalInfo.quotes);
-        setInvoices([]);
-      } else {
-        setQuotes([]);
+      } catch (err) {
+        console.error("[AdminTicketDetail] Erreur fetch invoices:", err);
         setInvoices([]);
       }
 
@@ -456,10 +557,9 @@ export default function AdminTicketDetailPage() {
   const photos = allAttachments.filter(a => a.file_type === "photo" || /\.(jpg|jpeg|png|gif|webp)$/i.test(a.path ?? a.file_path ?? ""));
   const docs = allAttachments.filter(a => a.file_type === "document" || /\.pdf$/i.test(a.path ?? a.file_path ?? ""));
   const timeline = ticket ? buildTimeline(ticket) : [];
-
   const kpis = [
     { label: "Priorité", value: PRIORITY_LABEL[ticket?.priority ?? ""] ?? ticket?.priority ?? "—", delta: "", trend: "up" as const },
-    { label: "Prestataire", value: (ticket?.provider as any)?.company_name ?? (ticket?.provider as any)?.name ?? "—", delta: "", trend: "up" as const },
+    { label: "Prestataire", value: (ticket?.provider as any)?.company_name ?? (ticket?.provider as any)?.name ?? "—", delta: "", trend: "up" as const, shouldTruncate: false },
     { label: "Pièces jointes", value: allAttachments.length, delta: "", trend: "up" as const },
     { label: "Rapports", value: reports.length, delta: "", trend: "up" as const },
   ];
@@ -468,7 +568,7 @@ export default function AdminTicketDetailPage() {
     <div className="flex min-h-screen bg-gray-50">
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="mt-4 p-8 space-y-8">
+        <main className="mt-20 p-8 space-y-8">
 
           <button onClick={() => router.back()} className="flex items-center gap-2 text-slate-500 hover:text-black transition bg-white px-4 py-2 rounded-xl border border-slate-100 w-fit text-sm font-medium">
             <ChevronLeft size={16} /> Retour
@@ -576,10 +676,23 @@ export default function AdminTicketDetailPage() {
                   {/* Description */}
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Description</h3>
-                    {ticket.description
-                      ? <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed" dangerouslySetInnerHTML={{ __html: ticket.description }} />
-                      : <p className="text-slate-400 text-sm italic">Aucune description.</p>}
+                    <RichContent html={ticket.description} placeholder="Aucune description." />
                   </div>
+
+                  {/* Source du ticket (si issu d'une visite) */}
+                  {((ticket as any).nature_observation || (ticket as any).commentaire_observation) && (
+                    <div className="bg-amber-50 rounded-3xl border border-amber-100 shadow-sm p-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-white">
+                          <AlertTriangle size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest">Origine : {(ticket as any).nature_observation === 'anomalie' ? 'Anomalie détectée' : 'Observation lors d\'une visite'}</h3>
+                      </div>
+                      <div className="p-4 bg-white/50 rounded-2xl border border-amber-200/50 text-sm text-amber-900 leading-relaxed italic">
+                        {((ticket as any).commentaire_observation || "Aucun commentaire laissé lors de la visite.")}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Rapports liés */}
                   {reports.length > 0 && (
@@ -638,6 +751,42 @@ export default function AdminTicketDetailPage() {
                               })()}
                               <Link href={`/admin/devis/details/${q.id}`} className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition">
                                 <Eye size={14} />
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Factures liées */}
+                  {invoices.length > 0 && (
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Factures associées ({invoices.length})</h3>
+                      <div className="space-y-3">
+                        {invoices.map((inv: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
+                            <div>
+                              <p className="text-sm font-bold text-slate-900">{inv.reference ?? `Facture #${inv.id}`}</p>
+                              <p className="text-xs text-slate-500 font-medium">{inv.amount_ttc ? formatCurrency(inv.amount_ttc) : "—"}</p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${inv.payment_status === "paid" ? "bg-emerald-50 border-emerald-200 text-emerald-700" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                                {inv.payment_status === "paid" ? "Validée" : "En attente"}
+                              </span>
+                              {inv.pdf_path && (
+                                <button
+                                  onClick={() => setPdfPreview({ url: getUrl(inv.pdf_path), name: inv.reference ?? "Facture" })}
+                                  className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition"
+                                >
+                                  <FileText size={14} />
+                                </button>
+
+                              )}
+
+                              <Link href={`/admin/factures/${inv.id}`} className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition shadow-sm">
+                                <Eye size={16} />
                               </Link>
                             </div>
                           </div>
@@ -705,6 +854,7 @@ export default function AdminTicketDetailPage() {
                             </div>
 
                             {ev.sub && <p className="text-xs text-slate-500 mt-1">{ev.sub}</p>}
+                            {ev.actor && <p className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-widest">Par {ev.actor}</p>}
                           </div>
                         </div>
                       ))}
@@ -724,17 +874,17 @@ export default function AdminTicketDetailPage() {
                         { l: "Statut", v: STATUS_LABEL[ticket.status] ?? ticket.status },
                         { l: "Site", v: ticket.site?.nom ?? ticket.site?.name ?? "—" },
                         { l: "Patrimoine", v: ticket.asset ? `${(ticket.asset as any).designation ?? (ticket.asset as any).nom ?? ""} (${(ticket.asset as any).codification ?? ""})` : "—" },
-                        { l: "Type Actif", v: (ticket.asset as any)?.type?.name ?? (ticket.asset as any)?.type?.nom ?? (ticket.asset as any)?.type ?? "—" },
+                        { l: "Famille/type", v: (ticket.asset as any)?.type?.name ?? (ticket.asset as any)?.type?.nom ?? (ticket.asset as any)?.type ?? "—" },
                         { l: "Sous-type", v: (ticket.asset as any)?.sub_type?.name ?? (ticket.asset as any)?.sub_type?.nom ?? (ticket.asset as any)?.sub_type ?? "—" },
-                        { l: "Service", v: ticket.service?.name ?? ticket.service?.nom ?? "—" },
+                        // { l: "Service", v: ticket.service?.name ?? ticket.service?.nom ?? "—" },
                         { l: "Prestataire", v: (ticket.provider as any)?.company_name ?? (ticket.provider as any)?.name ?? (ticket.provider as any)?.nom ?? "—" },
                         { l: "Coût", v: ticket.cout ? formatCurrency(ticket.cout) : "—" },
                         { l: "Créé le", v: formatDate(ticket.created_at) },
                       ].map((r, i) => (
 
                         <div key={i} className="flex items-center justify-between py-3">
-                          <p className="text-xs text-slate-400 font-medium">{r.l}</p>
-                          <p className="text-sm font-bold text-slate-900 text-right max-w-[55%] truncate">{r.v}</p>
+                          <p className="text-xs text-slate-400 font-medium shrink-0">{r.l}</p>
+                          <p className="text-sm font-bold text-slate-900 text-right ml-4">{r.v}</p>
                         </div>
                       ))}
                     </div>

@@ -14,7 +14,7 @@ import { format } from "date-fns";
 // Input Standard
 export const FormField = ({ label, required, children }: any) => (
   <div className="flex flex-col gap-2 w-full">
-    <label className="text-sm font-bold text-slate-900 tracking-tight">
+    <label className="text-sm font-bold text-theme-primary tracking-tight">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     {children}
@@ -25,7 +25,7 @@ export const FormField = ({ label, required, children }: any) => (
 export const Input = (props: any) => (
   <input
     {...props}
-    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 transition-all outline-none"
+    className="w-full bg-slate-50 border-none rounded-2xl p-4 text-[16px] md:text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 transition-all outline-none"
   />
 );
 
@@ -35,7 +35,7 @@ export const Select = ({ children, disabled, ...props }: any) => (
     <select
       {...props}
       disabled={disabled}
-      className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-slate-700 appearance-none outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
+      className={`w-full bg-slate-50 border-none rounded-2xl p-4 text-[16px] md:text-sm text-slate-700 appearance-none outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
     >
       {children}
     </select>
@@ -54,7 +54,7 @@ export const PasswordInput = ({ disabled, ...props }: any) => {
         {...props}
         disabled={disabled}
         type={show ? "text" : "password"}
-        className={`w-full bg-slate-50 border-none rounded-2xl p-4 pr-12 text-slate-700 outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
+        className={`w-full bg-slate-50 border-none rounded-2xl p-4 pr-12 text-[16px] md:text-sm text-slate-700 outline-none focus:ring-2 focus:ring-slate-900 transition-all ${disabled ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''}`}
       />
       {!disabled && (
         <button
@@ -502,7 +502,7 @@ export const PhoneInput = ({
           disabled={disabled}
           required={required}
           placeholder="07 00 00 00 00"
-          className={`flex-1 bg-transparent p-4 pl-3 text-slate-700 placeholder:text-slate-400 outline-none focus:ring-0 text-sm font-medium ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+          className={`flex-1 bg-transparent p-4 pl-3 text-[16px] md:text-sm text-slate-700 placeholder:text-slate-400 outline-none focus:ring-0 font-medium ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
         />
 
         {/* Dropdown */}

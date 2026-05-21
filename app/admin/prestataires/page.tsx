@@ -197,8 +197,8 @@ export default function PrestatairesPage() {
         nom: p.company_name ?? "-",
         service: p.service?.name ?? "-",
         ville: p.city ?? "-",
-        email: p.email ?? "-",
-        telephone: "-",
+        email: p.email ?? p.user?.email ?? "-",
+        telephone: p.phone ?? p.user?.phone ?? "-",
         statut: p.is_active ? "Actif" : "Inactif",
         note: p.rating ? `${typeof p.rating === "string" ? parseFloat(p.rating) : p.rating}/5` : "-",
         date_entree: formatDate(p.date_entree),
@@ -434,8 +434,8 @@ export default function PrestatairesPage() {
                   name={p.company_name ?? "Prestataire"}
                   location={p.city ?? ""}
                   category={p.service?.name ?? ""}
-                  phone={""}
-                  email={p.email ?? ""}
+                  phone={p.phone ?? p.user?.phone ?? ""}
+                  email={p.email ?? p.user?.email ?? ""}
                   rating={typeof p.rating === "string" ? parseFloat(p.rating) : (p.rating ?? 0)}
                   status={p.is_active ? "Actif" : "Inactif"}
                   logo={p.logoUrl}
@@ -474,10 +474,11 @@ export default function PrestatairesPage() {
       <ProfileModal
         isOpen={!!selectedProvider}
         onClose={() => setSelectedProvider(null)}
+        detailUrl={selectedProvider ? `/admin/prestataires/details/${selectedProvider.id}` : undefined}
         provider={selectedProvider ? {
           name: selectedProvider.company_name ?? "Prestataire",
           location: selectedProvider.city ?? "",
-          phone: "",
+          phone: selectedProvider.phone ?? "",
           email: selectedProvider.email ?? "",
           category: selectedProvider.service?.name ?? "",
           dateEntree: selectedProvider.date_entree ?? "",

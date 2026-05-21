@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   providerTicketService,
   Ticket,
@@ -16,6 +16,7 @@ export interface TicketFilters {
   status?:    string;
   type?:      string;
   priority?:  string;
+  search?:    string; // Ajouté
 }
 
 interface UseProviderTicketsReturn {
@@ -33,6 +34,7 @@ interface UseProviderTicketsReturn {
 
   filters:        TicketFilters;
   setFilters:     (f: Partial<TicketFilters>) => void;
+  search:         (val: string) => void; // Ajouté
 
   openTicket:     (ticket: Ticket) => void;
   closeTicket:    () => void;
@@ -64,18 +66,21 @@ export function useProviderTickets(): UseProviderTicketsReturn {
   const [updateSuccess, setUpdateSuccess] = useState("");
 
   // Filtre type=curatif envoyé directement à l'API — le back filtre côté serveur
-  const [filters, setFiltersState] = useState<TicketFilters>({ page: 1, per_page: 15, type: "curatif" });
+  const [filters, setFiltersState] = useState<TicketFilters>({ page: 1, per_page: 15 });
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(undefined);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const result = await providerTicketService.getTickets(filters);
+      const result = await providerTicketService.getTickets({ ...filters, search: debouncedSearch });
       setTickets(result.items);
       setMeta(result.meta);
     } catch (err: any) {
       setError(err.response?.data?.message || "Erreur lors du chargement des tickets.");
     } finally { setLoading(false); }
-  }, [filters]);
+  }, [filters, debouncedSearch]);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -84,14 +89,34 @@ export function useProviderTickets(): UseProviderTicketsReturn {
     finally { setStatsLoading(false); }
   }, []);
 
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
+
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
   useEffect(() => { fetchStats();   }, [fetchStats]);
 
   const setFilters = (partial: Partial<TicketFilters>) => {
-    setFiltersState(prev => ({
-      ...prev, ...partial,
-      page: partial.page !== undefined ? partial.page : 1,
-    }));
+    setFiltersState(prev => {
+      const next = { ...prev, ...partial };
+      if (partial.search !== undefined) {
+        next.page = 1;
+      } else {
+        next.page = partial.page !== undefined ? partial.page : 1;
+      }
+      return next;
+    });
+  };
+
+  const search = (value: string) => {
+    setFilters({ search: value || undefined });
   };
 
   const openTicket  = (ticket: Ticket) => setSelectedTicket(ticket);
@@ -141,6 +166,7 @@ export function useProviderTickets(): UseProviderTicketsReturn {
     loading, statsLoading, updateLoading,
     error, updateError, updateSuccess,
     filters, setFilters,
+    search,
     openTicket, closeTicket,
     startIntervention, requestDevis,
     refresh: fetchTickets,

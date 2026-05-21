@@ -39,60 +39,16 @@ api.interceptors.request.use(
 );
 
 // === RESPONSE INTERCEPTOR ===
-// Liste des endpoints d'auth qui peuvent légitimement retourner 401
-// sans que ça signifie "session expirée → rediriger vers /login"
-const AUTH_ENDPOINTS = [
-  "/admin/verify-otp",
-  "/admin/login",
-  "/admin/forgot-password",
-  "/admin/reset-password",
-  "/provider/verify-otp",
-  "/provider/login",
-  "/provider/forgot-password",
-  "/provider/reset-password",
-  "/manager/verify-otp",
-  "/manager/login",
-  "/manager/forgot-password",
-  "/manager/reset-password",
-  "/supplier/verify-otp",
-  "/supplier/login",
-  "/supplier/forgot-password",
-  "/supplier/reset-password",
-  "/super-admin/verify-otp",
-  "/super-admin/login",
-  // Endpoints qui peuvent légitimement retourner 401 sans session expirée
-  "/manager/notifications",
-  "/manager/intervention-report",
-  "/manager/me",
-  "/manager/profile",
-];
-
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (typeof window !== "undefined") {
       const status: number = error.response?.status;
-      const requestUrl: string = error.config?.url ?? "";
 
       // ✅ AJOUT : 413 Payload Too Large — ne pas rediriger, laisser le composant
       // gérer via parseApiError (affiche "Fichier trop volumineux. Max 2 Mo.")
       if (status === 413) {
         return Promise.reject(error);
-      }
-
-      if (status === 401) {
-        // Ne pas rediriger si on est sur un endpoint d'auth —
-        // c'est une erreur métier (mauvais code OTP, mauvais mdp),
-        // pas une session expirée. Laisser le composant gérer l'erreur.
-        const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) =>
-          requestUrl.includes(ep)
-        );
-
-        if (!isAuthEndpoint) {
-          localStorage.removeItem(AUTH_TOKEN_KEY);
-          localStorage.removeItem("user_role");
-          window.location.href = "/login";
-        }
       }
     }
     return Promise.reject(error);

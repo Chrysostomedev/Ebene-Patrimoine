@@ -97,7 +97,7 @@ export default function ProviderDetailsPage() {
         { label: "Type", value: ticket.type === "curatif" ? "Curatif" : "Préventif" },
         { label: "Site", value: ticket.site?.nom ?? "-" },
         { label: "Patrimoine", value: ticket.asset?.designation ?? "-" },
-        { label: "Date soumise", value: ticket.planned_at ? new Date(ticket.planned_at).toLocaleString("fr-FR") : "-" },
+        { label: "Date planifiée", value: ticket.planned_at ? new Date(ticket.planned_at).toLocaleString("fr-FR") : "-" },
         { label: "Date limite", value: ticket.due_at ? new Date(ticket.due_at).toLocaleString("fr-FR") : "-" },
         { label: "Statut", value: STATUS_LABELS[ticket.status] ?? ticket.status, isStatus: true, statusColor },
       ],
@@ -107,10 +107,10 @@ export default function ProviderDetailsPage() {
 
   /* ── Colonnes ──────────────────────────────────────────────────────────── */
   const columns = [
-    { header: "Code", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
+    { header: "Référence", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
     { header: "Sujet", key: "subject", render: (_: any, row: any) => <span className="font-medium text-sm">{row.subject ?? "-"}</span> },
     { header: "Site", key: "site", render: (_: any, row: any) => row.site?.nom ?? "-" },
-    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.asset?.designation ?? "-" },
+    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.company_asset?.designation ?? "-" },
     { header: "Type", key: "type", render: (_: any, row: any) => row.type === "curatif" ? "Curatif" : "Préventif" },
     {
       header: "Statut", key: "status",
@@ -127,7 +127,7 @@ export default function ProviderDetailsPage() {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
         <button
-          onClick={() => router.push(`/manager/tickets/details/${row.id}`)}
+          onClick={() => router.push(`/manager/tickets/${row.id}`)}
           className="p-2 hover:bg-slate-900 hover:text-white border border-slate-100 rounded-xl transition text-slate-400"
           title="Voir la fiche complète"
         >
@@ -175,11 +175,11 @@ export default function ProviderDetailsPage() {
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 min-w-[260px] space-y-3">
             <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
               <Phone size={15} className="text-slate-400" />
-              {provider?.user?.phone ?? "-"}
+              {provider?.phone || (provider as any)?.phone || (provider as any)?.telephone || (provider as any)?.phone_number || "-"}
             </div>
             <div className="flex items-center gap-3 text-slate-600 text-sm font-medium">
               <Mail size={15} className="text-slate-400" />
-              {provider?.user?.email ?? "-"}
+              {provider?.email || provider?.user?.email || "-"}
             </div>
             <div className="flex items-center gap-2 pt-1">
               <span className="text-xl font-black text-slate-900">

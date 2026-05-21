@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { QuoteService } from "../../services/manager/quote.service";
 import type { Quote, QuoteFilters, QuoteStats, PaginatedResponse } from "../../types/manager.types";
 
@@ -13,14 +13,29 @@ export function useQuotes(initialFilters: QuoteFilters = {}) {
     per_page: 15,
     ...initialFilters,
   });
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(initialFilters.search);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const activeFilters = { ...filters, search: debouncedSearch };
       const [paginatedData, statsData] = await Promise.all([
-        QuoteService.getQuotes(filters),
-        QuoteService.getStats(filters),
+        QuoteService.getQuotes(activeFilters),
+        QuoteService.getStats(activeFilters),
       ]);
       setData(paginatedData.items);
       setMeta(paginatedData.meta);
@@ -30,19 +45,25 @@ export function useQuotes(initialFilters: QuoteFilters = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, debouncedSearch]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const setFilters = (partial: Partial<QuoteFilters>) => {
-    setFiltersState((prev) => ({ ...prev, ...partial, page: 1 }));
+    setFiltersState((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.search !== undefined) {
+        next.page = 1;
+      }
+      return next;
+    });
   };
 
   const exportQuotes = async () => {
     try {
-      const blob = await QuoteService.exportQuotes(filters);
+      const blob = await QuoteService.exportQuotes({ ...filters, search: debouncedSearch });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

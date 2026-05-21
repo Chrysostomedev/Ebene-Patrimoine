@@ -7,6 +7,7 @@ import DataTable, { ColumnConfig } from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import ActionGroup from "@/components/ActionGroup";
 import ReusableForm from "@/components/ReusableForm";
+import Paginate from "@/components/Paginate";
 import {
   Eye, ArrowUpRight, Download, Filter,
   X, FileText, CheckCircle2, XCircle,
@@ -19,12 +20,13 @@ import { useProviderQuotes } from "../../../hooks/provider/useProviderQuotes";
 import {
   Quote, ALL_STATUSES,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
-  getPdfUrl,
+  getPdfUrl, QuoteItem
 } from "../../../services/provider/providerQuoteService";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { FieldConfig } from "@/components/ReusableForm";
 import { useState, useEffect } from "react";
 import { useToast } from "../../../contexts/ToastContext";
+import ItemTableEditor from "@/components/form/ItemTableEditor";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 // Remplacé par `Toast` global de `@/components/Toast`
@@ -120,7 +122,7 @@ function QuotePreviewPanel({ quote, onClose }: { quote: Quote; onClose: () => vo
                   </div>
                 ),
               },
-              { label: "Ticket", value: quote.ticket?.subject ?? quote.ticket?.title ?? `#${quote.ticket_id}` },
+              { label: "Ticket", value: quote.ticket?.title ?? `${quote.ticket_code_ticket}` },
               { label: "Site", value: quote.site?.nom ?? quote.site?.name ?? "-" },
               { label: "Montant HT", value: formatCurrency(quote.amount_ht) },
               { label: `TVA (${quote.tax_rate ?? 18}%)`, value: formatCurrency(quote.tax_amount || (quote.amount_ht * (quote.tax_rate || 18) / 100)) },
@@ -261,7 +263,8 @@ export default function ProviderDevisPage() {
     loading, statsLoading, submitting,
     error, submitSuccess, submitError,
     isPanelOpen, isCreateOpen,
-    statusFilter, setStatusFilter,
+    statusFilter, setStatusFilter, search,
+    currentPage, setPage, meta,
     openPanel, closePanel,
     openCreate, closeCreate,
     createQuote, exportXlsx,
@@ -287,6 +290,9 @@ export default function ProviderDevisPage() {
     });
   }, []);
 
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [currentTaxRate, setCurrentTaxRate] = useState(18);
+
   // ── Champs formulaire - même pattern que DevisPage admin ─────────────────
   const quoteFields: FieldConfig[] = [
     {
@@ -299,28 +305,19 @@ export default function ProviderDevisPage() {
         ...ticketOptions,
       ],
     },
-    {
-      name: "items",
-      label: "Articles du devis",
-      type: "quote-items",
-      required: true,
-      gridSpan: 2,
-    },
+
     {
       name: "description",
-      label: "Description",
+      label: "Description / Justification",
       type: "rich-text",
       required: true,
       gridSpan: 2,
-            placeholder: "Dévrivez ce que vous voulez",
-
+      placeholder: "Décrivez les travaux à réaliser...",
     },
-
     {
       name: "quote_pdf",
-      label: "Devis PDF ou Image",
+      label: "Document Devis (PDF)",
       type: "pdf-upload",
-      accept: "application/pdf,image/*",
       maxPDFs: 1,
       gridSpan: 2,
     } as any,
@@ -330,9 +327,9 @@ export default function ProviderDevisPage() {
     const ok = await createQuote({
       ticket_id: parseInt(formData.ticket_id),
       description: formData.description || undefined,
-      tax_rate: 18,
-      items: formData.items ?? [{ designation: "Prestation", quantity: 1, unit_price: 0 }],
-      pdf_file: formData.quote_pdf?.[0] ?? undefined,
+      tax_rate: parseFloat(formData.tax_rate) || currentTaxRate,
+      items: quoteItems,
+      attachments: formData.quote_pdf ? [formData.quote_pdf[0]] : undefined,
     });
     return ok;
   };
@@ -371,24 +368,24 @@ export default function ProviderDevisPage() {
       onClick: exportXlsx,
       variant: "secondary" as const,
     },
-    {
-      label: "Nouveau devis",
-      icon: PlusCircle,
-      onClick: openCreate,
-      variant: "primary" as const,
-    },
+    // {
+    //   label: "Nouveau devis",
+    //   icon: PlusCircle,
+    //   onClick: openCreate,
+    //   variant: "primary" as const,
+    // },
   ];
 
   // Filtre date côté client
   const filteredQuotes = dateRange?.from
     ? quotes.filter(q => {
-        const d = new Date(q.created_at ?? "");
-        if (isNaN(d.getTime())) return true;
-        const from = dateRange.from!;
-        const to = dateRange.to ?? dateRange.from!;
-        const toEnd = new Date(to); toEnd.setHours(23, 59, 59, 999);
-        return d >= from && d <= toEnd;
-      })
+      const d = new Date(q.created_at ?? "");
+      if (isNaN(d.getTime())) return true;
+      const from = dateRange.from!;
+      const to = dateRange.to ?? dateRange.from!;
+      const toEnd = new Date(to); toEnd.setHours(23, 59, 59, 999);
+      return d >= from && d <= toEnd;
+    })
     : quotes;
 
   // ── Colonnes DataTable ────────────────────────────────────────────────────
@@ -403,7 +400,7 @@ export default function ProviderDevisPage() {
       header: "Ticket", key: "ticket",
       render: (_: any, row: Quote) => (
         <span className="text-xs text-slate-600 font-medium">
-          {row.ticket?.subject ?? row.ticket?.title ?? `#${row.ticket_id}`}
+          {row.ticket?.subject ?? row.ticket?.title ?? `#${row.ticket_code_ticket}`}
         </span>
       ),
     },
@@ -522,19 +519,27 @@ export default function ProviderDevisPage() {
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-800">Liste des devis</h3>
-            <span className="text-xs text-slate-400">{quotes.length} devis</span>
+            <span className="text-xs text-slate-400">{meta?.total ?? quotes.length} devis</span>
           </div>
 
-          <div className="px-6 py-4">
-            {loading
-              ? <div className="space-y-3 animate-pulse">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-12 bg-gray-100 rounded-xl" />
-                ))}
-              </div>
-              : <DataTable title="Liste des devis" columns={columns} data={filteredQuotes} onViewAll={() => { }} />
-            }
-          </div>
+          <DataTable
+            title="Liste des devis"
+            columns={columns}
+            data={filteredQuotes}
+            onSearchChange={search}
+            isLoading={loading}
+            onViewAll={() => { }}
+          />
+
+          {meta && meta.last_page > 1 && (
+            <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
+              <Paginate
+                currentPage={currentPage}
+                totalPages={meta.last_page}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </div>
 
       </main>
@@ -554,7 +559,17 @@ export default function ProviderDevisPage() {
         onSubmit={handleCreate}
         isSubmitting={submitting}
         submitLabel={submitting ? "Soumission en cours..." : "Soumettre le devis"}
-      />
+        onFieldChange={(name, value) => {
+          if (name === "tax_rate") setCurrentTaxRate(parseFloat(value) || 0);
+        }}
+      >
+        <div className="col-span-2 mt-4">
+          <ItemTableEditor
+            onChange={setQuoteItems}
+            taxRate={currentTaxRate}
+          />
+        </div>
+      </ReusableForm>
 
     </div>
   );

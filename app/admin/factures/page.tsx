@@ -21,6 +21,9 @@ import { Invoice, InvoiceService } from "../../../services/admin/invoice.service
 import { exportToXlsx } from "../../../core/export";
 import { useToast } from "@/contexts/ToastContext";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import axios from "axios";
+import { Provider } from "@/services/admin/provider.service";
+import { Site } from "@/services/admin/site.service";
 
 
 // ══════════════════════════════════════════════
@@ -28,6 +31,17 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 // ══════════════════════════════════════════════
 
 // local formatMontant and formatDate removed - using @/lib/utils
+
+const getActorName = (obj: any): string | null => {
+  if (!obj) return null;
+  const u = obj.user || obj;
+  const person = u.manager || u.admin || u;
+  const fn = (person.first_name || u.first_name || obj.first_name || "").trim();
+  const ln = (person.last_name || u.last_name || obj.last_name || "").trim();
+  const fullName = `${fn} ${ln}`.trim();
+  const rawName = person.name || u.name || obj.name || "";
+  return fullName || rawName || null;
+};
 
 
 // ══════════════════════════════════════════════
@@ -39,13 +53,15 @@ const STATUS_STYLES: Record<string, string> = {
   pending: "border-amber-200 bg-amber-50 text-amber-600",
   overdue: "border-rose-200 bg-rose-50 text-rose-600",
   cancelled: "border-slate-200 bg-slate-50 text-slate-500",
+  rejected: "border-red-200 bg-red-50 text-red-600",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  paid: "Payée",
+  paid: "Validée",
   pending: "En attente",
   overdue: "En retard",
   cancelled: "Annulée",
+  rejected: "Rejetée",
 };
 
 /** Badge coloré selon le statut de paiement */
@@ -105,12 +121,14 @@ function PdfPreviewModal({
 // ══════════════════════════════════════════════
 
 function FilterDropdown({
-  isOpen, onClose, filters, onApply,
+  isOpen, onClose, filters, onApply, providers, sites
 }: {
   isOpen: boolean;
   onClose: () => void;
-  filters: { status?: string };
-  onApply: (f: { status?: string }) => void;
+  filters: { status?: string; provider_id?: number; site_id?: number };
+  onApply: (f: { status?: string; provider_id?: number; site_id?: number }) => void;
+  providers: Provider[];
+  sites: Site[];
 }) {
   const [local, setLocal] = useState(filters);
   useEffect(() => { setLocal(filters); }, [filters]);
@@ -120,9 +138,10 @@ function FilterDropdown({
   const options = [
     { val: "", label: "Toutes" },
     { val: "pending", label: "En attente" },
-    { val: "paid", label: "Payée" },
+    { val: "paid", label: "Validée" },
     { val: "overdue", label: "En retard" },
     { val: "cancelled", label: "Annulée" },
+    { val: "rejected", label: "Rejetée" },
   ];
 
   return (
@@ -135,23 +154,59 @@ function FilterDropdown({
         </button>
       </div>
 
-      {/* Options de statut */}
-      <div className="p-5">
-        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Statut</label>
-        <div className="flex flex-col gap-2 mt-2">
-          {options.map(({ val, label }) => (
-            <button
-              key={val}
-              onClick={() => setLocal({ ...local, status: val || undefined })}
-              className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${(local.status ?? "") === val
-                ? "bg-slate-900 text-white"
-                : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                }`}
-            >
-              {label}
-            </button>
-          ))}
+      <div className="p-5 max-h-[60vh] overflow-y-auto space-y-5">
+        {/* Options de statut */}
+        <div>
+          <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Statut</label>
+          <div className="flex flex-col gap-2 mt-2">
+            {options.map(({ val, label }) => (
+              <button
+                key={val}
+                onClick={() => setLocal({ ...local, status: val || undefined })}
+                className={`w-full text-left px-4 py-2 rounded-xl text-sm font-semibold transition ${(local.status ?? "") === val
+                  ? "bg-slate-900 text-white"
+                  : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Options Prestataire */}
+        {providers.length > 0 && (
+          <div>
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Prestataire</label>
+            <select
+              value={local.provider_id || ""}
+              onChange={(e) => setLocal({ ...local, provider_id: e.target.value ? Number(e.target.value) : undefined })}
+              className="mt-2 w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-900"
+            >
+              <option value="">Tous les prestataires</option>
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>{p.company_name || p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Options Site */}
+        {sites.length > 0 && (
+          <div>
+            <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Site</label>
+            <select
+              value={local.site_id || ""}
+              onChange={(e) => setLocal({ ...local, site_id: e.target.value ? Number(e.target.value) : undefined })}
+              className="mt-2 w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-slate-900"
+            >
+              <option value="">Tous les sites</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>{s.nom || s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -201,10 +256,14 @@ function InvoiceSidePanel({
 
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
-  // Normalisation des montants (peuvent arriver en string depuis l'API)
-  const amountHT = typeof invoice.amount_ht === "string" ? parseFloat(invoice.amount_ht) : invoice.amount_ht;
-  const taxAmount = typeof invoice.tax_amount === "string" ? parseFloat(invoice.tax_amount) : invoice.tax_amount;
-  const amountTTC = typeof invoice.amount_ttc === "string" ? parseFloat(invoice.amount_ttc) : invoice.amount_ttc;
+  // ── Calculs de secours pour cohérence d'affichage ─────────────────────────
+  const rawHT = typeof invoice.amount_ht === "string" ? parseFloat(invoice.amount_ht) : (invoice.amount_ht ?? 0);
+  const rawTax = typeof invoice.tax_amount === "string" ? parseFloat(invoice.tax_amount) : (invoice.tax_amount ?? 0);
+  const rawTTC = typeof invoice.amount_ttc === "string" ? parseFloat(invoice.amount_ttc) : (invoice.amount_ttc ?? 0);
+
+  const displayTTC = rawTTC;
+  const displayTax = rawTax;
+  const displayHT = (rawHT === 0 && rawTTC > 0) ? (rawTTC - rawTax) : rawHT;
 
   return (
     <>
@@ -234,7 +293,7 @@ function InvoiceSidePanel({
           <div className="space-y-0">
             {[
               {
-                label: "ID Facture",
+                label: " Facture",
                 render: () => (
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900 text-sm">{invoice.reference}</span>
@@ -249,9 +308,9 @@ function InvoiceSidePanel({
                 ),
               },
               { label: "Prestataire", value: providerName },
-              { label: "Date", value: formatDate(invoice.invoice_date) },
+              { label: "Générée le", value: `${formatDate(invoice.invoice_date)} par ${providerName}` },
               { label: "Site", value: siteName },
-              { label: "Montant HT", value: formatCurrency(amountHT) },
+              { label: "Montant HT", value: formatCurrency(displayHT) },
 
             ].map((f, i) => (
               <div
@@ -275,8 +334,8 @@ function InvoiceSidePanel({
                   <button
                     onClick={() => onMarkPaid(invoice.id)}
                     className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center hover:bg-emerald-100 transition"
-                    title="Marquer comme payée"
-                    aria-label="Marquer comme payée"
+                    title="Marquer comme validé"
+                    aria-label="Marquer comme validé"
                   >
                     <CheckCircle2 size={16} className="text-emerald-600" />
                   </button>
@@ -289,16 +348,15 @@ function InvoiceSidePanel({
           <div className="bg-slate-50 rounded-2xl border border-slate-100 px-4 py-3 space-y-1.5">
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">Montant HT</span>
-              <span className="font-bold text-slate-900">{formatCurrency(amountHT)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(displayHT)}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-slate-500">TVA</span>
-              <span className="font-bold text-slate-900">{formatCurrency(taxAmount)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(displayTax)}</span>
             </div>
             <div className="flex justify-between text-sm border-t border-slate-200 pt-1.5">
               <span className="font-black text-slate-900">Montant TTC</span>
-              <span className="font-black text-slate-900">{formatCurrency(amountTTC)}</span>
-
+              <span className="font-black text-slate-900">{formatCurrency(displayTTC)}</span>
             </div>
           </div>
 
@@ -306,7 +364,7 @@ function InvoiceSidePanel({
           {isPaid && invoice.payment_date && (
             <div className="flex items-center gap-2 py-3 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold">
               <CheckCircle2 size={16} />
-              Payée le {formatDate(invoice.payment_date)}
+              validé le {formatDate(invoice.payment_date)} par {getActorName((invoice as any).payer || (invoice as any).validator) || 'Administrateur'}
             </div>
           )}
 
@@ -336,7 +394,7 @@ function InvoiceSidePanel({
                   onClick={() => setPdfPreview({ url: pdfUrl, name: pdfName })}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition shrink-0"
                 >
-                  <Eye size={13} /> Aperçu
+                  <Eye size={13} />
                 </button>
                 <a
                   href={pdfUrl} download target="_blank" rel="noreferrer"
@@ -361,7 +419,7 @@ function InvoiceSidePanel({
               onClick={() => onMarkPaid(invoice.id)}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
             >
-              <CheckCircle2 size={16} /> Marquer comme payée
+              <CheckCircle2 size={16} /> Marquer comme Validé
             </button>
           </div>
         )}
@@ -386,24 +444,38 @@ function InvoiceSidePanel({
 export default function FacturesPage() {
   const filterRef = useRef<HTMLDivElement>(null);
 
-  const { invoices, stats, isLoading, fetchInvoices, fetchStats, markAsPaid } = useInvoices();
+  const {
+    invoices,
+    stats,
+    isLoading,
+    fetchStats,
+    markAsPaid,
+    page,
+    setPage,
+    search,
+    setSearch,
+    filters,
+    setFilters,
+    meta,
+  } = useInvoices();
 
   // États UI
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [filters, setFilters] = useState<{ status?: string }>({});
-  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const [exportLoading, setExportLoading] = useState(false);
 
-  const PER_PAGE = 10;
+  // Filter options
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
 
-  // Chargement initial
+  // Chargement des statistiques et options
   useEffect(() => {
-    fetchInvoices();
     fetchStats();
-  }, [fetchInvoices, fetchStats]);
+    axios.get("/admin/select/providers").then((res) => setProviders(res.data.data ?? res.data)).catch(console.error);
+    axios.get("/admin/select/sites").then((res) => setSites(res.data.data ?? res.data)).catch(console.error);
+  }, [fetchStats]);
 
   // Auto-dismiss du flash après 5 s
 
@@ -420,17 +492,15 @@ export default function FacturesPage() {
 
   // ── Helpers locaux ──
 
-
-  const applyFilters = (f: { status?: string }) => {
+  const applyFilters = (f: { status?: string; provider_id?: number; site_id?: number }) => {
     setFilters(f);
-    setCurrentPage(1);
   };
 
   // ── Données filtrées & paginées ──
 
-  const filtered = invoices.filter(inv => !filters.status || inv.payment_status === filters.status);
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
+  const filtered = invoices;
+  const totalPages = meta?.last_page || 1;
+  const paginated = invoices;
   const activeCount = Object.values(filters).filter(Boolean).length;
 
   // ── Handler : marquer payée ──
@@ -441,7 +511,7 @@ export default function FacturesPage() {
       setSelectedInvoice(prev =>
         prev?.id === id ? { ...prev, payment_status: "paid" as const } : prev,
       );
-      toast.success("Facture marquée comme payée avec succès.");
+      toast.success("Facture marquée comme validée avec succès.");
     } catch {
       toast.error("Erreur lors de la mise à jour du statut.");
     }
@@ -460,7 +530,7 @@ export default function FacturesPage() {
         montant_ht: typeof inv.amount_ht === "string" ? parseFloat(inv.amount_ht) : (inv.amount_ht ?? 0),
         tva: typeof inv.tax_amount === "string" ? parseFloat(inv.tax_amount) : (inv.tax_amount ?? 0),
         montant_ttc: typeof inv.amount_ttc === "string" ? parseFloat(inv.amount_ttc) : (inv.amount_ttc ?? 0),
-        statut: { paid: "Payée", pending: "En attente", overdue: "En retard", cancelled: "Annulée" }[inv.payment_status] ?? inv.payment_status,
+        statut: { paid: "Validé", pending: "En attente", overdue: "En retard", cancelled: "Annulée" }[inv.payment_status] ?? inv.payment_status,
         date_paiement: formatDate(inv.payment_date),
       }));
       exportToXlsx(rows, [
@@ -494,14 +564,14 @@ export default function FacturesPage() {
 
     { label: "Nombre total de factures", value: totalInvoices, delta: "+3%", trend: "up" as const },
     { label: "Factures en attente", value: stats?.total_unpaid ?? 0, delta: "+0%", trend: "up" as const },
-    { label: "Factures payées", value: stats?.total_paid ?? 0, delta: "+15,03%", trend: "up" as const },
+    { label: "Factures Validées", value: stats?.total_paid ?? 0, delta: "+15,03%", trend: "up" as const },
   ];
 
   // ── Colonnes DataTable ──
 
   const columns: ColumnConfig<Invoice>[] = [
     {
-      header: "ID Facture",
+      header: "Facture",
       key: "reference",
       render: (_: any, row: Invoice) => (
         <span className="font-black text-slate-900 text-sm">{row.reference}</span>
@@ -606,6 +676,8 @@ export default function FacturesPage() {
                 onClose={() => setFiltersOpen(false)}
                 filters={filters}
                 onApply={applyFilters}
+                providers={providers}
+                sites={sites}
               />
             </div>
 
@@ -622,15 +694,33 @@ export default function FacturesPage() {
           </div>
 
           {/* Tag filtre actif */}
-          {filters.status && (
-            <div className="flex items-center gap-2">
+          {(filters.status || filters.provider_id || filters.site_id) && (
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-slate-500 font-medium">Filtré par :</span>
-              <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {STATUS_LABELS[filters.status] ?? filters.status}
-                <button onClick={() => applyFilters({})} className="hover:opacity-70 transition" aria-label="Retirer le filtre">
-                  <X size={12} />
-                </button>
-              </span>
+              {filters.status && (
+                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Statut: {STATUS_LABELS[filters.status] ?? filters.status}
+                  <button onClick={() => applyFilters({ ...filters, status: undefined })} className="hover:opacity-70 transition" aria-label="Retirer le filtre">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {filters.provider_id && (
+                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Prestataire: {providers.find(p => p.id === filters.provider_id)?.company_name ?? `Prestataire #${filters.provider_id}`}
+                  <button onClick={() => applyFilters({ ...filters, provider_id: undefined })} className="hover:opacity-70 transition" aria-label="Retirer le filtre">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
+              {filters.site_id && (
+                <span className="flex items-center gap-1.5 bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">
+                  Site: {sites.find(s => s.id === filters.site_id)?.nom ?? `Site #${filters.site_id}`}
+                  <button onClick={() => applyFilters({ ...filters, site_id: undefined })} className="hover:opacity-70 transition" aria-label="Retirer le filtre">
+                    <X size={12} />
+                  </button>
+                </span>
+              )}
             </div>
           )}
 
@@ -640,13 +730,15 @@ export default function FacturesPage() {
               title="Liste des factures"
               columns={columns}
               data={isLoading ? [] : paginated}
+              onSearchChange={setSearch}
+              isLoading={isLoading}
               onViewAll={() => { }}
             />
             <div className="p-6 border-t border-slate-50 flex justify-end bg-slate-50/30">
               <Paginate
-                currentPage={currentPage}
+                currentPage={page}
                 totalPages={totalPages || 1}
-                onPageChange={setCurrentPage}
+                onPageChange={setPage}
               />
             </div>
           </div>

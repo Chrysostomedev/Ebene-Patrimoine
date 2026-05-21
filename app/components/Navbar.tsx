@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { LogOut, AlertTriangle, Bell } from "lucide-react";
+import { LogOut, AlertTriangle, Bell, Menu } from "lucide-react";
 import { authService } from "../../services/AuthService";
 import Link from "next/link";
 import NotificationPanel from "./NotificationPanel";
@@ -13,22 +13,22 @@ import { useLanguage } from "../../contexts/LanguageContext";
 const getNotificationsRoute = (role: string): string => {
   switch (role) {
     case "SUPER-ADMIN":
-    case "ADMIN":    return "/admin/notifications";
+    case "ADMIN": return "/admin/notifications";
     case "PROVIDER": return "/provider/notifications";
-    case "MANAGER":  return "/manager/notifications";
-    default:         return "#";
+    case "MANAGER": return "/manager/notifications";
+    default: return "#";
   }
 };
 
 const getApiPrefix = (role: string): string => {
-  if (role === "MANAGER")  return "/manager";
+  if (role === "MANAGER") return "/manager";
   if (role === "PROVIDER") return "/provider";
   return "/admin";
 };
 
 const getMeEndpoint = (role: string): string => {
   if (role === "PROVIDER") return "/provider/profile";
-  if (role === "MANAGER")  return "/manager/me";
+  if (role === "MANAGER") return "/manager/me";
   return "/admin/me";
 };
 
@@ -56,11 +56,11 @@ function InAppBanner({ title, body, onClose, href }: InAppBannerProps) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black text-slate-900 leading-tight truncate">{title}</p>
           <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-snug">{body}</p>
-          {href && (
+          {/* {href && (
             <a href={href} className="text-xs font-bold text-slate-900 underline underline-offset-2 mt-1 inline-block hover:text-black transition">
-              {t("common.see")}
+              {("common.see")}
             </a>
-          )}
+          )} */}
         </div>
         <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg transition shrink-0 text-slate-400 hover:text-slate-700">
           ✕
@@ -95,14 +95,14 @@ function RoleBadge({ role }: { role: string }) {
 
 export default function Navbar() {
   const router = useRouter();
-  const { collapsed } = useSidebar();
+  const { collapsed, toggleMobileOpen } = useSidebar();
   const { t } = useLanguage();
-  const leftOffset = collapsed ? "left-16" : "left-64";
-  const widthCalc  = collapsed ? "w-[calc(100%-4rem)]" : "w-[calc(100%-16rem)]";
+  const leftOffset = collapsed ? "md:left-16" : "md:left-64";
+  const widthCalc = collapsed ? "md:w-[calc(100%-4rem)]" : "md:w-[calc(100%-16rem)]";
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [firstName, setFirstName] = useState("");
-  const [lastName,  setLastName]  = useState("");
-  const [role,      setRole]      = useState("");
+  const [lastName, setLastName] = useState("");
+  const [role, setRole] = useState("");
   const [notifRoute, setNotifRoute] = useState("#");
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
@@ -147,8 +147,8 @@ export default function Navbar() {
     // OU via un événement personnalisé dans le même onglet (profile-picture-updated)
     const handleUpdate = (e: any) => {
       const isStorage = e instanceof StorageEvent;
-      const newUrl = isStorage 
-        ? (e.key === "profile_picture_url" ? e.newValue : null) 
+      const newUrl = isStorage
+        ? (e.key === "profile_picture_url" ? e.newValue : null)
         : e.detail?.url;
 
       if (newUrl) {
@@ -159,12 +159,19 @@ export default function Navbar() {
       }
     };
 
+    const handleNameUpdate = () => {
+      setFirstName(localStorage.getItem("first_name") || "");
+      setLastName(localStorage.getItem("last_name") || "");
+    };
+
     window.addEventListener("storage", handleUpdate);
     window.addEventListener("profile-picture-updated" as any, handleUpdate);
-    
+    window.addEventListener("profile-updated" as any, handleNameUpdate);
+
     return () => {
       window.removeEventListener("storage", handleUpdate);
       window.removeEventListener("profile-picture-updated" as any, handleUpdate);
+      window.removeEventListener("profile-updated" as any, handleNameUpdate);
     };
   }, []);
 
@@ -187,8 +194,8 @@ export default function Navbar() {
         const newest = items[0];
         const notifData = newest?.data ?? {};
         const title = notifData.title || notifData.message || "Nouvelle notification";
-        const body  = notifData.body  || notifData.summary || notifData.message || "";
-        const href  = notifData.href  || notifData.action_url;
+        const body = notifData.body || notifData.summary || notifData.message || "";
+        const href = notifData.href || notifData.action_url;
 
         setBanner({ title, body, href });
 
@@ -204,12 +211,12 @@ export default function Navbar() {
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
           osc.start(ctx.currentTime);
           osc.stop(ctx.currentTime + 0.3);
-        } catch {}
+        } catch { }
       }
 
       prevCountRef.current = count;
       setUnreadCount(count);
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -264,10 +271,19 @@ export default function Navbar() {
         />
       )}
 
-      <header className={`fixed top-0 ${leftOffset} ${widthCalc} flex justify-between items-center px-4 py-3 bg-white shadow border-b border-gray-200 z-30 transition-all duration-300`}>
+      <header className={`fixed top-0 left-0 w-full ${leftOffset} ${widthCalc} flex justify-between items-center px-4 py-3 bg-white shadow border-b border-gray-200 z-30 transition-all duration-300`}>
 
         {/* Infos utilisateur */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Bouton burger mobile */}
+          <button
+            onClick={toggleMobileOpen}
+            className="navbar__burger p-1 md:p-2 hover:bg-gray-50 rounded-xl text-gray-400 hover:text-gray-900 transition-colors mr-0 md:mr-1"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu size={22} />
+          </button>
+
           <Link
             href={role === "MANAGER" ? "/manager/profile" : role === "PROVIDER" ? "/provider/profile" : "/admin/profile"}
             className="w-10 h-10 rounded-full bg-theme-primary text-white font-black flex items-center justify-center text-sm tracking-wide shrink-0 overflow-hidden hover:opacity-90 transition-opacity cursor-pointer"
@@ -280,7 +296,7 @@ export default function Navbar() {
               getInitials()
             )}
           </Link>
-          <div className="flex flex-col gap-0.5">
+          <div className="hidden md:flex flex-col gap-0.5">
             <div className="flex items-center gap-2">
               <p className="text-gray-900 font-bold text-sm leading-tight">Bienvenue, {fullName} </p>
               <RoleBadge role={role} />
@@ -292,12 +308,12 @@ export default function Navbar() {
         </div>
 
         {/* Actions droite */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
 
           {/* Cloche notifications */}
           <button
             onClick={() => setIsPanelOpen(true)}
-            className="relative flex items-center gap-2.5 px-4 py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-all"
+            className="relative flex items-center gap-2.5 p-1.5 md:px-4 md:py-2 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-all"
           >
             <div className="relative">
               <Bell
@@ -311,14 +327,14 @@ export default function Navbar() {
                 </span>
               )}
             </div>
-            <span className="text-sm font-semibold tracking-tight text-slate-700">
+            <span className="hidden md:inline text-sm font-semibold tracking-tight text-slate-700">
               {t("notifications.title")}
             </span>
           </button>
 
           <button
             onClick={() => setShowLogoutModal(true)}
-            className="p-2 rounded-full hover:bg-gray-100 transition"
+            className="p-1.5 md:p-2 rounded-full hover:bg-gray-100 transition"
           >
             <LogOut size={20} />
           </button>

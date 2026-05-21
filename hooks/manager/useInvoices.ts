@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { InvoiceService } from "../../services/manager/invoice.service";
 import type { Invoice, InvoiceFilters, InvoiceStats, PaginatedResponse } from "../../types/manager.types";
 
@@ -13,13 +13,28 @@ export function useInvoices(initialFilters: InvoiceFilters = {}) {
     per_page: 15,
     ...initialFilters,
   });
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(initialFilters.search);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const activeFilters = { ...filters, search: debouncedSearch };
       const [paginatedData, statsData] = await Promise.all([
-        InvoiceService.getInvoices(filters),
+        InvoiceService.getInvoices(activeFilters),
         InvoiceService.getStats(),
       ]);
       setData(paginatedData.items);
@@ -30,14 +45,20 @@ export function useInvoices(initialFilters: InvoiceFilters = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, debouncedSearch]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const setFilters = (partial: Partial<InvoiceFilters>) => {
-    setFiltersState((prev) => ({ ...prev, ...partial, page: 1 }));
+    setFiltersState((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.search !== undefined) {
+        next.page = 1;
+      }
+      return next;
+    });
   };
 
   const search = (value: string) => {
@@ -46,7 +67,7 @@ export function useInvoices(initialFilters: InvoiceFilters = {}) {
 
   const exportInvoices = async () => {
     try {
-      const blob = await InvoiceService.exportInvoices(filters);
+      const blob = await InvoiceService.exportInvoices({ ...filters, search: debouncedSearch });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

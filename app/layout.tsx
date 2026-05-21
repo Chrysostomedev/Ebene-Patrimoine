@@ -6,6 +6,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { SidebarProvider } from "./components/Sidebar";
 import { LanguageProvider } from "../contexts/LanguageContext";
 import { FormatProvider } from "../contexts/FormatContext";
+import InactivityTracker from "@/components/InactivityTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,8 +26,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Facility Management",
-  description: "l'application tout en un faite par Canal+ et ses partenaires !",
+  title: "Ebene patrimoine",
+  description: "l'application tout en un faite par CI+ et pour ses partenaires !",
 };
 
 export default function RootLayout({
@@ -46,6 +47,7 @@ export default function RootLayout({
           <LanguageProvider>
             <FormatProvider>
               <SidebarProvider>
+                <InactivityTracker />
                 {children}
               </SidebarProvider>
             </FormatProvider>

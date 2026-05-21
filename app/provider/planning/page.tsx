@@ -102,7 +102,7 @@ export default function ProviderPlanningPage() {
       name: "result",
       label: "Résultat de la visite",
       type: "select",
-      required: true,
+      required: false,
       options: [
         { label: "RAS - Rien à signaler", value: "RAS" },
         { label: "Anomalie détectée", value: "anomalie" },
@@ -114,7 +114,6 @@ export default function ProviderPlanningPage() {
       name: "period",
       label: "Période de l'intervention (Début - Fin)",
       type: "date-range",
-      disablePastDates: true,
       required: true,
       gridSpan: 2,
     },

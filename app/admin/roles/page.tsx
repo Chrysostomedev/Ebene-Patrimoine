@@ -52,29 +52,29 @@ const ROLES_CONFIG: Record<string, {
 };
 
 const USERS_DATA = [
-  { id: 1,  name: "Konan Yves",          role: "super-admin", site: "Siège Abidjan",   phone: "+225 07 00 00 01", email: "konan.yves@canalci.com",      status: "active",   joined: "12/01/2024" },
-  { id: 2,  name: "Adjoua Marie",        role: "admin",       site: "Siège Abidjan",   phone: "+225 07 00 00 02", email: "adjoua.marie@canalci.com",    status: "active",   joined: "03/03/2024" },
-  { id: 3,  name: "Bamba Moussa",        role: "admin",       site: "Antenne Bouaké",  phone: "+225 07 00 00 03", email: "bamba.moussa@canalci.com",    status: "active",   joined: "15/04/2024" },
-  { id: 4,  name: "Coulibaly Fatou",     role: "admin",       site: "Antenne Daloa",   phone: "+225 07 00 00 04", email: "coulibaly.fatou@canalci.com", status: "inactive", joined: "20/05/2024" },
-  { id: 5,  name: "Diallo Ibrahim",      role: "manager",     site: "Siège Abidjan",   phone: "+225 07 00 00 05", email: "diallo.ibrahim@canalci.com",  status: "active",   joined: "01/06/2024" },
-  { id: 6,  name: "Sanogo Aminata",      role: "manager",     site: "Antenne Bouaké",  phone: "+225 07 00 00 06", email: "sanogo.aminata@canalci.com",  status: "active",   joined: "14/06/2024" },
-  { id: 7,  name: "Touré Koffi",         role: "manager",     site: "Store Plateau",   phone: "+225 07 00 00 07", email: "toure.koffi@canalci.com",     status: "active",   joined: "22/07/2024" },
-  { id: 8,  name: "Ouattara Salimata",   role: "manager",     site: "Antenne Daloa",   phone: "+225 07 00 00 08", email: "ouattara.salimata@canalci.com",status: "active",  joined: "30/07/2024" },
-  { id: 9,  name: "N'Guessan Paul",      role: "manager",     site: "Store Marcory",   phone: "+225 07 00 00 09", email: "nguessan.paul@canalci.com",   status: "inactive", joined: "10/08/2024" },
-  { id: 10, name: "BAT Tech SARL",       role: "provider",    site: "Siège Abidjan",   phone: "+225 07 10 00 01", email: "contact@battech.ci",          status: "active",   joined: "05/02/2024" },
-  { id: 11, name: "ElectroPro CI",       role: "provider",    site: "Antenne Bouaké",  phone: "+225 07 10 00 02", email: "contact@electropro.ci",       status: "active",   joined: "18/02/2024" },
-  { id: 12, name: "ClimaCool Services",  role: "provider",    site: "Store Plateau",   phone: "+225 07 10 00 03", email: "admin@climacool.ci",           status: "active",   joined: "27/03/2024" },
-  { id: 13, name: "Réseau Expert CI",    role: "provider",    site: "Store Marcory",   phone: "+225 07 10 00 04", email: "info@reseauexpert.ci",         status: "inactive", joined: "09/04/2024" },
-  { id: 14, name: "MaintenancePro",      role: "provider",    site: "Antenne Daloa",   phone: "+225 07 10 00 05", email: "mpro@mpro.ci",                 status: "active",   joined: "15/05/2024" },
-  { id: 15, name: "InfoSystems CI",      role: "provider",    site: "Siège Abidjan",   phone: "+225 07 10 00 06", email: "is@infosystems.ci",            status: "active",   joined: "01/06/2024" },
-  { id: 16, name: "Sécurité Plus",       role: "provider",    site: "Antenne Bouaké",  phone: "+225 07 10 00 07", email: "contact@secplus.ci",           status: "active",   joined: "20/06/2024" },
-  { id: 17, name: "GTM Bâtiment",        role: "provider",    site: "Store Plateau",   phone: "+225 07 10 00 08", email: "gtm@gtm.ci",                   status: "inactive", joined: "11/07/2024" },
-  { id: 18, name: "TechServ International", role: "provider", site: "Siège Abidjan",   phone: "+225 07 10 00 09", email: "ts@techserv.ci",              status: "active",   joined: "05/08/2024" },
-  { id: 19, name: "AquaFroid CI",        role: "provider",    site: "Store Marcory",   phone: "+225 07 10 00 10", email: "af@aquafroid.ci",              status: "active",   joined: "19/08/2024" },
-  { id: 20, name: "MultiTech Solutions", role: "provider",    site: "Antenne Daloa",   phone: "+225 07 10 00 11", email: "mt@multitech.ci",              status: "active",   joined: "01/09/2024" },
-  { id: 21, name: "PowerSafe CI",        role: "provider",    site: "Siège Abidjan",   phone: "+225 07 10 00 12", email: "ps@powersafe.ci",              status: "active",   joined: "15/09/2024" },
-  { id: 22, name: "DataNet Services",    role: "provider",    site: "Antenne Bouaké",  phone: "+225 07 10 00 13", email: "dn@datanet.ci",                status: "inactive", joined: "28/09/2024" },
-  { id: 23, name: "VentilPro",           role: "provider",    site: "Store Plateau",   phone: "+225 07 10 00 14", email: "vp@ventilpro.ci",             status: "active",   joined: "10/10/2024" },
+  { id: 1, name: "Konan Yves", role: "super-admin", site: "Siège Abidjan", phone: "+225 07 00 00 01", email: "konan.yves@canalci.com", status: "active", joined: "12/01/2024" },
+  { id: 2, name: "Adjoua Marie", role: "admin", site: "Siège Abidjan", phone: "+225 07 00 00 02", email: "adjoua.marie@canalci.com", status: "active", joined: "03/03/2024" },
+  { id: 3, name: "Bamba Moussa", role: "admin", site: "Antenne Bouaké", phone: "+225 07 00 00 03", email: "bamba.moussa@canalci.com", status: "active", joined: "15/04/2024" },
+  { id: 4, name: "Coulibaly Fatou", role: "admin", site: "Antenne Daloa", phone: "+225 07 00 00 04", email: "coulibaly.fatou@canalci.com", status: "inactive", joined: "20/05/2024" },
+  { id: 5, name: "Diallo Ibrahim", role: "manager", site: "Siège Abidjan", phone: "+225 07 00 00 05", email: "diallo.ibrahim@canalci.com", status: "active", joined: "01/06/2024" },
+  { id: 6, name: "Sanogo Aminata", role: "manager", site: "Antenne Bouaké", phone: "+225 07 00 00 06", email: "sanogo.aminata@canalci.com", status: "active", joined: "14/06/2024" },
+  { id: 7, name: "Touré Koffi", role: "manager", site: "Store Plateau", phone: "+225 07 00 00 07", email: "toure.koffi@canalci.com", status: "active", joined: "22/07/2024" },
+  { id: 8, name: "Ouattara Salimata", role: "manager", site: "Antenne Daloa", phone: "+225 07 00 00 08", email: "ouattara.salimata@canalci.com", status: "active", joined: "30/07/2024" },
+  { id: 9, name: "N'Guessan Paul", role: "manager", site: "Store Marcory", phone: "+225 07 00 00 09", email: "nguessan.paul@canalci.com", status: "inactive", joined: "10/08/2024" },
+  { id: 10, name: "BAT Tech SARL", role: "provider", site: "Siège Abidjan", phone: "+225 07 10 00 01", email: "contact@battech.ci", status: "active", joined: "05/02/2024" },
+  { id: 11, name: "ElectroPro CI", role: "provider", site: "Antenne Bouaké", phone: "+225 07 10 00 02", email: "contact@electropro.ci", status: "active", joined: "18/02/2024" },
+  { id: 12, name: "ClimaCool Services", role: "provider", site: "Store Plateau", phone: "+225 07 10 00 03", email: "admin@climacool.ci", status: "active", joined: "27/03/2024" },
+  { id: 13, name: "Réseau Expert CI", role: "provider", site: "Store Marcory", phone: "+225 07 10 00 04", email: "info@reseauexpert.ci", status: "inactive", joined: "09/04/2024" },
+  { id: 14, name: "MaintenancePro", role: "provider", site: "Antenne Daloa", phone: "+225 07 10 00 05", email: "mpro@mpro.ci", status: "active", joined: "15/05/2024" },
+  { id: 15, name: "InfoSystems CI", role: "provider", site: "Siège Abidjan", phone: "+225 07 10 00 06", email: "is@infosystems.ci", status: "active", joined: "01/06/2024" },
+  { id: 16, name: "Sécurité Plus", role: "provider", site: "Antenne Bouaké", phone: "+225 07 10 00 07", email: "contact@secplus.ci", status: "active", joined: "20/06/2024" },
+  { id: 17, name: "GTM Bâtiment", role: "provider", site: "Store Plateau", phone: "+225 07 10 00 08", email: "gtm@gtm.ci", status: "inactive", joined: "11/07/2024" },
+  { id: 18, name: "TechServ International", role: "provider", site: "Siège Abidjan", phone: "+225 07 10 00 09", email: "ts@techserv.ci", status: "active", joined: "05/08/2024" },
+  { id: 19, name: "AquaFroid CI", role: "provider", site: "Store Marcory", phone: "+225 07 10 00 10", email: "af@aquafroid.ci", status: "active", joined: "19/08/2024" },
+  { id: 20, name: "MultiTech Solutions", role: "provider", site: "Antenne Daloa", phone: "+225 07 10 00 11", email: "mt@multitech.ci", status: "active", joined: "01/09/2024" },
+  { id: 21, name: "PowerSafe CI", role: "provider", site: "Siège Abidjan", phone: "+225 07 10 00 12", email: "ps@powersafe.ci", status: "active", joined: "15/09/2024" },
+  { id: 22, name: "DataNet Services", role: "provider", site: "Antenne Bouaké", phone: "+225 07 10 00 13", email: "dn@datanet.ci", status: "inactive", joined: "28/09/2024" },
+  { id: 23, name: "VentilPro", role: "provider", site: "Store Plateau", phone: "+225 07 10 00 14", email: "vp@ventilpro.ci", status: "active", joined: "10/10/2024" },
 ];
 
 type User = typeof USERS_DATA[0];
@@ -92,11 +92,10 @@ function RoleBadge({ role }: { role: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-      status === "active"
-        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-        : "bg-slate-100 text-slate-500 border border-slate-200"
-    }`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${status === "active"
+      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+      : "bg-slate-100 text-slate-500 border border-slate-200"
+      }`}>
       <span className={`w-1.5 h-1.5 rounded-full ${status === "active" ? "bg-emerald-500" : "bg-slate-400"}`} />
       {status === "active" ? "Actif" : "Inactif"}
     </span>
@@ -112,9 +111,9 @@ function UserSidePanel({ user, onClose, onToggleStatus }: {
   onToggleStatus: (id: number) => void;
 }) {
   if (!user) return null;
-  const cfg     = ROLES_CONFIG[user.role];
+  const cfg = ROLES_CONFIG[user.role];
   const isActive = user.status === "active";
-  const Icon    = cfg?.icon ?? User;
+  const Icon = cfg?.icon ?? User;
 
   return (
     <>
@@ -149,9 +148,9 @@ function UserSidePanel({ user, onClose, onToggleStatus }: {
           {/* Infos de base */}
           <div className="space-y-0">
             {[
-              { Icon: Mail,     label: "Email",      value: user.email },
-              { Icon: Phone,    label: "Téléphone",  value: user.phone },
-              { Icon: MapPin,   label: "Site",       value: user.site },
+              { Icon: Mail, label: "Email", value: user.email },
+              { Icon: Phone, label: "Téléphone", value: user.phone },
+              { Icon: MapPin, label: "Site", value: user.site },
               { Icon: Calendar, label: "Membre depuis", value: user.joined },
             ].map((f, i) => (
               <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
@@ -192,11 +191,10 @@ function UserSidePanel({ user, onClose, onToggleStatus }: {
           {/* Désactiver / Réactiver */}
           <button
             onClick={() => onToggleStatus(user.id)}
-            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition ${
-              isActive
-                ? "border border-red-200 text-red-600 hover:bg-red-50"
-                : "bg-slate-900 text-white hover:bg-black"
-            }`}
+            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition ${isActive
+              ? "border border-red-200 text-red-600 hover:bg-red-50"
+              : "bg-slate-900 text-white hover:bg-black"
+              }`}
           >
             {isActive
               ? <><Lock size={15} /> Désactiver l'utilisateur</>
@@ -219,17 +217,17 @@ function UserSidePanel({ user, onClose, onToggleStatus }: {
 // POST /admin/admins - role_slug: admin | super-admin
 // ══════════════════════════════════════
 
-const EMPTY_FORM = { name: "", email: "", phone: "", password: "", role_slug: "admin" as "admin" | "super-admin" };
+const EMPTY_FORM = { first_name: "", last_name: "", email: "", phone_number: "", password: "", role_slug: "admin" as "admin" | "super-admin" };
 
 function AddAdminSidePanel({ open, onClose, onSuccess }: {
   open: boolean;
   onClose: () => void;
   onSuccess: (user: any) => void;
 }) {
-  const [form,        setForm]        = useState(EMPTY_FORM);
-  const [showPass,    setShowPass]    = useState(false);
-  const [isLoading,   setIsLoading]   = useState(false);
-  const [errors,      setErrors]      = useState<Record<string, string>>({});
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [showPass, setShowPass] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Reset à l'ouverture
   useEffect(() => {
@@ -240,12 +238,12 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.name.trim())                              e.name     = "Le nom est obligatoire.";
-    if (!form.email.trim())                             e.email    = "L'email est obligatoire.";
-    else if (!/\S+@\S+\.\S+/.test(form.email))         e.email    = "Email invalide.";
-    if (!form.phone.trim())                             e.phone    = "Le téléphone est obligatoire.";
-    if (!form.password)                                 e.password = "Le mot de passe est obligatoire.";
-    else if (form.password.length < 8)                  e.password = "Minimum 8 caractères.";
+    if (!form.first_name.trim()) e.first_name = "Le prénom est obligatoire.";
+    if (!form.email.trim()) e.email = "L'email est obligatoire.";
+    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = "Email invalide.";
+    if (!form.phone_number.trim()) e.phone_number = "Le téléphone est obligatoire.";
+    if (!form.password) e.password = "Le mot de passe est obligatoire.";
+    else if (form.password.length < 8) e.password = "Minimum 8 caractères.";
     return e;
   };
 
@@ -255,22 +253,33 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
 
     setIsLoading(true);
     try {
-      const res  = await axiosInstance.post("/admin/admins", form);
+      const res = await axiosInstance.post("/admin/admins", form);
       const data = res.data?.data ?? res.data;
       onSuccess({
-        id:     data.id ?? Date.now(),
-        name:   form.name,
-        email:  form.email,
-        phone:  form.phone,
-        role:   form.role_slug,
-        site:   "",
+        id: data.id ?? Date.now(),
+        name: [form.first_name, form.last_name].filter(Boolean).join(" "),
+        email: form.email,
+        phone: form.phone_number,
+        role: form.role_slug,
+        site: "",
         status: "active",
         joined: formatDate(new Date()),
       });
       onClose();
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? "Erreur lors de la création.";
-      setErrors({ global: msg });
+      // Priorité aux erreurs de champs spécifiques (ex: "email already taken")
+      const fieldErrors: Record<string, string> = err?.response?.data?.errors ?? {};
+      if (Object.keys(fieldErrors).length > 0) {
+        // Convertit { email: ["message"] } → { email: "message" }
+        const mapped: Record<string, string> = {};
+        Object.entries(fieldErrors).forEach(([key, val]) => {
+          mapped[key] = Array.isArray(val) ? val[0] : String(val);
+        });
+        setErrors(mapped);
+      } else {
+        const msg = err?.response?.data?.message ?? "Erreur lors de la création.";
+        setErrors({ global: msg });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -293,11 +302,10 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
           value={form[key]}
           onChange={e => { setForm({ ...form, [key]: e.target.value }); setErrors({ ...errors, [key]: "" }); }}
           placeholder={placeholder}
-          className={`w-full px-4 py-3 rounded-xl border text-sm font-medium text-slate-900 focus:outline-none focus:ring-1 transition ${
-            errors[key]
-              ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-200"
-              : "border-slate-200 bg-slate-50 focus:border-slate-900 focus:ring-slate-900"
-          } ${key === "password" ? "pr-11" : ""}`}
+          className={`w-full px-4 py-3 rounded-xl border text-sm font-medium text-slate-900 focus:outline-none focus:ring-1 transition ${errors[key]
+            ? "border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-200"
+            : "border-slate-200 bg-slate-50 focus:border-slate-900 focus:ring-slate-900"
+            } ${key === "password" ? "pr-11" : ""}`}
         />
         {key === "password" && (
           <button
@@ -348,8 +356,8 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
             </label>
             <div className="grid grid-cols-2 gap-3">
               {([
-                { val: "admin",       label: "Administrateur",        Icon: UserCog,    sub: "Gestion opérationnelle"  },
-                { val: "super-admin", label: "Super Administrateur",  Icon: ShieldCheck,sub: "Accès complet"           },
+                { val: "admin", label: "Administrateur", Icon: UserCog, sub: "Gestion opérationnelle" },
+                { val: "super-admin", label: "Super Administrateur", Icon: ShieldCheck, sub: "Accès complet" },
               ] as const).map(opt => {
                 const { Icon } = opt;
                 const active = form.role_slug === opt.val;
@@ -357,9 +365,8 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
                   <button
                     key={opt.val}
                     onClick={() => setForm({ ...form, role_slug: opt.val })}
-                    className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 transition text-left ${
-                      active ? "border-slate-900 bg-slate-900" : "border-slate-100 hover:border-slate-300"
-                    }`}
+                    className={`flex flex-col items-start gap-2 p-4 rounded-2xl border-2 transition text-left ${active ? "border-slate-900 bg-slate-900" : "border-slate-100 hover:border-slate-300"
+                      }`}
                   >
                     <Icon size={18} className={active ? "text-white" : "text-slate-500"} />
                     <div>
@@ -372,11 +379,12 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
             </div>
           </div>
 
-          {/* Champs */}
-          {field("name",     "Nom complet",   User,  "text",  "Diallo Ibrahim")}
-          {field("email",    "Email",         Mail,  "email", "diallo@canal.ci")}
-          {field("phone",    "Téléphone",     Phone, "tel",   "+225 07 01 23 45 67")}
-          {field("password", "Mot de passe",  Key,   "password", "Minimum 8 caractères")}
+          {/* Champs harmonisés avec le Backend */}
+          {field("first_name", "Prénom", User, "text", "Ibrahim")}
+          {field("last_name", "Nom (optionnel)", User, "text", "Diallo")}
+          {field("email", "Email", Mail, "email", "diallo@canal.ci")}
+          {field("phone_number", "Téléphone", Phone, "tel", "+225 07 01 23 45 67")}
+          {field("password", "Mot de passe", Key, "password", "Minimum 8 caractères")}
 
           {/* Indicateur force mdp */}
           {form.password.length > 0 && (
@@ -385,11 +393,10 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
                 {[1, 2, 3, 4].map(lvl => {
                   const strength = form.password.length < 6 ? 1 : form.password.length < 10 ? 2 : /[A-Z]/.test(form.password) && /[0-9]/.test(form.password) ? 4 : 3;
                   return (
-                    <div key={lvl} className={`flex-1 h-1.5 rounded-full transition-colors ${
-                      lvl <= strength
-                        ? strength === 1 ? "bg-red-400" : strength === 2 ? "bg-amber-400" : strength === 3 ? "bg-blue-400" : "bg-emerald-500"
-                        : "bg-slate-100"
-                    }`} />
+                    <div key={lvl} className={`flex-1 h-1.5 rounded-full transition-colors ${lvl <= strength
+                      ? strength === 1 ? "bg-red-400" : strength === 2 ? "bg-amber-400" : strength === 3 ? "bg-blue-400" : "bg-emerald-500"
+                      : "bg-slate-100"
+                      }`} />
                   );
                 })}
               </div>
@@ -429,17 +436,17 @@ function AddAdminSidePanel({ open, onClose, onSuccess }: {
 // ══════════════════════════════════════
 
 export default function RolesPage() {
-  const [loading,      setLoading]      = useState(true);
-  const [users,        setUsers]        = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
-  const [isOpen,       setIsOpen]       = useState(false);
-  const [roleFilter,   setRoleFilter]   = useState<string>("all");
-  const [currentPage,  setCurrentPage]  = useState(1);
-  const [totalPages,   setTotalPages]   = useState(1);
-  const [totalItems,   setTotalItems]   = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [addAdminOpen, setAddAdminOpen] = useState(false);
   const { toast } = useToast();
-  const [stats,        setStats]        = useState({ total: 0, admins: 0, managers: 0, providers: 0 });
+  const [stats, setStats] = useState({ total: 0, admins: 0, managers: 0, providers: 0 });
 
   const PER_PAGE = 10;
 
@@ -463,8 +470,8 @@ export default function RolesPage() {
           const get = (name: string) => arr.find((r: any) =>
             (r.role_name ?? r.slug ?? "").toUpperCase() === name.toUpperCase()
           )?.user_count ?? 0;
-          superAdmins  = get("SUPER-ADMIN");
-          adminsCount  = get("ADMIN") + superAdmins;
+          superAdmins = get("SUPER-ADMIN");
+          adminsCount = get("ADMIN") + superAdmins;
           managersCount = get("MANAGER");
         } catch {
           // Fallback : total depuis meta
@@ -480,8 +487,8 @@ export default function RolesPage() {
       }
 
       setStats({
-        total:    adminsCount + managersCount + providers,
-        admins:   adminsCount,
+        total: adminsCount + managersCount + providers,
+        admins: adminsCount,
         managers: managersCount,
         providers,
       });
@@ -497,57 +504,76 @@ export default function RolesPage() {
       let lastPage = 1;
       let total = 0;
 
-      if (roleFilter === "provider") {
-        // Prestataires → /admin/providers
+      // Helper : normalise n'importe quelle réponse en tableau
+      const toArray = (res: any): any[] => {
+        const d = res.data?.data ?? res.data;
+        if (Array.isArray(d)) return d;
+        if (Array.isArray(d?.data)) return d.data;
+        if (Array.isArray(d?.items)) return d.items;
+        return [];
+      };
+
+      // Helper : normalise un user en ligne de table
+      const normalize = (u: any, forceRole?: string) => {
+        const roleName = forceRole
+          ?? (u.role?.slug ?? u.roles?.[0]?.name ?? u.role_name ?? u.role ?? "").toLowerCase();
+        return {
+          id: u.id,
+          name: u.company_name
+            ?? ([u.first_name, u.last_name].filter(Boolean).join(" ") || u.name || `#${u.id}`),
+          role: roleName,
+          phone: u.phone_number ?? u.phone ?? u.user?.phone ?? "",
+          email: u.email ?? u.user?.email ?? "",
+          status: (u.is_active === true || u.is_active === 1 || u.status === "active") ? "active" : "inactive",
+          joined: formatDate(u.created_at),
+        };
+      };
+
+      if (roleFilter === "all") {
+        // ── Tous → appels parallèles par slug et fusion (pas de pagination côté serveur)
+        const slugs = ["super-admin", "admin", "manager", "provider"];
+        const results = await Promise.allSettled(
+          slugs.map(slug => axiosInstance.get(`/super-admin/roles/${slug}/users`))
+        );
+        const merged = new Map<number, any>();
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            toArray(r.value).forEach((u: any) => merged.set(u.id, normalize(u, slugs[i])));
+          }
+        });
+        items = Array.from(merged.values());
+        total = items.length;
+        lastPage = 1; // pas de pagination serveur ici
+
+      } else if (roleFilter === "provider") {
+        // ── Prestataires → endpoint dédié (données différentes du modèle User)
         const res = await axiosInstance.get("/admin/providers", {
           params: { page: currentPage, per_page: PER_PAGE },
         });
         const d = res.data?.data ?? res.data;
         const raw: any[] = Array.isArray(d?.items) ? d.items
           : Array.isArray(d?.data) ? d.data
-          : Array.isArray(d) ? d : [];
+            : Array.isArray(d) ? d : [];
         lastPage = d?.meta?.last_page ?? d?.last_page ?? 1;
-        total    = d?.meta?.total    ?? d?.total    ?? raw.length;
-        items = raw.map((u: any) => ({
-          id:     u.id,
-          name:   u.company_name ?? `Prestataire #${u.id}`,
-          role:   "provider",
-          phone:  u.phone ?? u.user?.phone ?? "",
-          email:  u.email ?? u.user?.email ?? "",
-          status: u.is_active ? "active" : "inactive",
-          joined: formatDate(u.created_at),
-        }));
+        total = d?.meta?.total ?? d?.total ?? raw.length;
+        items = raw.map(u => normalize(u, "provider"));
 
       } else {
-        // Admins / Managers / Super-Admin → /admin/admins?role_slug=...
-        const roleSlugMap: Record<string, string> = {
-          "admin":       "ADMIN",
-          "super-admin": "SUPER-ADMIN",
-          "manager":     "MANAGER",
+        // ── Super-Admin / Admin / Manager → endpoint strict par slug
+        const slugMap: Record<string, string> = {
+          "super-admin": "super-admin",
+          "admin": "admin",
+          "manager": "manager",
         };
-        const params: any = { page: currentPage, per_page: PER_PAGE };
-        if (roleFilter !== "all") params.role_slug = roleSlugMap[roleFilter] ?? roleFilter.toUpperCase();
-
-        const res = await axiosInstance.get("/admin/admins", { params });
-        const d = res.data?.data ?? res.data;
-        const raw: any[] = Array.isArray(d?.items) ? d.items
-          : Array.isArray(d?.data) ? d.data
-          : Array.isArray(d) ? d : [];
-        lastPage = d?.meta?.last_page ?? d?.last_page ?? 1;
-        total    = d?.meta?.total    ?? d?.total    ?? raw.length;
-        items = raw.map((u: any) => {
-          const roleName = (u.roles?.[0]?.name ?? u.role_name ?? "").toLowerCase();
-          return {
-            id:     u.id,
-            name:   [u.first_name, u.last_name].filter(Boolean).join(" ") || u.name || `#${u.id}`,
-            role:   roleName || (roleFilter !== "all" ? roleFilter : "admin"),
-            phone:  u.phone_number ?? u.phone ?? "",
-            email:  u.email ?? "",
-            status: (u.is_active === true || u.is_active === 1 || u.status === "active" || u.status === "actif") ? "active" : "inactive",
-            joined: formatDate(u.created_at),
-          };
-        });
+        const slug = slugMap[roleFilter] ?? roleFilter;
+        const res = await axiosInstance.get(`/super-admin/roles/${slug}/users`);
+        const raw = toArray(res);
+        items = raw.map(u => normalize(u, slug));
+        total = items.length;
+        lastPage = 1; // réponse non paginée
       }
+
+
 
       setUsers(items);
       setTotalPages(lastPage);
@@ -589,7 +615,7 @@ export default function RolesPage() {
         // Pour les autres on update le status si l'API le permet, sinon message
         await axiosInstance.put(`/admin/admins/${id}`, { status: isActive ? "inactive" : "active" });
       }
-      
+
       setUsers(prev => prev.map(u =>
         u.id === id ? { ...u, status: isActive ? "inactive" : "active" } : u
       ));
@@ -603,18 +629,18 @@ export default function RolesPage() {
   };
 
   const kpis = [
-    { label: "Utilisateurs au total", value: stats.total,    delta: "",  trend: "up" as const },
-    { label: "Administrateurs",        value: stats.admins,   delta: "",  trend: "up" as const },
-    { label: "Managers",               value: stats.managers, delta: "",  trend: "up" as const },
-    { label: "Prestataires",           value: stats.providers,delta: "",  trend: "up" as const },
+    { label: "Utilisateurs au total", value: stats.total, delta: "", trend: "up" as const },
+    { label: "Super-admin & Admins", value: stats.admins, delta: "", trend: "up" as const },
+    { label: "Managers", value: stats.managers, delta: "", trend: "up" as const },
+    { label: "Prestataires", value: stats.providers, delta: "", trend: "up" as const },
   ];
 
   const ROLE_FILTERS = [
-    { key: "all",        label: "Tous" },
-    { key: "super-admin",label: "Super Admin" },
-    { key: "admin",      label: "Admins" },
-    { key: "manager",    label: "Managers" },
-    { key: "provider",   label: "Prestataires" },
+    { key: "all", label: "Tous" },
+    { key: "super-admin", label: "Super Admin" },
+    { key: "admin", label: "Admins" },
+    { key: "manager", label: "Managers" },
+    { key: "provider", label: "Prestataires" },
   ];
 
   const handleRoleFilter = (key: string) => { setRoleFilter(key); setCurrentPage(1); };
@@ -626,7 +652,7 @@ export default function RolesPage() {
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center shrink-0">
             <span className="text-xs font-black text-white">
-              {row.name.split(" ").map((n:string) => n[0]).join("").slice(0, 2).toUpperCase()}
+              {row.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
             </span>
           </div>
           <div>
@@ -668,7 +694,7 @@ export default function RolesPage() {
           onClick={() => { setSelectedUser(row); setIsOpen(true); }}
           className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition"
         >
-          <Eye size={18} /> Aperçu
+          <Eye size={18} />
         </button>
       ),
     },
@@ -679,85 +705,74 @@ export default function RolesPage() {
       <Navbar />
 
       <main className="mt-20 p-6 space-y-8">
-          <PageHeader
-            title="Gestion des rôles & Utilisateurs"
-            subtitle="Gérez les rôles, permissions et accès de tous les utilisateurs"
-          />
+        <PageHeader
+          title="Gestion des rôles & Utilisateurs"
+          subtitle="Gérez les rôles, permissions et accès de tous les utilisateurs"
+        />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
+        </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              {ROLE_FILTERS.map(f => (
-                <button
-                  key={f.key}
-                  onClick={() => handleRoleFilter(f.key)}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition ${
-                    roleFilter === f.key
-                      ? "bg-slate-900 text-white"
-                      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0">
-              {loading && <span className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />}
-              <p className="text-sm text-slate-400 font-medium">
-                {totalItems} utilisateur{totalItems > 1 ? "s" : ""}
-              </p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            {ROLE_FILTERS.map(f => (
               <button
-                onClick={() => setAddAdminOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm"
+                key={f.key}
+                onClick={() => handleRoleFilter(f.key)}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition ${roleFilter === f.key
+                  ? "bg-slate-900 text-white"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
               >
-                <UserPlus size={15} />
-                Ajouter un administrateur
+                {f.label}
               </button>
-            </div>
+            ))}
           </div>
 
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
-            {loading && users.length === 0 ? (
-              <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-4">
-                <div className="w-10 h-10 border-4 border-slate-200 border-t-slate-900 rounded-full animate-spin" />
-                <p className="text-sm font-medium italic">Chargement des utilisateurs...</p>
-              </div>
-            ) : (
-              <>
-                <DataTable title="Liste des utilisateurs" columns={columns} data={users} onViewAll={() => {}} />
-                {users.length === 0 && !loading && (
-                   <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-2">
-                     <Users size={40} className="text-slate-100 mb-2" />
-                     <p className="text-sm font-medium italic">Aucun utilisateur trouvé pour ce filtre.</p>
-                   </div>
-                )}
-                <div className="p-6 border-t border-slate-50 flex items-center justify-between bg-slate-50/30">
-                  <p className="text-xs text-slate-400">
-                    Page {currentPage} sur {totalPages || 1} · {totalItems} utilisateurs
-                  </p>
-                  <Paginate currentPage={currentPage} totalPages={totalPages || 1} onPageChange={setCurrentPage} />
-                </div>
-              </>
-            )}
+          <div className="flex items-center gap-3 shrink-0">
+            {loading && <span className="w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />}
+            <p className="text-sm text-slate-400 font-medium">
+              {totalItems} utilisateur{totalItems > 1 ? "s" : ""}
+            </p>
+            <button
+              onClick={() => setAddAdminOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm"
+            >
+              <UserPlus size={15} />
+              Ajouter un administrateur
+            </button>
           </div>
+        </div>
 
-          <UserSidePanel
-            user={isOpen ? selectedUser : null}
-            onClose={() => { setIsOpen(false); setSelectedUser(null); }}
-            onToggleStatus={handleToggleStatus}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden h-[calc(100vh-350px)]">
+          <DataTable
+            title="Liste des utilisateurs"
+            columns={columns}
+            data={users}
+            isLoading={loading}
+            onSearchChange={(q) => { /* fetchUsers gère déjà les filtres */ fetchUsers(); }}
+            pagination={{
+              currentPage: currentPage,
+              totalPages: totalPages || 1,
+              onPageChange: setCurrentPage,
+            }}
           />
+        </div>
 
-          <AddAdminSidePanel
-            open={addAdminOpen}
-            onClose={() => setAddAdminOpen(false)}
-            onSuccess={handleAdminCreated}
-          />
+        <UserSidePanel
+          user={isOpen ? selectedUser : null}
+          onClose={() => { setIsOpen(false); setSelectedUser(null); }}
+          onToggleStatus={handleToggleStatus}
+        />
 
-        </main>
-      </div>
+        <AddAdminSidePanel
+          open={addAdminOpen}
+          onClose={() => setAddAdminOpen(false)}
+          onSuccess={handleAdminCreated}
+        />
+
+      </main>
+    </div>
   );
 }

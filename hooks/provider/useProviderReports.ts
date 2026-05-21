@@ -1,6 +1,4 @@
-"use client";
-
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   providerReportService,
   InterventionReport, ReportStats,
@@ -12,6 +10,8 @@ export type ReportFilterState = {
   type?:   string;
   date_from?: string;
   date_to?:   string;
+  page?:      number;
+  search?:    string; // Ajouté
 };
 
 export interface UseProviderReportsReturn {
@@ -19,6 +19,7 @@ export interface UseProviderReportsReturn {
   reports:         InterventionReport[];
   filteredReports: InterventionReport[];
   stats:           ReportStats | null;
+  meta:            any;
   selectedReport:  InterventionReport | null;
   // Loaders
   loading:         boolean;
@@ -50,6 +51,7 @@ export interface UseProviderReportsReturn {
 export function useProviderReports(initialFilters: ReportFilterState = {}): UseProviderReportsReturn {
   const [reports,        setReports]        = useState<InterventionReport[]>([]);
   const [stats,          setStats]          = useState<ReportStats | null>(null);
+  const [meta,           setMeta]           = useState<any>(null);
   const [selectedReport, setSelectedReport] = useState<InterventionReport | null>(null);
 
   const [loading,      setLoading]      = useState(true);
@@ -64,6 +66,9 @@ export function useProviderReports(initialFilters: ReportFilterState = {}): UseP
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen,   setIsEditOpen]   = useState(false);
   const [filters,      setFiltersState] = useState<ReportFilterState>(initialFilters);
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(initialFilters.search);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── flash ──────────────────────────────────────────────────────────────────
   const flash = (type: "success" | "error", msg: string) => {
@@ -71,44 +76,158 @@ export function useProviderReports(initialFilters: ReportFilterState = {}): UseP
     else                    { setSubmitError(msg);   setTimeout(() => setSubmitError(""),   5000); }
   };
 
-  // ── fetchReports — passe les filtres directement à l'API ─────────────────
-  const fetchReports = useCallback(async (f?: ReportFilterState) => {
+  // ── fetchReports ──────────────────────────────────────────────────────────
+  const fetchReports = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const active = f ?? filters;
-      const params: Record<string, any> = {};
-      if (active.type)      params.intervention_type = active.type;
-      if (active.status)    params.status            = active.status;
-      if (active.date_from) params.date_debut        = active.date_from;
-      if (active.date_to)   params.date_fin          = active.date_to;
-      setReports(await providerReportService.getReports(params));
+      const params: Record<string, any> = { per_page: 10, page: filters.page || 1 };
+      const requestedType = filters.type;
+      
+      // Le type demandé (preventif / curatif) est directement transmis à l'API pour un filtrage serveur précis et cohérent
+      if (requestedType) {
+        params.intervention_type = requestedType;
+      }
+      
+      if (filters.status)    params.status            = filters.status;
+      if (filters.date_from) params.date_debut        = filters.date_from;
+      if (filters.date_to)   params.date_fin          = filters.date_to;
+      if (debouncedSearch)   params.search            = debouncedSearch;
+      
+      const response = await providerReportService.getReports(params);
+      let items = response.items;
+
+      // Normalisation des types en fonction du contexte (planning ou ticket préventif)
+      items = items.map(r => {
+        const isPreventif = r.intervention_type === "preventif" || !!r.planning_id;
+        return { ...r, intervention_type: isPreventif ? "preventif" : "curatif" };
+      });
+
+      // Sécurité Front : Filtrage par type si le backend a renvoyé des données mixtes
+      if (requestedType) {
+        items = items.filter(r => r.intervention_type === requestedType);
+      }
+
+      // Calcul du total intelligent
+      let metaTotal = response.meta?.total ?? items.length;
+      
+      // Si on a un breakdown par type dans la réponse, c'est la source la plus fiable pour le total filtré
+      if (requestedType && response.stats?.reports_by_type) {
+        const matching = response.stats.reports_by_type.find((i: any) => i.intervention_type === requestedType);
+        if (matching) metaTotal = matching.count;
+      }
+
+      setReports(items);
+      setMeta({ ...response.meta, total: metaTotal });
+      
+      // Synchronisation rigoureuse des statistiques
+      const isPending = (s: string) => ["submitted", "pending", "soumis"].includes(s?.toLowerCase());
+      const isValidated = (s: string) => s?.toLowerCase() === "validated";
+
+      const localValidated = items.filter(r => isValidated(r.status)).length;
+      const localPending = items.filter(r => isPending(r.status)).length;
+
+      setStats(prev => {
+        const baseStats = response.stats || prev || { total_reports: 0, validated_reports: 0, pending_reports: 0, rejected_reports: 0, average_rating: 0 };
+        
+        // On force le total
+        let newTotal = metaTotal;
+        let newVal = baseStats.validated_reports;
+        let newPen = baseStats.pending_reports;
+
+        // Force la cohérence locale
+        if (items.length >= metaTotal) {
+          // Si on a tout en main, les calculs locaux sont les seuls vrais
+          newVal = localValidated;
+          newPen = localPending;
+        } else {
+          // Si paginé, on s'assure au moins de la cohérence visuelle
+          if (newVal > metaTotal) newVal = localValidated;
+          if (newPen > metaTotal) newPen = localPending;
+          if (localPending > 0 && newPen === 0) newPen = localPending;
+          if (localValidated > 0 && newVal === 0) newVal = localValidated;
+        }
+
+        return {
+          ...baseStats,
+          total_reports: newTotal,
+          validated_reports: newVal,
+          pending_reports: newPen,
+          rejected_reports: items.length >= metaTotal ? items.filter(r => r.status === "rejected").length : (baseStats.rejected_reports ?? 0)
+        };
+      });
     } catch (e: any) {
       setError(e.response?.data?.message ?? e.response?.data?.error ?? "Erreur lors du chargement des rapports.");
     } finally { setLoading(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [filters, debouncedSearch]);
 
   // ── fetchStats ─────────────────────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
-    try { setStats(await providerReportService.getStats()); }
+    try {
+      const params: Record<string, any> = {};
+      const t = filters.type;
+      if (t) {
+        params.intervention_type = t;
+      }
+
+      if (filters.status)    params.status            = filters.status;
+      if (filters.date_from) params.date_debut        = filters.date_from;
+      if (filters.date_to)   params.date_fin          = filters.date_to;
+      if (debouncedSearch)   params.search            = debouncedSearch;
+      
+      const resStats = await providerReportService.getStats(params);
+      
+      // Smart Filter : si le back renvoie un total global (ex: 37 au lieu de 8), on essaie de filtrer par type
+      let finalStats = { ...resStats };
+      if (t && finalStats.reports_by_type) {
+        const matching = finalStats.reports_by_type.find((i: any) => i.intervention_type === t);
+        if (matching) finalStats.total_reports = matching.count;
+      }
+
+      setStats(prev => {
+        // Si fetchReports a déjà fourni des stats plus précises (filtrées par type/status), on ne met à jour que les champs globaux
+        if (prev && prev.total_reports !== undefined && finalStats.total_reports > prev.total_reports && t) {
+          return {
+            ...prev,
+            average_rating: finalStats.average_rating,
+            reports_by_type: finalStats.reports_by_type,
+            reports_by_status: finalStats.reports_by_status
+          };
+        }
+        return finalStats;
+      });
+    }
     catch { /* non bloquant */ }
     finally { setStatsLoading(false); }
-  }, []);
+  }, [filters, debouncedSearch]);
 
-  useEffect(() => { fetchReports(); fetchStats(); }, [fetchReports, fetchStats]);
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
 
-  // ── filtrage côté client (fallback si l'API ne filtre pas tout) ───────────
-  const filteredReports = reports.filter(r => {
-    if (filters.status && r.status !== filters.status) return false;
-    // On ne filtre plus sur le type côté Front pour faire confiance à l'API
-    return true;
-  });
+  useEffect(() => {
+    fetchReports();
+    fetchStats();
+  }, [filters, fetchReports, fetchStats]);
 
   const setFilters = (f: ReportFilterState) => {
-    setFiltersState(f);
-    fetchReports(f);
+    setFiltersState(prev => {
+      const next = { ...prev, ...f };
+      if (f.search !== undefined) {
+        next.page = 1;
+      }
+      return next;
+    });
   };
+
+  const filteredReports = reports;
 
   // ── panel aperçu ───────────────────────────────────────────────────────────
   const openPanel  = (r: InterventionReport) => { setSelectedReport(r); setIsPanelOpen(true); };
@@ -165,7 +284,7 @@ export function useProviderReports(initialFilters: ReportFilterState = {}): UseP
   };
 
   return {
-    reports, filteredReports, stats, selectedReport,
+    reports, filteredReports, stats, meta, selectedReport,
     loading, statsLoading, submitting,
     error, submitSuccess, submitError,
     isPanelOpen, isCreateOpen, isEditOpen, filters,

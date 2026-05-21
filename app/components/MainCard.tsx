@@ -66,14 +66,14 @@ export default function MainCard({
   customActionLabel,
   onCellClick,
 }: MainCardProps) {
-  const [searchQuery, setSearchQuery]     = useState("");
-  const [activeMonth, setActiveMonth]     = useState(new Date());
-  const [viewMode, setViewMode]           = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeMonth, setActiveMonth] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Panel "liste du jour" quand on clique "+N autres"
-  const [dayListOpen,     setDayListOpen]     = useState(false);
+  const [dayListOpen, setDayListOpen] = useState(false);
   const [dayListPlannings, setDayListPlannings] = useState<Planning[]>([]);
-  const [dayListDate,     setDayListDate]     = useState<Date | null>(null);
+  const [dayListDate, setDayListDate] = useState<Date | null>(null);
 
   const handleShowMore = (plannings: Planning[], date: Date) => {
     setDayListPlannings(plannings);
@@ -90,10 +90,12 @@ export default function MainCard({
   const filteredPlannings = plannings.filter((p) => {
     const q = searchQuery.toLowerCase();
     return (
-      p.codification.toLowerCase().includes(q) ||
-      p.responsable_name.toLowerCase().includes(q) ||
-      (p.site?.nom ?? "").toLowerCase().includes(q) ||
-      (p.provider?.company_name ?? p.provider?.user?.first_name ?? "").toLowerCase().includes(q)
+      (p.codification?.toLowerCase() ?? "").includes(q) ||
+      (p.responsable_name?.toLowerCase() ?? "").includes(q) ||
+      (p.site?.nom?.toLowerCase() ?? "").includes(q) ||
+      (p.provider?.company_name?.toLowerCase() ?? 
+       p.provider?.user?.first_name?.toLowerCase() ?? 
+       "").includes(q)
     );
   });
 
@@ -110,17 +112,15 @@ export default function MainCard({
         <div className="flex items-center bg-slate-100/80 p-1 rounded-xl">
           <button
             onClick={() => setViewMode("grid")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
-              viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${viewMode === "grid" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
           >
             <LayoutGrid size={16} /> Grille
           </button>
           <button
             onClick={() => setViewMode("list")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${
-              viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition ${viewMode === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}
           >
             <List size={16} /> Liste
           </button>
@@ -183,20 +183,24 @@ export default function MainCard({
               { header: "Site", key: "site", render: (_: any, row: Planning) => getSiteName(row.site) },
               { header: "Prestataire", key: "provider", render: (_: any, row: Planning) => getProviderName(row.provider) },
               { header: "Date de début", key: "date_debut", render: (_: any, row: Planning) => `${formatDate(row.date_debut)} à ${formatTime(row.date_debut)}` },
-              { header: "Date de fin", key: "date_fin", render: (_: any, row: Planning) => `${formatDate(row.date_fin)} à ${formatTime(row.date_fin)}` },
-              { header: "Statut", key: "status", render: (_: any, row: Planning) => (
-                <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${STATUS_COLORS[row.status]}15`, color: STATUS_COLORS[row.status] }}>
-                  {STATUS_LABELS[row.status]}
-                </span>
-              )},
-              { header: "Actions", key: "actions", render: (_: any, row: Planning) => (
-                <button
-                  onClick={() => onEventClick(row)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold transition"
-                >
-                  Détails
-                </button>
-              )}
+              // { header: "Date de fin", key: "date_fin", render: (_: any, row: Planning) => `${formatDate(row.date_fin)} à ${formatTime(row.date_fin)}` },
+              {
+                header: "Statut", key: "status", render: (_: any, row: Planning) => (
+                  <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ backgroundColor: `${STATUS_COLORS[row.status]}15`, color: STATUS_COLORS[row.status] }}>
+                    {STATUS_LABELS[row.status]}
+                  </span>
+                )
+              },
+              {
+                header: "Actions", key: "actions", render: (_: any, row: Planning) => (
+                  <button
+                    onClick={() => onEventClick(row)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold transition"
+                  >
+                    Détails
+                  </button>
+                )
+              }
             ]}
             data={filteredPlannings}
           />

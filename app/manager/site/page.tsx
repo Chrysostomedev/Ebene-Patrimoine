@@ -59,10 +59,9 @@ function ManagerSiteCard({ site }: { site: ManagerSite }) {
               <span className="truncate">{(site as any).adresse ?? (site as any).localisation ?? (site as any).ville ?? "—"}</span>
             </div>
           </div>
-          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-            (site.status?.toLowerCase() === "active" || site.status?.toLowerCase() === "actif")
-              ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"
-          }`}>
+          <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${(site.status?.toLowerCase() === "active" || site.status?.toLowerCase() === "actif")
+            ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-600"
+            }`}>
             {(site.status?.toLowerCase() === "active" || site.status?.toLowerCase() === "actif") ? "Actif" : "Inactif"}
           </span>
 
@@ -125,31 +124,31 @@ export default function SitesPage() {
   ];
 
   const kpis = [
-    { 
-      label: "Sites assignés", 
-      value: siteStats?.nombre_sites ?? siteStats?.nombre_total_sites ?? sites.length, 
-      delta: "", trend: "up" as const 
+    {
+      label: "Sites assignés",
+      value: siteStats?.nombre_sites ?? siteStats?.nombre_total_sites ?? sites.length,
+      delta: "", trend: "up" as const
     },
-    { 
-      label: "Sites actifs", 
+    {
+      label: "Sites actifs",
       value: siteStats?.nombre_sites_actifs ?? sites.filter(s => {
         const st = (s as any).status?.toLowerCase();
         return st === "active" || st === "actif";
-      }).length, 
-      delta: "", trend: "up" as const 
+      }).length,
+      delta: "", trend: "up" as const
     },
-    { 
-      label: "Total patrimoines", 
-      value: siteStats?.nombre_equipements ?? assetStats?.total ?? 0, 
-      delta: "", trend: "up" as const 
+    {
+      label: "Total patrimoines",
+      value: siteStats?.nombre_equipements ?? assetStats?.total ?? 0,
+      delta: "", trend: "up" as const
     },
-    { 
-      label: "Loyer moyen/site", 
-      value: (siteStats?.loyer_moyen || siteStats?.cout_loyer_moyen_par_site) 
-        ? fmtMontant(siteStats.loyer_moyen || siteStats.cout_loyer_moyen_par_site) 
-        : "-", 
-      delta: "", trend: "up" as const 
-    },
+    // { 
+    //   label: "Loyer moyen/site", 
+    //   value: (siteStats?.loyer_moyen || siteStats?.cout_loyer_moyen_par_site) 
+    //     ? fmtMontant(siteStats.loyer_moyen || siteStats.cout_loyer_moyen_par_site) 
+    //     : "-", 
+    //   delta: "", trend: "up" as const 
+    // },
   ];
 
 
@@ -179,7 +178,7 @@ export default function SitesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-5">
               {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
             </div>
 

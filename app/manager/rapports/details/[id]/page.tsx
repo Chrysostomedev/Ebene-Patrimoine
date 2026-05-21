@@ -24,17 +24,23 @@ const formatDate = (iso?: string | null): string => {
 };
 
 function StatusBadge({ status }: { status?: string }) {
-  const isValidated = status === "validated";
-  const isRejected = status === "rejected";
-
-  let styles = "border-slate-300 bg-slate-100 text-slate-700";
-  if (isValidated) styles = "border-emerald-200 bg-emerald-50 text-emerald-600";
-  if (isRejected) styles = "border-rose-200 bg-rose-50 text-rose-600";
-
+  const styles: Record<string, string> = {
+    validated: "border-emerald-200 bg-emerald-50 text-emerald-600",
+    pending: "border-amber-200 bg-amber-50 text-amber-600",
+    submitted: "border-blue-200 bg-blue-50 text-blue-600",
+    rejected: "border-rose-200 bg-rose-50 text-rose-600",
+  };
+  const labels: Record<string, string> = {
+    validated: "Validé",
+    pending: "En attente",
+    submitted: "Soumis",
+    rejected: "Rejeté",
+  };
+  const s = status ?? "pending";
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-widest ${styles}`}>
-      {isValidated ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-      {status === "validated" ? "Validé" : status === "pending" ? "En attente" : status}
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-widest ${styles[s] ?? "border-slate-300 bg-slate-100 text-slate-700"}`}>
+      {s === "validated" ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+      {labels[s] ?? s}
     </span>
   );
 }
@@ -182,7 +188,7 @@ function ValidateModal({
           {/* Étape 2 : La Note */}
           <div className="space-y-4">
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] block">
-              2. Note de satisfaction
+              2. Note de satisfaction <span className="text-slate-400 font-normal">(optionnel)</span>
             </label>
             <div className="flex gap-3 justify-center py-4 bg-slate-50/50 rounded-3xl border border-slate-50">
               {Array.from({ length: 5 }, (_, i) => {
@@ -205,7 +211,7 @@ function ValidateModal({
           {/* Étape 3 : Commentaire */}
           <div className="space-y-4">
             <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] block">
-              3. Commentaire de validation
+              3. Commentaire de validation <span className="text-slate-400 font-normal">(optionnel)</span>
             </label>
             <textarea
               value={comment}
@@ -302,7 +308,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   }
 
   const isValidated = report.status === "validated";
-  
+
   // Récupération robuste des pièces jointes (certains endpoints renvoient rapport_attachments)
   const allAttachments = [
     ...(report.attachments ?? []),
@@ -311,14 +317,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
   ];
 
   // Filtrage intelligent par type ou extension
-  const pdfs = allAttachments.filter(a => 
-    a.file_type === "document" || 
+  const pdfs = allAttachments.filter(a =>
+    a.file_type === "document" ||
     a.file_type === "pdf" ||
     (a.file_path && a.file_path.toLowerCase().endsWith(".pdf"))
   );
 
-  const photos = allAttachments.filter(a => 
-    a.file_type === "photo" || 
+  const photos = allAttachments.filter(a =>
+    a.file_type === "photo" ||
     a.file_type === "image" ||
     (a.file_path && /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_path))
   );
@@ -387,14 +393,14 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
             <div className="w-full lg:w-auto flex flex-col gap-4">
               <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100 min-w-[320px] space-y-6">
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
+                  {/* <div className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</span>
                     <TypeBadge type={report.intervention_type} />
-                  </div>
-                  <div className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
+                  </div> */}
+                  {/* <div className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Résultat</span>
                     <ResultBadge result={report.result} />
-                  </div>
+                  </div> */}
                   <div className="flex justify-between items-center bg-white/50 p-3 rounded-2xl border border-white">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Déposé le</span>
                     <span className="text-sm font-black text-slate-900 uppercase">{formatDate(report.created_at)}</span>
@@ -444,9 +450,9 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                     <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white"><Wrench size={16} /></div>
                     <label className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Travaux effectués</label>
                   </div>
-                  <p className="text-sm text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-6 rounded-2xl border border-slate-50">
+                  <div className="text-sm text-slate-600 leading-relaxed font-medium bg-slate-50/50 p-6 rounded-2xl border border-slate-50">
                     <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: report.action_taken || "Aucune description détaillée fournie." }} />
-                  </p>
+                  </div>
                 </div>
 
                 <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -537,7 +543,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
               </div>
 
               {/* Prestataire & Timing */}
-              <div className="bg-slate-900 p-8 rounded-[32px] text-white space-y-8 shadow-2xl shadow-slate-900/40">
+              {/* <div className="bg-slate-900 p-8 rounded-[32px] text-white space-y-8 shadow-2xl shadow-slate-900/40">
                 <div className="space-y-4">
                   <h3 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Prestataire</h3>
                   <div className="flex items-center gap-4">
@@ -556,10 +562,10 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                   <div className="space-y-6 relative overflow-hidden">
                     <div className="absolute left-[7px] top-2 bottom-2 w-px bg-white/10" />
                     {[
-                      { label: "Début", val: report.start_date, active: true },
-                      { label: "Fin", val: report.end_date, active: !!report.end_date },
-                      { label: "Soumis", val: report.created_at, active: true },
-                      { label: "Validé", val: report.validated_at, active: !!report.validated_at },
+                      // { label: "Début", val: report.start_date, active: true },
+                      // { label: "Fin", val: report.end_date, active: !!report.end_date },
+                      { label: "Soumis le", val: report.created_at, active: true },
+                      { label: "Validé le", val: report.validated_at, active: !!report.validated_at },
                     ].filter(x => x.val).map((step, i) => (
                       <div key={i} className="flex items-start gap-4 relative">
                         <div className={`w-3.5 h-3.5 rounded-full z-10 border-2 border-slate-900 ${step.active ? "bg-emerald-400" : "bg-white/20"}`} />
@@ -571,7 +577,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ id: str
                     ))}
                   </div>
                 </div>
-              </div>
+              </div> */}
 
             </div>
           </div>

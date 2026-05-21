@@ -72,7 +72,7 @@ export default function Dashboard() {
     // Le backend renvoie déjà les volumes mensuels filtrés/agrégés
     const map: Record<number, number> = {};
     stats?.tendance_annuelle_maintenance?.forEach((i: any) => {
-      if (i.annee === selectedYear) {
+      if (Number(i.annee) === selectedYear) {
         map[i.mois] = i.total;
       }
     });
@@ -112,7 +112,7 @@ export default function Dashboard() {
         { label: "Type", value: ticket.type === "curatif" ? "Curatif" : "Préventif" },
         { label: "Sujet", value: ticket.subject },
         { label: "Site concerné", value: ticket.site?.nom },
-        { label: "Date soumise", value: ticket.planned_at ? new Date(ticket.planned_at).toLocaleString("fr-FR") : "-" },
+        { label: "Date planifiée", value: ticket.planned_at ? new Date(ticket.planned_at).toLocaleString("fr-FR") : "-" },
         { label: "Date limite", value: ticket.due_at ? new Date(ticket.due_at).toLocaleString("fr-FR") : "-" },
         { label: "Statut", value: STATUS_LABELS[(ticket.status || "").toLowerCase() as keyof typeof STATUS_LABELS] || ticket.status, isStatus: true, statusColor }
       ]
@@ -123,7 +123,7 @@ export default function Dashboard() {
 
   const columns: ColumnConfig<any>[] = [
     {
-      header: "Codification", key: "reference",
+      header: "Référence", key: "reference",
       render: (_: any, row: any) => (
         <span className="font-mono text-[10px] font-black text-slate-900 bg-slate-100 px-2 py-1 rounded-lg">
           {row.reference || `${row.code_ticket}`}
@@ -148,7 +148,7 @@ export default function Dashboard() {
       )
     },
     {
-      header: "Date soumise", key: "planned_at",
+      header: "Date planifiée", key: "planned_at",
       render: (_: any, row: any) => {
         if (!row.planned_at) return <span className="text-slate-400 text-xs">-</span>;
         const d = new Date(row.planned_at);
@@ -201,14 +201,14 @@ export default function Dashboard() {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatsCard label="Nombre total de tickets" value={stats.kpis.nombre_total_tickets} href="/manager/tickets" />
-                <StatsCard label="Tickets traités" value={stats.kpis.nombre_tickets_traités} href="/manager/tickets" />
-                <StatsCard label="Tickets non traités" value={stats.kpis.nombre_tickets_non_traités} href="/manager/tickets" />
+                <StatsCard label="Nombre total de tickets" value={stats?.kpis?.nombre_total_tickets ?? 0} href="/manager/tickets" />
+                <StatsCard label="Tickets clôturés" value={stats?.kpis?.nombre_tickets_traités ?? 0} href="/manager/tickets" />
+                <StatsCard label="Tickets non clôturés" value={stats?.kpis?.nombre_tickets_non_traités ?? 0} href="/manager/tickets" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <StatsCard label="Mes prestataires" value={stats.kpis.nombre_prestataires} href="/manager/prestataires" />
-                <StatsCard label="Coût de maintenance de mon site" value={stats.kpis.cout_global_maintenance} isCurrency href="/manager/factures" />
+                <StatsCard label="Mes prestataires" value={stats?.kpis?.nombre_prestataires ?? 0} href="/manager/prestataires" />
+                <StatsCard label="Coût de maintenance de mon site" value={stats?.kpis?.cout_global_maintenance ?? 0} isCurrency href="/manager/factures" />
               </div>
 
               <section className="grid grid-cols-1 lg:grid-cols-8 gap-12">

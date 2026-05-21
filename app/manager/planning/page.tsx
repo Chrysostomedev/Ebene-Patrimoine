@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import StatsCard from "@/components/StatsCard";
@@ -57,6 +57,7 @@ export default function PlanningPage() {
     refresh
   } = usePlannings();
 
+  const router = useRouter();
   const [selectedPlanning, setSelectedPlanning] = useState<Planning | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -75,9 +76,9 @@ export default function PlanningPage() {
   });
 
   // Charger les actifs pour la modale
-  useState(() => {
+  useEffect(() => {
     AssetService.getAssets({ per_page: 100 }).then(data => setAssets(data.items));
-  });
+  }, []);
 
   const ticketFields: FieldConfig[] = [
     {
@@ -157,7 +158,7 @@ export default function PlanningPage() {
 
   const STATUS_FILTERS = [
     { key: "", label: "Tous" },
-    { key: "planifie", label: "Soumis" },
+    { key: "planifie", label: "Planifié" },
     { key: "en_cours", label: "En cours" },
     { key: "realise", label: "Réalisé" },
     { key: "en_retard", label: "En retard" },
@@ -257,10 +258,6 @@ export default function PlanningPage() {
             onPanelClose={() => setIsPanelOpen(false)}
             onEditClick={undefined}
             onDeleteClick={undefined}
-            onCellClick={(date) => {
-              setSelectedDate(date.toISOString().split('T')[0]);
-              setIsTicketModalOpen(true);
-            }}
           />
         </main>
       </div>

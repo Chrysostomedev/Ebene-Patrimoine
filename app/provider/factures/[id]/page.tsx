@@ -161,7 +161,7 @@ export default function ProviderFacturesDetailPage() {
     { name: "pdf_file", label: "Facture PDF (optionnel)", type: "pdf-upload", maxPDFs: 1, gridSpan: 2 },
   ];
 
-  const canEdit = invoice && invoice.payment_status === "pending";
+  const canEdit = invoice && invoice.payment_status !== "paid" && invoice.payment_status !== "cancelled";
 
   // ── Données dérivées ──────────────────────────────────────────────────────
   const isPaid = invoice?.payment_status === "paid";
@@ -182,12 +182,21 @@ export default function ProviderFacturesDetailPage() {
     url: getPdfUrl(a.file_path),
   }));
 
+  // ── Calculs de secours pour cohérence d'affichage ─────────────────────────
+  const rawTTC = toNum(invoice?.amount_ttc);
+  const rawTax = toNum(invoice?.tax_amount);
+  const rawHT = toNum(invoice?.amount_ht);
+
+  const displayTTC = rawTTC;
+  const displayTax = rawTax;
+  const displayHT = (rawHT === 0 && rawTTC > 0) ? (rawTTC - rawTax) : rawHT;
+
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = [
     { label: "Prestataire", value: getProviderName(invoice?.provider), delta: "", trend: "up" as const },
     { label: "Site", value: getSiteName(invoice?.site), delta: "", trend: "up" as const },
-    { label: "Montant HT", value: formatMontant(amountHT), delta: "", trend: "up" as const },
-    { label: "Montant TTC", value: formatMontant(amountTTC), delta: "", trend: "up" as const },
+    { label: "Statut", value: (invoice?.payment_status), delta: "", trend: "up" as const },
   ];
 
   return (
@@ -278,18 +287,19 @@ export default function ProviderFacturesDetailPage() {
                       </div>
                     ))}
                   </div>
-                  <button
-                    onClick={() => setIsEditModalOpen(true)}
-                    disabled={!canEdit}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm ${canEdit ? "bg-slate-900 text-white hover:bg-black" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
-                  >
-                    <Pencil size={14} /> Modifier la facture
-                  </button>
+                  {/* {canEdit && (
+                    <button
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm bg-slate-900 text-white hover:bg-black"
+                    >
+                      <Pencil size={14} /> Modifier la facture
+                    </button>
+                  )} */}
                 </div>
               </div>
 
               {/* ── KPIs ─────────────────────────────────────────────── */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {kpis.map((k, i) => <StatsCard key={i} {...k} />)}
               </div>
 
@@ -318,7 +328,7 @@ export default function ProviderFacturesDetailPage() {
                       />
                     )}
                     <FlowStep
-                      label="Facture générée"
+                      label="Facture créee"
                       reference={invoice.reference}
                       date={invoice.invoice_date}
                       status={invoice.payment_status}
@@ -335,8 +345,8 @@ export default function ProviderFacturesDetailPage() {
                     <div className="border border-slate-100 rounded-2xl overflow-hidden">
                       <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 space-y-2">
                         {[
-                          { label: "Montant HT", value: formatMontant(amountHT) },
-                          { label: "TVA", value: formatMontant(taxAmount) },
+                          { label: "Montant HT", value: formatMontant(displayHT) },
+                          { label: "TVA", value: formatMontant(displayTax) },
                         ].map((r) => (
                           <div key={r.label} className="flex justify-between text-sm">
                             <span className="text-slate-500">{r.label}</span>
@@ -345,7 +355,7 @@ export default function ProviderFacturesDetailPage() {
                         ))}
                         <div className="flex justify-between text-base border-t border-slate-200 pt-2">
                           <span className="font-black text-slate-900">Total TTC</span>
-                          <span className="font-black text-slate-900">{formatMontant(amountTTC)}</span>
+                          <span className="font-black text-slate-900">{formatMontant(displayTTC)}</span>
                         </div>
                       </div>
 
@@ -418,7 +428,7 @@ export default function ProviderFacturesDetailPage() {
                             onClick={() => setPdfPreview({ url: pdfUrl, name: pdfName })}
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
                           >
-                            <Eye size={13} /> Aperçu
+                            <Eye size={13} />
                           </button>
                           <a href={pdfUrl} download target="_blank" rel="noreferrer"
                             className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition">
@@ -434,7 +444,7 @@ export default function ProviderFacturesDetailPage() {
                     )}
 
                     {/* Justificatifs supplémentaires (invoices/attachments/) */}
-                    {attachments.length > 0 && (
+                    {/* {attachments.length > 0 && (
                       <div className="mt-4 space-y-2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
                           Justificatifs ({attachments.length})
@@ -449,12 +459,12 @@ export default function ProviderFacturesDetailPage() {
                               onClick={() => setPdfPreview({ url: file.url, name: file.name })}
                               className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-900 transition"
                             >
-                              <Eye size={12} /> Aperçu
+                              <Eye size={12} />
                             </button>
                           </div>
                         ))}
                       </div>
-                    )}
+                    )} */}
                   </div>
 
                   {/* Statut actuel */}

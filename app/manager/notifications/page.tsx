@@ -14,9 +14,9 @@ import { useNotifications, Notification, NotifSource } from "../../../hooks/admi
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)        return "À l'instant";
-  if (diff < 3600)      return `il y a ${Math.floor(diff / 60)} min`;
-  if (diff < 86400)     return `il y a ${Math.floor(diff / 3600)} h`;
+  if (diff < 60) return "À l'instant";
+  if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `il y a ${Math.floor(diff / 3600)} h`;
   if (diff < 86400 * 7) return `il y a ${Math.floor(diff / 86400)} j`;
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
@@ -27,17 +27,17 @@ const SOURCE_CONFIG: Record<string, {
   label: string; Icon: React.ElementType;
   iconBg: string; iconColor: string; dotColor: string;
 }> = {
-  ticket:      { label: "Ticket",      Icon: Ticket,    iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  devis:       { label: "Devis",       Icon: FileText,  iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
-  facture:     { label: "Facture",     Icon: Receipt,   iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#111827" },
-  site:        { label: "Site",        Icon: MapPin,    iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
-  patrimoine:  { label: "Patrimoine",  Icon: Building2, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
-  planning:    { label: "Planning",    Icon: Settings,  iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
-  prestataire: { label: "Prestataire", Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  utilisateur: { label: "Utilisateur", Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  service:     { label: "Service",     Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
-  type:        { label: "Type",        Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  soustype:    { label: "Sous-type",   Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  ticket: { label: "Ticket", Icon: Ticket, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  devis: { label: "Devis", Icon: FileText, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  facture: { label: "Facture", Icon: Receipt, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#111827" },
+  site: { label: "Site", Icon: MapPin, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  patrimoine: { label: "Patrimoine", Icon: Building2, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
+  planning: { label: "Planning", Icon: Settings, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
+  prestataire: { label: "Prestataire", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  utilisateur: { label: "Utilisateur", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  service: { label: "Service", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  type: { label: "Type", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  soustype: { label: "Sous-type", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
 };
 
 function getCfg(source: string) {
@@ -134,13 +134,13 @@ function NotifDetailPanel({ notif, onClose, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   const isOpen = !!notif;
-  const cfg    = notif ? getCfg(notif.source) : null;
+  const cfg = notif ? getCfg(notif.source) : null;
 
   return (
     <div
       className="fixed top-0 right-0 h-full w-[460px] bg-white z-50 shadow-2xl flex flex-col"
       style={{
-        transform:  isOpen ? "translateX(0)" : "translateX(100%)",
+        transform: isOpen ? "translateX(0)" : "translateX(100%)",
         transition: "transform 0.32s cubic-bezier(0.32, 0, 0, 1)",
         borderRadius: "24px 0 0 24px",
         borderLeft: "1px solid #f1f5f9",
@@ -156,12 +156,7 @@ function NotifDetailPanel({ notif, onClose, onDelete }: {
             >
               <ArrowLeft size={16} /> Retour
             </button>
-            <button
-              onClick={() => { onDelete(notif.id); onClose(); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-100 text-red-400 hover:bg-red-50 text-xs font-bold transition"
-            >
-              <Trash2 size={13} /> Supprimer
-            </button>
+
           </div>
 
           {/* Corps */}
@@ -205,10 +200,10 @@ function NotifDetailPanel({ notif, onClose, onDelete }: {
             {/* Méta */}
             <div>
               {[
-                { label: "Source",  value: cfg.label },
-                { label: "Statut",  value: notif.read ? "Lu" : "Non lu" },
+                { label: "Source", value: cfg.label },
+                { label: "Statut", value: notif.read ? "Lu" : "Non lu" },
                 { label: "Reçu le", value: new Date(notif.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) },
-                { label: "À",       value: new Date(notif.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) },
+                { label: "À", value: new Date(notif.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) },
               ].map((row) => (
                 <div key={row.label} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
                   <p className="text-xs text-slate-400 font-medium">{row.label}</p>
@@ -260,108 +255,108 @@ export default function NotificationsPage() {
   };
 
   const unread = notifications.filter((n) => !n.read);
-  const read   = notifications.filter((n) =>  n.read);
+  const read = notifications.filter((n) => n.read);
 
   return (
     <div className="flex-1 flex flex-col ">
-        <Navbar />
+      <Navbar />
 
-        <main className="flex-1 p-8 pt-24">
+      <main className="flex-1 p-8 pt-24">
 
-          {/* ── En-tête page ───────────────────────────────────────────── */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
+        {/* ── En-tête page ───────────────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
             <PageHeader
               title="Mes notifications"
               subtitle="Consultez et mettez à jour le statut de vos interventions"
             />
-              <p className="text-sm text-slate-500 mt-1">
-                {unreadCount > 0
-                  ? `${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}`
-                  : "Vous êtes à jour"}
-              </p>
+            <p className="text-sm text-slate-500 mt-1">
+              {unreadCount > 0
+                ? `${unreadCount} notification${unreadCount > 1 ? "s" : ""} non lue${unreadCount > 1 ? "s" : ""}`
+                : "Vous êtes à jour"}
+            </p>
+          </div>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 hover:border-slate-300 transition"
+            >
+              <CheckCheck size={14} />
+              Tout marquer comme lu
+            </button>
+          )}
+        </div>
+
+        {/* ── Contenu ────────────────────────────────────────────────── */}
+        {notifications.length === 0 ? (
+
+          /* Etat vide */
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-20 h-20 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-center mb-5">
+              <Bell size={32} className="text-slate-300" />
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllAsRead}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-100 hover:border-slate-300 transition"
-              >
-                <CheckCheck size={14} />
-                Tout marquer comme lu
-              </button>
-            )}
+            <p className="text-base font-bold text-slate-700">Aucune notification</p>
+            <p className="text-sm text-slate-400 mt-1">Vous êtes à jour sur tout !</p>
           </div>
 
-          {/* ── Contenu ────────────────────────────────────────────────── */}
-          {notifications.length === 0 ? (
+        ) : (
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
 
-            /* Etat vide */
-            <div className="flex flex-col items-center justify-center py-32 text-center">
-              <div className="w-20 h-20 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center justify-center mb-5">
-                <Bell size={32} className="text-slate-300" />
-              </div>
-              <p className="text-base font-bold text-slate-700">Aucune notification</p>
-              <p className="text-sm text-slate-400 mt-1">Vous êtes à jour sur tout !</p>
-            </div>
-
-          ) : (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-
-              {/* Section non-lues */}
-              {unread.length > 0 && (
-                <div>
-                  <div className="px-6 pt-5 pb-2 flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Non lues · {unread.length}
-                    </span>
-                  </div>
-                  {unread.map((notif) => (
-                    <NotifRow
-                      key={notif.id}
-                      notif={notif}
-                      isActive={activeNotif?.id === notif.id}
-                      onClick={() => handleOpen(notif)}
-                      onDelete={(e) => handleDelete(notif.id, e)}
-                    />
-                  ))}
+            {/* Section non-lues */}
+            {unread.length > 0 && (
+              <div>
+                <div className="px-6 pt-5 pb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Non lues · {unread.length}
+                  </span>
                 </div>
-              )}
-
-              {/* Séparateur si les deux sections */}
-              {unread.length > 0 && read.length > 0 && (
-                <div className="mx-6 border-t border-slate-100" />
-              )}
-
-              {/* Section lues */}
-              {read.length > 0 && (
-                <div>
-                  <div className="px-6 pt-5 pb-2">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      Lues · {read.length}
-                    </span>
-                  </div>
-                  {read.map((notif) => (
-                    <NotifRow
-                      key={notif.id}
-                      notif={notif}
-                      isActive={activeNotif?.id === notif.id}
-                      onClick={() => handleOpen(notif)}
-                      onDelete={(e) => handleDelete(notif.id, e)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-50">
-                <p className="text-[11px] text-center text-slate-300 font-medium">
-                  {notifications.length} notification{notifications.length > 1 ? "s" : ""} au total
-                </p>
+                {unread.map((notif) => (
+                  <NotifRow
+                    key={notif.id}
+                    notif={notif}
+                    isActive={activeNotif?.id === notif.id}
+                    onClick={() => handleOpen(notif)}
+                    onDelete={(e) => handleDelete(notif.id, e)}
+                  />
+                ))}
               </div>
+            )}
+
+            {/* Séparateur si les deux sections */}
+            {unread.length > 0 && read.length > 0 && (
+              <div className="mx-6 border-t border-slate-100" />
+            )}
+
+            {/* Section lues */}
+            {read.length > 0 && (
+              <div>
+                <div className="px-6 pt-5 pb-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Lues · {read.length}
+                  </span>
+                </div>
+                {read.map((notif) => (
+                  <NotifRow
+                    key={notif.id}
+                    notif={notif}
+                    isActive={activeNotif?.id === notif.id}
+                    onClick={() => handleOpen(notif)}
+                    onDelete={(e) => handleDelete(notif.id, e)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-50">
+              <p className="text-[11px] text-center text-slate-300 font-medium">
+                {notifications.length} notification{notifications.length > 1 ? "s" : ""} au total
+              </p>
             </div>
-          )}
-        </main>
-      
+          </div>
+        )}
+      </main>
+
       {/* ── Panel détail slide ────────────────────────────────────────── */}
       {activeNotif && (
         <div

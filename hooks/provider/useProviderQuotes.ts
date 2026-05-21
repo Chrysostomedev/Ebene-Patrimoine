@@ -1,5 +1,4 @@
-"use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   providerQuoteService,
   Quote, QuoteStats, QuoteFilters, CreateQuotePayload,
@@ -23,6 +22,10 @@ export interface UseProviderQuotesReturn {
   openCreate:    () => void;
   closeCreate:   () => void;
   setStatusFilter: (s: string) => void;
+  search:          (s: string) => void; // Ajouté
+  currentPage:   number;
+  setPage:       (p: number) => void;
+  meta:          any;
   createQuote:   (p: CreateQuotePayload) => Promise<boolean>;
   exportXlsx:    () => Promise<void>;
 }
@@ -40,21 +43,44 @@ export function useProviderQuotes(): UseProviderQuotesReturn {
   const [isPanelOpen,   setIsPanelOpen]   = useState(false);
   const [isCreateOpen,  setIsCreateOpen]  = useState(false);
   const [statusFilter,  setStatusFilter]  = useState("");
+  const [searchQuery,   setSearchQuery]   = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [currentPage,   setCurrentPage]   = useState(1);
+  const [meta,          setMeta]          = useState<any>(null);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = (type: "success" | "error", msg: string) => {
     if (type === "success") { setSubmitSuccess(msg); setTimeout(() => setSubmitSuccess(""), 4000); }
     else                    { setSubmitError(msg);   setTimeout(() => setSubmitError(""),   5000); }
   };
 
+  // Debounce search query
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchQuery]);
+
   const fetchQuotes = useCallback(async () => {
     setLoading(true); setError("");
     try {
-      const data = await providerQuoteService.getQuotes();
-      setAllQuotes(data);
+      const { items, meta } = await providerQuoteService.getQuotes({ 
+         page: currentPage, 
+         per_page: 15,
+         status: statusFilter || undefined,
+         search: debouncedSearch || undefined,
+      });
+      setAllQuotes(items);
+      setMeta(meta);
     } catch (e: any) {
       setError(e.response?.data?.message || "Erreur lors du chargement des devis.");
     } finally { setLoading(false); }
-  }, []);
+  }, [currentPage, statusFilter, debouncedSearch]);
 
   const fetchStats = useCallback(async () => {
     setStatsLoading(true);
@@ -63,12 +89,14 @@ export function useProviderQuotes(): UseProviderQuotesReturn {
     finally { setStatsLoading(false); }
   }, []);
 
+  const search = (val: string) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+  };
+
   useEffect(() => { fetchQuotes(); fetchStats(); }, [fetchQuotes, fetchStats]);
 
-  // Filtrage côté client sur les statuts bruts de la BD
-  const quotes = statusFilter
-    ? allQuotes.filter(q => q.status === statusFilter)
-    : allQuotes;
+  const quotes = allQuotes;
 
   const openPanel  = (q: Quote) => { setSelectedQuote(q); setIsPanelOpen(true); };
   const closePanel = () => { setIsPanelOpen(false); setTimeout(() => setSelectedQuote(null), 300); };
@@ -99,7 +127,8 @@ export function useProviderQuotes(): UseProviderQuotesReturn {
     loading, statsLoading, submitting,
     error, submitSuccess, submitError,
     isPanelOpen, isCreateOpen, statusFilter,
+    currentPage, setPage: setCurrentPage, meta,
     openPanel, closePanel, openCreate, closeCreate,
-    setStatusFilter, createQuote, exportXlsx,
+    setStatusFilter, search, createQuote, exportXlsx,
   };
 }

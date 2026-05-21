@@ -33,8 +33,8 @@ import {
 import Navbar from "@/components/Navbar";
 import ReusableForm from "@/components/ReusableForm";
 import { FieldConfig } from "@/components/ReusableForm";
-import DataTable, { ColumnConfig } from "@/components/DataTable";
-import Paginate from "@/components/Paginate";
+
+import { useToast } from "@/contexts/ToastContext";
 
 import {
   ManagerService,
@@ -43,6 +43,7 @@ import {
 } from "../../../../../services/admin/manager.service";
 import axiosInstance from "../../../../../core/axios";
 import { formatDate } from "@/lib/utils";
+import Paginate from "@/components/Paginate";
 
 // ── Palette couleur avatar (identique à GestCard) ─────────────────────────────
 const AVATAR_PALETTES = [

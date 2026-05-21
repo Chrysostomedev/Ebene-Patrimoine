@@ -29,7 +29,7 @@ export default function SideModal({ isOpen, onClose, title, subtitle, children }
       />
       
       {/* Contenu de la modale (Slide-in) */}
-      <div className="relative w-full max-w-2xl bg-white h-screen shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300 p-8 flex flex-col">
+      <div className={`side-modal relative w-full max-w-2xl bg-white h-screen shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300 p-6 md:p-8 flex flex-col ${isOpen ? "side-modal--open" : ""}`}>
         
         {/* Header */}
         <div className="mb-8">

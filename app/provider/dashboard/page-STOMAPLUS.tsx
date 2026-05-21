@@ -192,7 +192,7 @@ export default function ProviderDashboard() {
 
   // ── Colonnes DataTable - inchangées ──────────────────────────────────────
   const columns: ColumnConfig<any>[] = [
-    { header: "Code ", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
+    { header: "Référence ", key: "code_ticket", render: (_: any, row: any) => `${row.code_ticket}` },
     { header: "Nom", key: "subject", render: (_: any, row: any) => row.subject ?? "-" },
     { header: "Site", key: "site", render: (_: any, row: any) => row.site?.nom ?? "-" },
     // { header: "Catégorie", key: "category", render: (_: any, row: any) => row.category?.name ?? "-" },
@@ -264,7 +264,7 @@ export default function ProviderDashboard() {
             <>
               <StatsCard label="Devis en attente" value={stats?.devis.en_attente ?? 0} delta="+0%" trend="up" href="/provider/devis" />
               <StatsCard label="Factures totales" value={stats?.factures.total ?? 0} delta="+0%" trend="up" href="/provider/factures" />
-              <StatsCard label="Factures payées" value={stats?.factures.payees ?? 0} delta="+0%" trend="up" isCurrency={false} href="/provider/factures" />
+              <StatsCard label="Factures Validées" value={stats?.factures.payees ?? 0} delta="+0%" trend="up" isCurrency={false} href="/provider/factures" />
               <StatsCard label="Factures en attente" value={stats?.factures.en_attente ?? 0} delta="+0%" trend="up" href="/provider/factures" />
             </>
           )}

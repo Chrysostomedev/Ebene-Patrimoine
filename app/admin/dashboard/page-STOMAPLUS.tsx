@@ -154,7 +154,7 @@ export default function Dashboard() {
 
   const columns: ColumnConfig<DashboardTicket>[] = [
     {
-      header: "Ticket",
+      header: "Référence ticket",
       key: "id",
       render: (_: any, row: any) => `${row.code_ticket}`,
     },

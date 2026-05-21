@@ -14,6 +14,7 @@ import PageHeader from "@/components/PageHeader";
 import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import { Tag, Wrench, AlertTriangle, CheckCircle2, CalendarDays, Clock, Building2, Eye, MapPin, Copy, CheckCheck, Filter, Download } from "lucide-react";
 
+import { useSite } from "../../../hooks/manager/useSite";
 import { useAssets } from "../../../hooks/manager/useAssets";
 import { useTicketActions } from "../../../hooks/manager/useTicketActions";
 import { AssetService } from "../../../services/manager/asset.service";
@@ -82,13 +83,15 @@ export default function PatrimoinesPage() {
     filters
   } = useAssets({ per_page: 10 });
 
+  const { sites } = useSite();
+
   const [stats, setStats] = useState<any>(null);
   const [selectedAsset, setSelectedAsset] = useState<any | null>(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   useEffect(() => {
-    AssetService.getStats().then(setStats).catch(console.error);
-  }, []);
+    AssetService.getStats(filters.site_id ? { site_id: filters.site_id } : undefined).then(setStats).catch(console.error);
+  }, [filters.site_id]);
 
   // Hook pour les actions de tickets
   const { createTicket, isSubmitting: isTicketSubmitting } = useTicketActions({
@@ -262,6 +265,22 @@ export default function PatrimoinesPage() {
                 <option value="hors_usage">Hors usage</option>
               </select>
             </div>
+
+            {sites && sites.length > 0 && (
+              <div className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
+                <MapPin size={16} className="text-slate-400" />
+                <select
+                  className="bg-transparent border-none outline-none text-sm font-bold text-slate-700 cursor-pointer max-w-[200px]"
+                  value={filters.site_id || ""}
+                  onChange={(e) => updateFilters({ site_id: e.target.value || undefined })}
+                >
+                  <option value="">Tous les sites</option>
+                  {sites.map(s => (
+                    <option key={s.id} value={s.id}>{s.nom || s.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <button
@@ -283,29 +302,22 @@ export default function PatrimoinesPage() {
 
         {/* ── TABLE PRINCIPALE ── */}
         <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden min-h-[500px]">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-              <div className="w-10 h-10 border-4 border-slate-100 border-t-slate-900 rounded-full animate-spin" />
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Chargement du patrimoine</p>
-            </div>
-          ) : (
-            <>
-              <DataTable
-                columns={columns}
-                data={assets}
-                title="Liste des équipements"
-                onViewAll={() => { }}
+          <DataTable
+            columns={columns}
+            data={assets || []}
+            isLoading={isLoading}
+            title="Liste des équipements"
+            onSearchChange={(s) => updateFilters({ search: s || undefined })}
+            onViewAll={() => { }}
+          />
+          {meta && meta.last_page > 1 && (
+            <div className="px-8 py-6 border-t border-slate-50 flex justify-end bg-slate-50/20">
+              <Paginate
+                currentPage={meta.current_page}
+                totalPages={meta.last_page}
+                onPageChange={setPage}
               />
-              {meta && meta.last_page > 1 && (
-                <div className="px-8 py-6 border-t border-slate-50 flex justify-end bg-slate-50/20">
-                  <Paginate
-                    currentPage={meta.current_page}
-                    totalPages={meta.last_page}
-                    onPageChange={setPage}
-                  />
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
 

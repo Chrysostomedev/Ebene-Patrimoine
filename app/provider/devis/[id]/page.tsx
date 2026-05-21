@@ -15,9 +15,14 @@ import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import {
   providerQuoteService, Quote, QuoteHistory,
   STATUS_LABELS, STATUS_STYLES, STATUS_DOT,
-  getPdfUrl,
+  getPdfUrl, QuoteItem
 } from "../../../../services/provider/providerQuoteService";
+import { providerInvoiceService } from "../../../../services/provider/providerInvoiceService";
+import { providerTicketService } from "../../../../services/provider/providerTicketService";
+import { parseApiError } from "@/core/error";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import ItemTableEditor from "@/components/form/ItemTableEditor";
+import { useToast } from "../../../../contexts/ToastContext";
 
 // ─── StatusBadge ──────────────────────────────────────────────────────────────
 
@@ -127,13 +132,16 @@ export default function ProviderQuoteDetailPage() {
   const [error, setError] = useState("");
   const [pdfPreview, setPdfPreview] = useState<{ url: string; name: string } | null>(null);
 
+  const { toast } = useToast();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [flash, setFlash] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [submittingInvoice, setSubmittingInvoice] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<any>(null);
 
-  const showFlash = (type: "success" | "error", msg: string) => {
-    setFlash({ type, msg });
-    setTimeout(() => setFlash(null), 5000);
-  };
+  const [editItems, setEditItems] = useState<QuoteItem[]>([]);
+  const [editTaxRate, setEditTaxRate] = useState(18);
 
   const loadQuoteData = async () => {
     if (!quoteId) return;
@@ -141,40 +149,159 @@ export default function ProviderQuoteDetailPage() {
     try {
       const data = await providerQuoteService.getQuoteById(quoteId);
       setQuote(data);
+
+      let foundInvoice = null;
+      try {
+        const invRes = await providerInvoiceService.getInvoices({ per_page: 100 });
+        const items = (invRes as any)?.items || invRes || [];
+        foundInvoice = items.find((i: any) =>
+          Number(i.quote_id) === Number(quoteId) ||
+          Number(i.ticket_id) === Number(data?.ticket_id)
+        );
+
+        if (!foundInvoice && data?.ticket_id) {
+          try {
+            const info = await providerTicketService.getTicketInfo(data.ticket_id);
+            const reports = info?.reports || (info?.rapport ? [info.rapport] : []);
+            const reportIds = reports.map((r: any) => Number(r.id));
+            foundInvoice = items.find((i: any) =>
+              reportIds.includes(Number(i.report_id))
+            );
+          } catch (err) {
+            console.error("[Ticket info error in loadQuoteData]", err);
+          }
+        }
+      } catch (err) {
+        console.error("[Invoice load error]", err);
+      }
+      setInvoice(foundInvoice);
     } catch (e: any) {
       setError(e.response?.data?.message ?? "Impossible de charger ce devis.");
     } finally { setLoading(false); }
   };
 
   useEffect(() => {
-    loadQuoteData();
+    if (quoteId) {
+      loadQuoteData();
+    }
   }, [quoteId]);
+
+  useEffect(() => {
+    if (quote) {
+      setEditItems(quote.items || []);
+      setEditTaxRate(quote.tax_rate || 18);
+    }
+  }, [quote]);
 
   const handleEditSubmit = async (formData: any) => {
     if (!quote) return;
+    setEditError(null);
     try {
       await providerQuoteService.updateQuote(quote.id, {
         ticket_id: quote.ticket_id!,
         description: formData.description,
-        tax_rate: 18,
-        items: formData.items || quote.items || [],
-        pdf_file: formData.quote_pdf?.[0],
+        tax_rate: Number(formData.tax_rate) || editTaxRate,
+        items: editItems,
+        attachments: Array.isArray(formData.quote_pdf) ? formData.quote_pdf : (formData.quote_pdf?.files || []),
       });
-      showFlash("success", "Devis mis à jour avec succès.");
+      toast.success("Devis mis à jour avec succès.");
       setIsEditModalOpen(false);
       loadQuoteData();
     } catch (err: any) {
-      showFlash("error", err?.response?.data?.message ?? "Erreur lors de la mise à jour.");
+      let msg = err?.response?.data?.message ?? "Erreur lors de la mise à jour.";
+      if (err?.response?.status === 413 || String(err?.message).includes("413") || String(err?.response?.data?.message).includes("413")) {
+        msg = "Erreur de validation - Fichier trop volumineux (max 2Mo)";
+      }
+      setEditError(msg);
+      toast.error(msg);
+    }
+  };
+
+  const handleInvoiceSubmit = async (formData: any) => {
+    if (!quote) return;
+    setInvoiceError(null);
+    setSubmittingInvoice(true);
+    try {
+      let reportId = null;
+      if (quote.ticket_id) {
+        try {
+          const info = await providerTicketService.getTicketInfo(quote.ticket_id);
+          const reports = info?.reports || (info?.rapport ? [info.rapport] : []);
+          reportId = reports?.[0]?.id || (quote as any).report_id;
+        } catch (err) {
+          console.error("[Ticket info error in handleInvoiceSubmit]", err);
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      const dueStr = dueDate.toISOString().split('T')[0];
+
+      const newInvoice = await providerInvoiceService.createInvoice({
+        report_id: reportId || (quote as any).report_id,
+        ticket_id: quote.ticket_id,
+        quote_id: quote.id,
+        amount_ht: quote.amount_ht ? parseFloat(String(quote.amount_ht)) : undefined,
+        tax_amount: quote.tax_amount ? parseFloat(String(quote.tax_amount)) : undefined,
+        amount_ttc: quote.amount_ttc ? parseFloat(String(quote.amount_ttc)) : undefined,
+        invoice_date: today,
+        due_date: dueStr,
+        pdf_file: Array.isArray(formData.invoice_pdf) ? formData.invoice_pdf[0] : formData.invoice_pdf?.files?.[0],
+        comment: formData.comment,
+      });
+      setInvoice(newInvoice);
+      toast.success("Facture créée et soumise avec succès.");
+      setIsInvoiceModalOpen(false);
+      loadQuoteData();
+    } catch (err: any) {
+      console.error("[CRITICAL ERROR ON INVOICE CREATION]:", err);
+      if (err?.response) {
+        console.log("[INVOICE BACKEND RESPONSE ERROR]:", {
+          status: err.response.status,
+          data: err.response.data,
+          headers: err.response.headers,
+        });
+      }
+      let msg = parseApiError(err);
+      if (err?.response?.status === 413 || String(err?.message).includes("413") || String(err?.response?.data?.message).includes("413")) {
+        msg = "Erreur de validation - Fichier trop volumineux (max 2Mo)";
+      }
+      setInvoiceError(msg);
+      toast.error(msg);
+    } finally {
+      setSubmittingInvoice(false);
     }
   };
 
   const quoteFields: FieldConfig[] = [
-    { name: "items", label: "Articles du devis", type: "quote-items", required: true, gridSpan: 2 },
     { name: "description", label: "Description / Détails", type: "rich-text", required: true, gridSpan: 2 },
-    { name: "quote_pdf", label: "Devis PDF ou Image (optionnel)", type: "pdf-upload", accept: "application/pdf,image/*", maxPDFs: 1, gridSpan: 2 },
+    { name: "quote_pdf", label: "Nouveau Devis PDF (facultatif)", type: "pdf-upload", maxPDFs: 1, gridSpan: 2 },
   ];
 
-  const canEdit = quote && !["approved", "approuvé", "apprové", "validated"].includes((quote.status || "").toLowerCase());
+  const invoiceFields: FieldConfig[] = [
+    {
+      name: "invoice_pdf",
+      label: "Fichier de la facture (PDF ou Photo)",
+      type: "pdf-upload",
+      required: true,
+      maxPDFs: 1,
+      gridSpan: 2,
+      accept: ".pdf,.jpg,.jpeg,.png",
+      placeholder: "Cliquez pour uploader votre facture (PDF, JPG ou PNG)"
+    },
+    {
+      name: "comment",
+      label: "Commentaire",
+      type: "rich-text",
+      required: false,
+      gridSpan: 2
+    },
+  ];
+
+  const quoteStatusLower = String(quote?.status || "").toLowerCase();
+  const canEdit = quote && quoteStatusLower !== "approuvé" && quoteStatusLower !== "approved" && quoteStatusLower !== "validé" && quoteStatusLower !== "accepté" && quoteStatusLower !== "validated";
+  const canInvoice = quote && (["approved", "approuvé", "validé", "accepté", "validated"].includes(quoteStatusLower) || (quote as any).is_approved) && !quote.invoice && !invoice;
 
   // ── Calculs ────────────────────────────────────────────────────────────────
   const totalHT = quote?.amount_ht ?? 0;
@@ -188,7 +315,7 @@ export default function ProviderQuoteDetailPage() {
 
   // ── KPIs ───────────────────────────────────────────────────────────────────
   const kpis = [
-    { label: "Ticket", value: quote?.ticket?.code_ticket ?? `${quote?.ticket_id}`, delta: "", trend: "up" as const },
+    { label: "Ticket", value: quote?.ticket?.subject ?? `#${quote?.ticket_id}`, delta: "", trend: "up" as const },
     { label: "Site", value: quote?.site?.nom ?? quote?.site?.name ?? "-", delta: "", trend: "up" as const },
     { label: "Nb. articles", value: quote?.items?.length ?? 0, delta: "", trend: "up" as const },
     { label: "Montant TTC", value: formatCurrency(totalTTC), delta: "", trend: "up" as const },
@@ -200,7 +327,6 @@ export default function ProviderQuoteDetailPage() {
         <Navbar />
         <main className="mt-4 p-8 space-y-8">
 
-          {/* Retour */}
           <div className="flex items-center justify-between gap-4">
             <button
               onClick={() => router.back()}
@@ -208,12 +334,6 @@ export default function ProviderQuoteDetailPage() {
             >
               <ChevronLeft size={16} /> Retour
             </button>
-
-            {flash && (
-              <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-xl shadow-lg text-sm font-semibold border ${flash.type === "success" ? "text-green-700 bg-green-50 border-green-200" : "text-red-600 bg-red-100 border-red-300"}`}>
-                {flash.msg}
-              </div>
-            )}
           </div>
 
           {/* Erreur */}
@@ -260,7 +380,7 @@ export default function ProviderQuoteDetailPage() {
                   )}
                 </div>
 
-                {/* Dates */}
+                {/* Dates & Actions */}
                 <div className="flex flex-col md:flex-row items-center gap-6 shrink-0">
                   <div className="bg-slate-50 p-5 rounded-[24px] border border-slate-100 min-w-[260px] space-y-2.5">
                     {[
@@ -274,13 +394,32 @@ export default function ProviderQuoteDetailPage() {
                       </div>
                     ))}
                   </div>
-                  <button
-                    onClick={() => setIsEditModalOpen(true)}
-                    disabled={!canEdit}
-                    className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm ${canEdit ? "bg-slate-900 text-white hover:bg-black" : "bg-slate-100 text-slate-400 cursor-not-allowed"}`}
-                  >
-                    <Pencil size={14} /> Modifier le devis
-                  </button>
+
+                  <div className="flex flex-col gap-2 w-full md:w-auto">
+                    {canEdit && (
+                      <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm bg-slate-900 text-white hover:bg-black"
+                      >
+                        <Pencil size={14} /> Modifier le devis
+                      </button>
+                    )}
+
+                    {canInvoice && (
+                      <button
+                        onClick={() => setIsInvoiceModalOpen(true)}
+                        className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition shadow-sm bg-orange-500 text-white hover:bg-orange-600 animate-in fade-in zoom-in duration-300"
+                      >
+                        <FileText size={14} /> Créer une facture
+                      </button>
+                    )}
+
+                    {(quote.invoice || invoice) && (
+                      <div className="flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-bold bg-green-50 text-green-700 border border-green-100">
+                        <CheckCircle2 size={14} /> Facture déjà générée
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -358,6 +497,17 @@ export default function ProviderQuoteDetailPage() {
                       <p className="text-sm text-red-700 leading-relaxed">{quote.rejection_reason}</p>
                     </div>
                   )}
+
+                  {/* Motif révision */}
+                  {(quote.status === "en révision" || quote.status === "revision") && quote.revision_reason && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-[24px] p-6">
+                      <h3 className="text-xs font-black text-blue-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <RefreshCw size={14} className="animate-spin-slow" />
+                        Motif de révision
+                      </h3>
+                      <p className="text-sm text-blue-700 leading-relaxed">{quote.revision_reason}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Colonne droite */}
@@ -384,7 +534,7 @@ export default function ProviderQuoteDetailPage() {
                                 onClick={() => setPdfPreview({ url: file.url, name: file.name })}
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"
                               >
-                                <Eye size={13} /> Aperçu
+                                <Eye size={13} />
                               </button>
                               <a href={file.url} download target="_blank" rel="noreferrer"
                                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition">
@@ -432,18 +582,17 @@ export default function ProviderQuoteDetailPage() {
                     )}
                     {quote.status === "rejeté" && (
                       <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 font-medium">
-                        ❌ Devis rejeté. Vous pouvez en soumettre un nouveau.
+                        {quote.revision_reason || quote.rejection_reason}
                       </p>
                     )}
                     {quote.status === "en révision" && (
                       <p className="text-xs text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 font-medium">
-                        🔄 Une révision a été demandée. Veuillez mettre à jour votre devis.
-                      </p>
+                        {quote.revision_reason || quote.rejection_reason}                      </p>
                     )}
                   </div>
 
                   {/* Timeline historique */}
-                  <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
+                  {/* <div className="bg-white rounded-[24px] border border-slate-100 shadow-sm p-6">
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">
                       Historique ({history.length})
                     </h3>
@@ -461,7 +610,7 @@ export default function ProviderQuoteDetailPage() {
                         ))}
                       </div>
                     }
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </>
@@ -478,16 +627,56 @@ export default function ProviderQuoteDetailPage() {
       {quote && (
         <ReusableForm
           isOpen={isEditModalOpen}
-          onClose={() => setIsEditModalOpen(false)}
+          onClose={() => { setIsEditModalOpen(false); setEditError(null); }}
           title="Modifier le devis"
           subtitle="Mettez à jour les informations de votre devis"
           fields={quoteFields}
           initialValues={{
-            items: quote.items,
+            tax_rate: quote.tax_rate,
             description: quote.description,
           }}
           onSubmit={handleEditSubmit}
           submitLabel="Enregistrer les modifications"
+          error={editError}
+          onFieldChange={(name, value) => {
+            if (name === "tax_rate") setEditTaxRate(parseFloat(value) || 0);
+          }}
+        >
+          {(quote.status === "en révision" || quote.status === "revision" || quote.status === "rejeté") && (quote.revision_reason || quote.rejection_reason) && (
+            <div className="mb-6 p-4 rounded-2xl bg-blue-50 border border-blue-100 flex gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="p-2 rounded-xl bg-blue-100 text-blue-600 shrink-0 h-fit">
+                <RefreshCw size={18} className="animate-spin-slow" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Note de révision / Rejet</p>
+                <p className="text-sm font-bold text-blue-900 leading-relaxed italic">
+                  "{quote.revision_reason || quote.rejection_reason}"
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="col-span-2 mt-4">
+            <ItemTableEditor
+              initialItems={editItems}
+              onChange={setEditItems}
+              taxRate={editTaxRate}
+            />
+          </div>
+        </ReusableForm>
+      )}
+
+      {/* Modal Facture Simplifié */}
+      {quote && (
+        <ReusableForm
+          isOpen={isInvoiceModalOpen}
+          onClose={() => { setIsInvoiceModalOpen(false); setInvoiceError(null); }}
+          title="Créer la facture"
+          subtitle={`Vous allez créer la facture pour le devis ${quote.reference}. Les montants seront automatiquement synchronisés.`}
+          fields={invoiceFields}
+          onSubmit={handleInvoiceSubmit}
+          submitLabel={submittingInvoice ? "Soumission..." : "Confirmer et Envoyer"}
+          error={invoiceError}
         />
       )}
     </div>

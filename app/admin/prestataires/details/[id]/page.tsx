@@ -19,6 +19,7 @@ import SideDetailsPanel from "@/components/SideDetailsPanel";
 import { ProviderService, ProviderDetail } from "../../../../../services/admin/provider.service";
 import { useServices } from "../../../../../hooks/admin/useServices";
 import { useToast } from "@/contexts/ToastContext";
+import { exportToXlsx } from "../../../../../core/export";
 
 const STATUS_LABELS: Record<string, string> = {
   signalez: "Signalé", validé: "Validé", assigné: "Assigné",
@@ -39,6 +40,14 @@ export default function ProviderDetailsPage() {
   const params = useParams();
   const providerId = Number(params.id);
   const { services } = useServices();
+
+  const ticketActions = [
+    {
+      label: "Exporter",
+      icon: Upload,
+      onClick: handleExportTickets,
+    },
+  ];
 
   // ── State provider ──
   const [detail, setDetail] = useState<ProviderDetail | null>(null);
@@ -95,22 +104,24 @@ export default function ProviderDetailsPage() {
   const provider = detail?.provider;
   const providerStats = detail?.stats;
 
-  // ── Modifier le prestataire ──
-  // UpdateProviderRequest accepte tous les champs en "sometimes"
   const handleUpdate = async (formData: any) => {
     try {
       const payload: any = {};
       if (formData.company_name) payload.company_name = formData.company_name;
-      if (formData.city)         payload.city         = formData.city;
+      if (formData.city) payload.city = formData.city;
       if (formData.neighborhood) payload.neighborhood = formData.neighborhood;
-      if (formData.street)       payload.street       = formData.street;
-      if (formData.service_id)   payload.service_id   = Number(formData.service_id);
-      if (formData.date_entree)  payload.date_entree  = formData.date_entree;
-      if (formData.description)  payload.description  = formData.description;
-      // email directement sur le modèle Providers
-      if (formData.email)        payload.email        = formData.email;
-      // password via users wrapper si fourni
-      if (formData["users.password"]) payload.users = { password: formData["users.password"] };
+      if (formData.street) payload.street = formData.street;
+      if (formData.service_id) payload.service_id = Number(formData.service_id);
+      if (formData.date_entree) payload.date_entree = formData.date_entree;
+      if (formData.description) payload.description = formData.description;
+
+      // Champs responsable via users wrapper
+      const usersData: any = {};
+      if (formData["users.first_name"]) usersData.first_name = formData["users.first_name"];
+      if (formData["users.last_name"]) usersData.last_name = formData["users.last_name"];
+      if (formData["users.email"]) usersData.email = formData["users.email"];
+      if (formData["users.phone"]) usersData.phone = formData["users.phone"];
+      if (Object.keys(usersData).length > 0) payload.users = usersData;
 
       await ProviderService.updateProvider(providerId, payload);
       toast.success("Prestataire mis à jour avec succès");
@@ -138,8 +149,8 @@ export default function ProviderDetailsPage() {
   const handleOpenDetails = (ticket: any) => {
     const statusColor =
       ticket.status === "clos" ? "#000" :
-      ticket.status === "en_cours" ? "#f97316" :
-      ticket.status === "évalué" ? "#22c55e" : "#64748b";
+        ticket.status === "en_cours" ? "#f97316" :
+          ticket.status === "évalué" ? "#22c55e" : "#64748b";
 
     setSelectedTicket({
       title: ticket.subject ?? `Ticket #${ticket.id}`,
@@ -149,7 +160,7 @@ export default function ProviderDetailsPage() {
         { label: "Type", value: ticket.type === "curatif" ? "Curatif" : "Préventif" },
         { label: "Site", value: ticket.site?.nom ?? "-" },
         { label: "Patrimoine", value: ticket.asset?.designation ?? "-" },
-        { label: "Date planifiée", value: ticket.planned_at ?? "-" },
+        { label: "Date soumise", value: ticket.planned_at ?? "-" },
         { label: "Date limite", value: ticket.due_at ?? "-" },
         { label: "Statut", value: STATUS_LABELS[ticket.status] ?? ticket.status, isStatus: true, statusColor },
       ],
@@ -159,10 +170,10 @@ export default function ProviderDetailsPage() {
 
   // ── Colonnes DataTable ──
   const columns = [
-    { header: "ID", key: "id", render: (_: any, row: any) => `#${row.id}` },
+    { header: "Référence", key: "id", render: (_: any, row: any) => `${row.code_ticket}` },
     { header: "Sujet", key: "subject", render: (_: any, row: any) => row.subject ?? "-" },
     { header: "Site", key: "site", render: (_: any, row: any) => row.site?.nom ?? "-" },
-    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.asset?.designation ?? "-" },
+    { header: "Patrimoine", key: "asset", render: (_: any, row: any) => row.company_asset?.designation ?? "-" },
     { header: "Type", key: "type", render: (_: any, row: any) => row.type === "curatif" ? "Curatif" : "Préventif" },
     {
       header: "Statut", key: "status",
@@ -174,63 +185,81 @@ export default function ProviderDetailsPage() {
     },
     {
       header: "Actions", key: "actions",
-      render: (_: any, row: any) => (
-        <button onClick={() => handleOpenDetails(row)} className="font-bold text-slate-800 hover:text-blue-600 transition">
-          <Eye size={18} />
-        </button>
-      ),
+      render: (_: any, row: any) => {
+        const detailHref = row.type === "preventif"
+          ? `/admin/preventif/${row.id}`
+          : `/admin/tickets/${row.id}`;
+        return (
+          <Link href={detailHref} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
+            <Eye size={18} />
+          </Link>
+        );
+      },
     },
   ];
 
-  const ticketActions = [
-    {
-      label: "Filtrer", icon: Filter,
-      onClick: () => setTicketFilter(ticketFilter ? undefined : "en_cours"),
-      variant: "secondary" as const,
-    },
-    { label: "Exporter", icon: Upload, onClick: () => {}, variant: "secondary" as const },
-    { label: "Nouveau Ticket", icon: TicketPlus, onClick: () => setIsTicketModalOpen(true), variant: "primary" as const },
-  ];
+  function handleExportTickets() {
+    try {
+      const data = tickets.map((t: any) => ({
+        id: t.code_ticket ?? `#${t.id}`,
+        subject: t.subject ?? "—",
+        site: t.site?.nom ?? "—",
+        asset: t.company_asset?.designation ?? "—",
+        type: t.type === "curatif" ? "Curatif" : "Préventif",
+        status: STATUS_LABELS[t.status] ?? t.status,
+      }));
+
+      exportToXlsx(data, [
+        { header: "Référence", key: "id", width: 16 },
+        { header: "Sujet", key: "subject", width: 28 },
+        { header: "Site", key: "site", width: 20 },
+        { header: "Patrimoine", key: "asset", width: 24 },
+        { header: "Type", key: "type", width: 14 },
+        { header: "Statut", key: "status", width: 14 },
+      ], {
+        filename: `tickets_prestataire_${providerId}`,
+        sheetName: "Tickets",
+        title: `Tickets du prestataire - ${provider?.company_name ?? ""}`,
+      });
+      toast.success("Export téléchargé.");
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors de l'export.");
+    }
+  }
 
   // ── Champs formulaire modification prestataire ──
+  // Identique à la création mais sans le mot de passe
   const editFields = [
-    { name: "company_name", label: "Nom du prestataire", type: "text" },
-    { name: "city", label: "Ville", type: "text" },
-    { name: "neighborhood", label: "Quartier", type: "text" },
-    { name: "street", label: "Rue / Adresse", type: "text" },
+    // ── BLOC 1 : Informations société ──
+    { name: "company_name", label: "Nom du prestataire", type: "text", placeholder: "CANAL+" },
     {
       name: "service_id", label: "Service", type: "select",
       options: services.map(s => ({ label: s.name, value: String(s.id) })),
     },
+    { name: "city", label: "Ville", type: "text", placeholder: "Abidjan" },
+    { name: "street", label: "Rue / Adresse", type: "text", placeholder: "Rue 200" },
     { name: "date_entree", label: "Date d'entrée", type: "date" },
-    { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
-    // email directement sur le modèle Providers
-    { name: "email", label: "Email de contact", type: "email" },
-    { name: "users.password", label: "Nouveau mot de passe (optionnel)", type: "password" },
-  ];
 
-  // ── Champs formulaire nouveau ticket ──
-  const ticketFields = [
-    { name: "subject", label: "Sujet du ticket", type: "text", required: true },
+    // ── BLOC 2 : Responsable compte ──
+    { name: "users.last_name", label: "Nom du responsable", type: "text" },
+    { name: "users.first_name", label: "Prénom", type: "text" },
+    { name: "users.email", label: "Email du responsable", type: "email" },
+    { name: "users.phone", label: "Téléphone", type: "tel", placeholder: "00101454545" },
+
+    // Description pleine largeur
+    { name: "description", label: "Description", type: "rich-text", gridSpan: 2, placeholder: "Description du prestataire" },
+
+    // ── BLOC 3 : Médias ──
     {
-      name: "type", label: "Type de maintenance", type: "select", required: true,
-      options: [{ label: "Curatif", value: "curatif" }, { label: "Préventif", value: "preventif" }],
+      name: "logo", label: "Logo du prestataire",
+      type: "image-upload", gridSpan: 1, maxImages: 1,
     },
     {
-      name: "priority", label: "Priorité", type: "select", required: true,
-      options: [
-        { label: "Faible", value: "faible" },
-        { label: "Moyenne", value: "moyenne" },
-        { label: "Haute", value: "haute" },
-        { label: "Critique", value: "critique" },
-      ],
+      name: "images", label: "Photos supplémentaires",
+      type: "image-upload", gridSpan: 1, maxImages: 3,
     },
-    { name: "planned_at", label: "Date planifiée", type: "date", required: true, disablePastDates: true, icon: CalendarDays },
-    { name: "due_at", label: "Date limite", type: "date", required: true, disablePastDates: true, icon: CalendarCheck },
-    { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
-  ];
-
-  return (
+  ];  return (
     <div className="flex min-h-screen bg-gray-50">
       <div className="flex-1 flex flex-col">
         <Navbar />
@@ -257,9 +286,8 @@ export default function ProviderDetailsPage() {
                 {/* Service + statut */}
                 <div className="flex items-center gap-3 mt-2">
                   <span className="text-sm text-slate-500 font-medium">{provider?.service?.name ?? "-"}</span>
-                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold ${
-                    provider?.is_active ? "bg-green-600 text-white" : "bg-slate-200 text-slate-500"
-                  }`}>
+                  <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold ${provider?.is_active ? "bg-green-600 text-white" : "bg-slate-200 text-slate-500"
+                    }`}>
                     {provider?.is_active ? "Actif" : "Inactif"}
                   </span>
                 </div>
@@ -274,7 +302,7 @@ export default function ProviderDetailsPage() {
                     <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
                       <Phone size={16} className="text-slate-900" />
                     </div>
-                    {"-"}
+                    {provider?.phone ?? "-"}
                   </div>
                   <div className="flex items-center gap-3 text-slate-600 font-semibold text-[15px]">
                     <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-100">
@@ -297,8 +325,8 @@ export default function ProviderDetailsPage() {
                           i < Math.floor(note)
                             ? "fill-yellow-400 text-yellow-400"
                             : i < note
-                            ? "fill-yellow-200 text-yellow-300"
-                            : "fill-slate-200 text-slate-200"
+                              ? "fill-yellow-200 text-yellow-300"
+                              : "fill-slate-200 text-slate-200"
                         } />
                       );
                     })}
@@ -321,8 +349,29 @@ export default function ProviderDetailsPage() {
             {kpis.map((kpi, i) => <StatsCard key={i} {...kpi} />)}
           </div>
 
-          {/* ── Actions tickets ── */}
-          <div className="flex justify-end">
+          {/* ── Actions & Filtres tickets ── */}
+          <div className="flex items-center justify-between gap-4 flex-wrap bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-2">
+              <label htmlFor="status-filter" className="text-sm font-bold text-slate-700">
+                Filtrer par statut :
+              </label>
+              <select
+                id="status-filter"
+                value={ticketFilter || ""}
+                onChange={(e) => {
+                  setTicketFilter(e.target.value || undefined);
+                  setTicketPage(1);
+                }}
+                className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-shadow cursor-pointer hover:bg-slate-100"
+              >
+                <option value="">Tous les statuts</option>
+                {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <ActionGroup actions={ticketActions} />
           </div>
 
@@ -361,27 +410,20 @@ export default function ProviderDetailsPage() {
         initialValues={{
           company_name: provider?.company_name ?? "",
           city: provider?.city ?? "",
-          neighborhood: provider?.neighborhood ?? "",
           street: provider?.street ?? "",
           service_id: String(provider?.service_id ?? ""),
           date_entree: provider?.date_entree ?? "",
+          "users.last_name": provider?.last_name ?? (provider as any)?.user?.last_name ?? "",
+          "users.first_name": provider?.first_name ?? (provider as any)?.user?.first_name ?? "",
+          "users.email": provider?.email ?? (provider as any)?.user?.email ?? "",
+          "users.phone": provider?.phone ?? (provider as any)?.user?.phone ?? "",
           description: provider?.description ?? "",
-          email: provider?.email ?? "",
         }}
         onSubmit={handleUpdate}
         submitLabel="Mettre à jour"
       />
 
-      {/* Modal nouveau ticket */}
-      <ReusableForm
-        isOpen={isTicketModalOpen}
-        onClose={() => setIsTicketModalOpen(false)}
-        title="Nouveau ticket"
-        subtitle="Créer un ticket pour ce prestataire"
-        fields={ticketFields}
-        onSubmit={() => { setIsTicketModalOpen(false); fetchTickets(); }}
-        submitLabel="Créer le ticket"
-      />
+
     </div>
   );
 }

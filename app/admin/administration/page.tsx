@@ -20,16 +20,16 @@ export default function AdministrationPage() {
   }, [fetchAdminDashboard]);
 
   const kpis = [
-    { label: t("administration.totalActiveSites"),   value: adminDashboard?.nombre_total_sites_actifs   ?? 0, delta: "+3%",    trend: "up"   as const },
-    { label: t("administration.totalInactiveSites"), value: adminDashboard?.nombre_total_sites_inactifs ?? 0, delta: "+3%",    trend: "up"   as const },
-    { label: t("administration.avgCostPerSite"),     value: adminDashboard?.cout_moyen_par_sites        ?? 0, delta: "+20,10%",trend: "up"   as const, isCurrency: true },
-    { label: t("administration.totalMaintenanceCost"),value: adminDashboard?.cout_total_maintenance     ?? 0, delta: "+15,03%",trend: "up"   as const, isCurrency: true },
+    { label: t("administration.totalActiveSites"), value: adminDashboard?.nombre_total_sites_actifs ?? 0, delta: "+3%", trend: "up" as const },
+    { label: t("administration.totalInactiveSites"), value: adminDashboard?.nombre_total_sites_inactifs ?? 0, delta: "+3%", trend: "up" as const },
+    { label: t("administration.avgCostPerSite"), value: adminDashboard?.cout_moyen_par_sites ?? 0, delta: "+20,10%", trend: "up" as const, isCurrency: true },
+    { label: t("administration.totalMaintenanceCost"), value: adminDashboard?.cout_total_maintenance ?? 0, delta: "+15,03%", trend: "up" as const, isCurrency: true },
   ];
 
   const tpis = [
-    { label: t("administration.totalEquipments"), value: adminDashboard?.nombre_total_equipements  ?? 0, delta: "+15,03%", trend: "up" as const, href: "/admin/patrimoines" },
-    { label: t("administration.totalProviders"),  value: adminDashboard?.nombre_total_prestataires ?? 0, delta: "+20,10%", trend: "up" as const, href: "/admin/prestataires" },
-    { label: t("administration.totalInvoices"),   value: adminDashboard?.nombre_total_factures     ?? "N/A", delta: "+10%", trend: "up" as const, href: "#" },
+    { label: t("administration.totalEquipments"), value: adminDashboard?.nombre_total_equipements ?? 0, delta: "+15,03%", trend: "up" as const, href: "/admin/patrimoines" },
+    { label: t("administration.totalProviders"), value: adminDashboard?.nombre_total_prestataires ?? 0, delta: "+20,10%", trend: "up" as const, href: "/admin/prestataires" },
+    { label: t("administration.totalInvoices"), value: adminDashboard?.nombre_total_factures ?? "N/A", delta: "+10%", trend: "up" as const, href: "/admin/factures" },
   ];
 
   return (

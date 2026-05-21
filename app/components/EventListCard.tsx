@@ -18,7 +18,7 @@ function getStatusConfig(status?: string): { dot: string; badge: string; label: 
       return { dot: "bg-orange-400", badge: "bg-orange-50 text-orange-600 border-orange-200", label: "En cours" };
     case "planifié":
     case "planifie":
-      return { dot: "bg-blue-500", badge: "bg-blue-50 text-blue-600 border-blue-200", label: "Soumis" };
+      return { dot: "bg-blue-500", badge: "bg-blue-50 text-blue-600 border-blue-200", label: "Planifié" };
     case "terminé":
     case "termine":
     case "realise":

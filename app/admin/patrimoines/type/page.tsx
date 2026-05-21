@@ -10,10 +10,12 @@ import Paginate from "@/components/Paginate";
 import PageHeader from "@/components/PageHeader";
 import SideDetailsPanel from "@/components/SideDetailsPanel";
 import UniversalImportPreview, { ColumnDef, ImportResult } from "@/components/UniversalImportPreview";
+import RichContent from "@/components/RichContent";
 
 import { useTypes } from "../../../../hooks/admin/useTypes";
 import { TypeAssetService } from "../../../../services/admin/type-asset.service";
 import { useToast } from "@/contexts/ToastContext";
+import { parseApiError } from "../../../../core/error";
 
 // Colonnes attendues par TypesImport.php : nom*, code*, description
 const IMPORT_COLUMNS: ColumnDef[] = [
@@ -43,7 +45,6 @@ export default function PatrimoinesPage() {
       fields: [
         { label: "Famille / Type", value: item.name },
         { label: "Codification", value: item.code },
-        { label: "Description", value: item.description || "-" },
         { label: "Date d'ajout", value: item.created_at?.split("T")[0] || "-" },
       ],
       description: item.description, rawData: item,
@@ -71,7 +72,10 @@ export default function PatrimoinesPage() {
       setIsModalOpen(false);
       setEditingData(null);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Erreur serveur.");
+      console.error("[PatrimoineType] Erreur:", err);
+      // Utilisation de parseApiError pour des messages précis (ex: "Code déja existant")
+      const msg = parseApiError(err, { name: "Type", code: "Codification" });
+      toast.error(msg);
     }
   };
 
@@ -124,12 +128,12 @@ export default function PatrimoinesPage() {
   const columns = [
     { header: "Type", key: "name" },
     { header: "Codification", key: "code" },
-    { header: "Description", key: "description", render: (_: any, row: any) => row.description || "-" },
+    { header: "Description", key: "description", render: (_: any, row: any) => <RichContent content={row.description || "-"} isTruncated /> },
     {
       header: "Actions", key: "actions",
       render: (_: any, row: any) => (
         <button onClick={() => handleOpenDetails(row)} className="flex items-center gap-2 font-bold text-slate-800 hover:text-gray-500 transition">
-          <Eye size={18} /> Aperçu
+          <Eye size={18} />
         </button>
       ),
     },
@@ -137,9 +141,17 @@ export default function PatrimoinesPage() {
 
   const typeFields: FieldConfig[] = [
     { name: "name", label: "Famille / Type", type: "text", required: true },
-    { name: "code", label: "Codification", type: "text", required: true, placeholder: "ex: SD1245" },
+    { name: "code", label: "Codification", type: "text", required: true, placeholder: "Généré auto." },
     { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
   ];
+
+  // Auto-génération de la codification (3 premières lettres)
+  const handleFieldChange = (name: string, value: any, setter: (n: string, v: any) => void) => {
+    if (name === "name" && !editingData) {
+      const code = value.substring(0, 3).toUpperCase();
+      setter("code", code);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -176,6 +188,7 @@ export default function PatrimoinesPage() {
           subtitle="Remplissez les informations ci-dessous."
           fields={typeFields}
           onSubmit={handleCreateOrUpdate}
+          onFieldChange={handleFieldChange}
           initialValues={editingData || {}}
         />
 

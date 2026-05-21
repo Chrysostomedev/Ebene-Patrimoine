@@ -21,7 +21,7 @@ const CURRENT_YEAR = new Date().getFullYear().toString();
 const DEFAULT_YEAR = YEARS.includes(CURRENT_YEAR) ? CURRENT_YEAR : YEARS[0];
 
 export default function BarChartCard({
-  title = "Tendance de l'année",
+  title = "Tendance des tickets sur l'année",
   data = [],
   onYearChange,
 }: BarChartCardProps) {
@@ -85,13 +85,12 @@ export default function BarChartCard({
                         key={year}
                         onClick={() => handleYearSelect(year)}
                         disabled={future}
-                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-between gap-2 ${
-                          future
-                            ? "text-slate-300 cursor-not-allowed"
-                            : selectedYear === year
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm font-bold transition-colors flex items-center justify-between gap-2 ${future
+                          ? "text-slate-300 cursor-not-allowed"
+                          : selectedYear === year
                             ? "bg-black text-white"
                             : "text-slate-600 hover:bg-slate-50"
-                        }`}
+                          }`}
                       >
                         <span>{year}{year === CURRENT_YEAR ? " ●" : ""}</span>
                         {future && <Ban size={12} className="text-red-400 flex-shrink-0" />}

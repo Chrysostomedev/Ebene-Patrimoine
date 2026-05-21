@@ -8,6 +8,7 @@ import DataTable from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import ReusableForm from "@/components/ReusableForm";
 import type { FieldConfig } from "@/components/ReusableForm";
+import Paginate from "@/components/Paginate";
 import { Ticket, isPendingAdminAction, TICKET_STATUS } from "../../../services/provider/providerTicketService";
 import { formatDate, formatCurrency, formatHeures, formatNumber } from "@/lib/utils";
 import { useToast } from "../../../contexts/ToastContext";
@@ -27,7 +28,7 @@ const reportFields: FieldConfig[] = [
   //     { label: "Anomalie détectée", value: "anomalie" },
   //   ], gridSpan: 2
   // },
-  { name: "period", label: "Période de l'intervention (Début - Fin)", type: "date-range", required: true, gridSpan: 2, disablePastDates: true },
+  { name: "period", label: "Période de l'intervention (Début - Fin)", type: "date-range", required: true, gridSpan: 2 },
   {
     name: "findings", label: "Observations / Constatations ",
     type: "rich-text",
@@ -143,7 +144,7 @@ export default function ProviderTicketsPage() {
     tickets, stats, meta, selectedTicket,
     loading, statsLoading, updateLoading,
     error, updateError, updateSuccess,
-    filters, setFilters,
+    filters, setFilters, search,
     openTicket, closeTicket,
     startIntervention, requestDevis,
     canStart, canReport, canDevis, alreadyReported,
@@ -273,7 +274,7 @@ export default function ProviderTicketsPage() {
         <div className="flex items-center gap-3">
 
           <Link href={`/provider/tickets/${row.id}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
-            <Eye size={16} /> Aperçu
+            <Eye size={16} />
           </Link>
           {/* Démarrer l'intervention → ouvre directement la modale rapport après succès */}
           {canStart(row) && (
@@ -287,7 +288,7 @@ export default function ProviderTicketsPage() {
             </button>
           )}
           {/* Soumettre rapport — désactivé si déjà rapporté */}
-          {canReport(row) && (
+          {/* {canReport(row) && (
             <button
               onClick={() => handleOpenReportModal(row.id)}
               className="flex items-center gap-1.5 text-sm font-bold text-slate-800 hover:text-indigo-600 transition"
@@ -300,7 +301,7 @@ export default function ProviderTicketsPage() {
             <span className="text-xs text-amber-500 font-semibold" title="Rapport déjà soumis — en attente de validation">
               <FileText size={16} className="opacity-40" />
             </span>
-          )}
+          )} */}
           {/* Demander un devis */}
           {/* {canDevis(row) && (
             <button
@@ -379,12 +380,6 @@ export default function ProviderTicketsPage() {
               options={Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }))}
             />
             <FilterSelect
-              label="Tous les types"
-              value={filters.type ?? ""}
-              onChange={(v) => setFilters({ type: v || undefined })}
-              options={[{ value: "curatif", label: "Curatif" }, { value: "preventif", label: "Préventif" }]}
-            />
-            <FilterSelect
               label="Toutes priorités"
               value={filters.priority ?? ""}
               onChange={(v) => setFilters({ priority: v || undefined })}
@@ -412,39 +407,23 @@ export default function ProviderTicketsPage() {
             </div>
 
             <div className="px-6 py-4">
-              {loading ? (
-                <div className="space-y-3 animate-pulse">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="h-12 bg-gray-100 rounded-xl" />
-                  ))}
-                </div>
-              ) : (
-                <DataTable title="Liste de mes tickets" columns={columns as any[]} data={tickets} />
-              )}
+              <DataTable
+                title="Liste de mes tickets"
+                columns={columns as any[]}
+                data={tickets}
+                onSearchChange={search}
+                isLoading={loading}
+              />
             </div>
 
             {/* Pagination */}
             {meta && meta.last_page > 1 && (
-              <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between">
-                <span className="text-xs text-gray-400">
-                  Page {meta.current_page} / {meta.last_page}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setFilters({ page: meta.current_page - 1 })}
-                    disabled={meta.current_page <= 1}
-                    className="p-2 rounded-xl border border-gray-200 hover:border-gray-400 disabled:opacity-30 transition"
-                  >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    onClick={() => setFilters({ page: meta.current_page + 1 })}
-                    disabled={meta.current_page >= meta.last_page}
-                    className="p-2 rounded-xl border border-gray-200 hover:border-gray-400 disabled:opacity-30 transition"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+              <div className="px-6 py-6 border-t border-slate-50 flex justify-center">
+                <Paginate
+                  currentPage={meta.current_page}
+                  totalPages={meta.last_page}
+                  onPageChange={(p) => setFilters({ page: p })}
+                />
               </div>
             )}
           </div>
@@ -702,7 +681,7 @@ function TicketDetailPanel({
                 className="w-full py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 disabled:opacity-50 transition flex items-center justify-center gap-2"
               >
                 {updateLoading ? <RefreshCw size={12} className="animate-spin" /> : <Tag size={12} />}
-                Demander un devis
+                Créer un devis
               </button>
             </div>
           )}

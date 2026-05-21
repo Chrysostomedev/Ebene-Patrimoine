@@ -22,6 +22,8 @@ import { FieldConfig } from "@/components/ReusableForm";
 import { useAssets } from "../../../hooks/admin/useAssets";
 import { useTypes } from "../../../hooks/admin/useTypes";
 import { useSubTypeAssets } from "../../../hooks/admin/useSubTypeAssets";
+import { useDesignation } from "../../../hooks/admin/useDesignation";
+import { useCapacity } from "../../../hooks/admin/useCapacity";
 import { useSites } from "../../../hooks/admin/useSites";
 import { AssetService, CompanyAsset } from "../../../services/admin/asset.service";
 import { useToast } from "@/contexts/ToastContext";
@@ -362,13 +364,45 @@ const PATRIMOINE_RULES: Record<string, ColumnRule> = {
 
 // Colonnes connues et alias supportés (Backend flexible)
 const PATRIMOINE_KNOWN_COLS = new Set([
-  "designation", "status", "statut", "criticite", "valeur_entree", "date_entree",
-  "type_company_asset_id", "type_asset", "type",
-  "sub_type_company_asset_id", "sous_type_asset", "sous_type",
-  "site_id", "site",
-  "code_unique", "codification", "code_type_produit", "product_type_code",
-  "description", "dimension", "images", "serial_number", "n°_de_série",
+  "designation", "status", "statut", "statut_actuel", "criticite", "valeur_entree", "date_entree", "emplacement",
+  // Type
+  "type_company_asset_id", "type_asset", "type", "type_patrimoine", "famille",
+  "type_dequipement", "type_d_equipement",   // TYPE_D'EQUIPEMENT → type_d_equipement
+  // Sous-type
+  "sub_type_company_asset_id", "sous_type_asset", "sous_type", "stype_patrimoine",
+  "s_type_patrimoine", "sous_type_patrimoine", "sous_type_equipement",
+  // Site
+  "site_id", "site", "agence", "site_agence",
+  "site_agence",           // SITE_/_AGENCE → site_agence
+  // Désignation / référence produit
+  "asset_designation_id", "reference_produit", "designation_produit", "designationproduit",
+  "designation_reference", "designation_libre",
+  // Capacité / identificateur
+  "asset_capacity_id", "capacite", "capacite_identificateur", "identificateur",
+  "capacite_identificateur",  // CAPACITE_/_IDENTIFICATEUR → capacite_identificateur
+  // Codification / codes
+  "code_unique", "codification", "code_unique_complet", "code_type_produit",
+  "product_type_code", "article_code", "code_article", "code_article_court",
+  // Autres
+  "description", "description_technique", "dimension", "images",
+  "serial_number", "n_de_serie", "qte", "quantite",
+  "niveau_de_criticite",    // NIVEAU_DE_CRITICITE
+  "date_de_mise_en_service", // DATE_DE_MISE_EN_SERVICE
+  "etat",                   // ETAT (colonne d'état du fichier backend)
 ]);
+
+// Mapping des alias pour la validation structurelle côté Front
+const ALIASES: Record<string, string[]> = {
+  designation: ["designation", "description_technique", "designation_libre"],
+  site: ["site", "agence", "site_agence"],
+  type: ["type", "type_asset", "type_patrimoine", "famille", "type_dequipement", "type_d_equipement"],
+  sous_type: ["sous_type", "sous_type_asset", "stype_patrimoine", "s_type_patrimoine", "sous_type_patrimoine", "sous_type_equipement"],
+  reference_produit: ["reference_produit", "designation_produit", "designationproduit", "designation_reference"],
+  capacite: ["capacite", "capacite_identificateur", "identificateur"],
+  criticite: ["criticite", "niveau_de_criticite"],
+  status: ["status", "statut", "statut_actuel", "etat"],
+  date_entree: ["date_entree", "date_de_mise_en_service"],
+};
 
 // Colonnes OBLIGATOIRES au front pour validation minimale
 const PATRIMOINE_REQUIRED_COLS = ["designation", "site"];
@@ -411,22 +445,30 @@ function parsePatrimoine(file: File): Promise<ParsedPreview> {
           return;
         }
 
-        // Normalise les clés (snake_case + suppression accents)
+        // Normalise les clés (snake_case + suppression accents + caractères spéciaux)
+        const normalizeKey = (k: string) =>
+          k.toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")   // supprime accents
+            .replace(/['\/\-()°#@!?]/g, "_")   // remplace / - ' ( ) etc. par _
+            .trim()
+            .replace(/[^a-z0-9_]/g, "_")        // tout le reste => _
+            .replace(/_+/g, "_")                // collapse underscores multiples
+            .replace(/^_|_$/g, "");             // trim underscores bords
+
         const rows = raw.map(r =>
-          Object.fromEntries(Object.entries(r).map(([k, v]) => [
-            k.toLowerCase()
-              .normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-              .trim()
-              .replace(/\s+/g, "_"),
-            v
-          ]))
+          Object.fromEntries(Object.entries(r).map(([k, v]) => [normalizeKey(k), v]))
         );
 
         const fileKeys = Object.keys(rows[0]);
 
         // ── VÉRIFICATION STRUCTURELLE ──────────────────────────────
-        const missingRequired = PATRIMOINE_REQUIRED_COLS.filter(c => !fileKeys.includes(c));
+        // On vérifie si au moins un des alias pour chaque colonne requise est présent
+        const missingRequired = PATRIMOINE_REQUIRED_COLS.filter(req => {
+          const possible = ALIASES[req] || [req];
+          return !possible.some(p => fileKeys.includes(p));
+        });
+
         const unknownCols = fileKeys.filter(c => !PATRIMOINE_KNOWN_COLS.has(c));
         const knownColsInFile = fileKeys.filter(c => PATRIMOINE_KNOWN_COLS.has(c));
 
@@ -778,7 +820,9 @@ export default function PatrimoinesPage() {
   const { assets, isLoading, fetchAssets, meta, page, setPage, applyFilters } = useAssets();
   const { types } = useTypes();
   const { subTypes } = useSubTypeAssets();
-  const { sites } = useSites();
+  const { designations, fetchDesignations } = useDesignation();
+  const { capacities, fetchCapacities } = useCapacity();
+  const { sitesSelect, fetchSitesAll } = useSites();
 
   const [stats, setStats] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -788,7 +832,19 @@ export default function PatrimoinesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Sous-types filtrés dynamiquement selon le type sélectionné dans le formulaire
   const [selectedTypeId, setSelectedTypeId] = useState<string>("");
+  const [selectedSubTypeId, setSelectedSubTypeId] = useState<string>("");
+  const [selectedDesignationId, setSelectedDesignationId] = useState<string>("");
+
+  // APRÈS
   const [importLoading, setImportLoading] = useState(false);
+
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleSearch = useCallback((q: string) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      applyFilters({ ...filters, search: q });
+    }, 400);
+  }, [filters, applyFilters]);
 
   // ── Preview import states ──
   const [previewFile, setPreviewFile] = useState<File | null>(null);
@@ -796,9 +852,13 @@ export default function PatrimoinesPage() {
 
   const filterRef = useRef<HTMLDivElement>(null);
 
+  // APRÈS
   useEffect(() => {
-    AssetService.getStats().then(setStats).catch(() => setStats(null));
-  }, []);
+    AssetService.getStats()
+      .then(setStats)
+      .catch(() => { }); // ✅ pas de reset à null → plus de tremblement
+    fetchSitesAll();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   useEffect(() => {
@@ -866,11 +926,37 @@ export default function PatrimoinesPage() {
         ...(filters.type_id ? { type_id: filters.type_id } : {}),
         ...(filters.site_id ? { site_id: filters.site_id } : {}),
       });
-      setFlash({ type: "success", msg: "Export téléchargé avec succès." });
+      toast.success("Export téléchargé avec succès.");
     } catch {
       // Fallback vers export local si le backend échoue
       exportToExcel(assets);
     }
+  };
+
+  /** Télécharge un fichier Excel vide avec les entêtes attendues pour l'import */
+  const handleDownloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const headers = [
+      "TYPE_D'EQUIPEMENT", "SOUS_TYPE", "REFERENCE_PRODUIT",
+      "CAPACITE / IDENTIFICATEUR", "CODE_ARTICLE", "CODE_UNIQUE",
+      "DESIGNATION", "SITE / AGENCE", "STATUT",
+      "CRITICITE", "EMPLACEMENT", "VALEUR_ENTREE",
+      "DATE_DE_MISE_EN_SERVICE",
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    ws["!cols"] = headers.map(() => ({ wch: 22 }));
+    // Style entêtes (gras, fond sombre)
+    headers.forEach((_, ci) => {
+      const ref = XLSX.utils.encode_cell({ r: 0, c: ci });
+      if (!ws[ref]) ws[ref] = { v: headers[ci], t: "s" };
+      ws[ref].s = {
+        font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "1A1A1A" } },
+        alignment: { vertical: "center", horizontal: "center" },
+      };
+    });
+    XLSX.utils.book_append_sheet(wb, ws, "Modèle Patrimoine");
+    XLSX.writeFile(wb, `modele_import_patrimoine.xlsx`);
   };
 
   const activeFiltersCount = [filters.status, filters.type_id, filters.sub_type_id, filters.site_id, filters.search]
@@ -880,6 +966,14 @@ export default function PatrimoinesPage() {
   const filteredSubTypesForForm = selectedTypeId
     ? subTypes.filter((st: any) => String(st.type_company_asset_id) === selectedTypeId)
     : subTypes;
+
+  const filteredDesignationsForForm = selectedSubTypeId
+    ? designations.filter((d: any) => String(d.sub_type_company_asset_id) === selectedSubTypeId)
+    : [];
+
+  const filteredCapacitiesForForm = selectedDesignationId
+    ? capacities.filter((c: any) => String(c.asset_designation_id) === selectedDesignationId)
+    : [];
 
   const assetFields: FieldConfig[] = [
     {
@@ -892,9 +986,16 @@ export default function PatrimoinesPage() {
     },
     {
       name: "site_id", label: "Site", type: "select", required: true,
-      options: sites.map((s: any) => ({ label: s.nom, value: String(s.id) })),
+      options: sitesSelect.map((s: any) => ({ label: s.nom, value: String(s.id) })),
     },
-    { name: "designation", label: "Désignation", type: "text", required: true, placeholder: "Que designe ce patrimoine....." },
+    {
+      name: "asset_designation_id", label: "Désignation", type: "select", required: true,
+      options: filteredDesignationsForForm.map((d: any) => ({ label: d.name, value: String(d.id) })),
+    },
+    {
+      name: "asset_capacity_id", label: "Capacité", type: "select", required: false,
+      options: filteredCapacitiesForForm.map((c: any) => ({ label: c.name, value: String(c.id) })),
+    },
     // { name: "serial_number", label: "N° de Série", type: "text", placeholder: "Ex: SN123456789" },
     // { name: "product_type_code", label: "Code Produit", type: "text", placeholder: "Ex: 03 (2 chiffres)", minLength: 2, maxLength: 2 },
     {
@@ -922,14 +1023,14 @@ export default function PatrimoinesPage() {
 
   const columns: ColumnConfig<CompanyAsset>[] = [
     {
-      header: "Code Article", key: "codification",
+      header: "Code Article", key: "article_code",
+      render: (v: any) => <span className="text-xs font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{v ?? "00"}</span>,
+    },
+    {
+      header: "Code Unique", key: "codification",
       render: (_: any, row: CompanyAsset) => (
         <span className="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg whitespace-nowrap">{row.codification}</span>
       ),
-    },
-    {
-      header: "Code unique", key: "article_code",
-      render: (v: any) => <span className="text-xs font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{v ?? "00"}</span>,
     },
     {
       header: "Désignation", key: "designation",
@@ -977,9 +1078,9 @@ export default function PatrimoinesPage() {
       ),
     },
     {
-      header: "Date", key: "date_entree",
+      header: "Date", key: "created_at",
       render: (_: any, row: CompanyAsset) => (
-        <span className="text-xs text-slate-500 whitespace-nowrap">{formatDate(row.date_entree)}</span>
+        <span className="text-xs text-slate-500 whitespace-nowrap">{formatDate(row.created_at)}</span>
       ),
     },
     {
@@ -991,7 +1092,7 @@ export default function PatrimoinesPage() {
           </button> */}
           {/* <span className="w-px h-4 bg-slate-200 mx-0.5" /> */}
           <Link href={`/admin/patrimoines/${row.id}`} className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition" title="Voir les détails">
-            <Eye size={16} />Aperçu
+            <Eye size={16} />
           </Link>
         </div>
       ),
@@ -1016,10 +1117,10 @@ export default function PatrimoinesPage() {
             <StatsCard label="Actifs critiques" value={stats?.total_actifs_critiques ?? 0} delta="-2%" trend="down" />
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-            <StatsCard label="Nombre total de tickets" value={stats?.nombre_total_tickets ?? 0} delta="+0%" trend="up" />
-            <StatsCard label="nombre Actifs non critiques" value={stats?.total_actifs_non_critiques ?? 0} delta="+0%" trend="down" />
-            <StatsCard label="Coût actif critique" value={formatCurrency(stats?.cout_actifs_critiques ?? 0)} delta="+3%" trend="up" />
-            <StatsCard label="délai moyen d'intervention" value={formatDate(stats?.delai_intervention_critique_heures ?? "0h")} delta="+0%" trend="up" />
+            <StatsCard label="Nombre total de tickets" value={stats?.total_tickets ?? 0} delta="+0%" trend="up" />
+            <StatsCard label="nombre Actifs non critiques" value={stats?.actifs_non_critiques ?? 0} delta="+0%" trend="down" />
+            <StatsCard label="Coût actif critique" value={formatCurrency(stats?.cout_actif_critique ?? 0)} delta="+3%" trend="up" />
+            <StatsCard label="délai moyen d'intervention" value={`${stats?.delai_moyen_intervention ?? 0}h`} delta="+0%" trend="up" />
           </div>
 
           {/* Barre d'actions */}
@@ -1034,6 +1135,15 @@ export default function PatrimoinesPage() {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
+
+              {/* Télécharger le modèle vide */}
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-slate-300 bg-slate-50 text-slate-600 text-sm font-bold hover:bg-slate-100 hover:border-slate-400 transition"
+                title="Téléchargez un fichier Excel vide avec les entêtes attendues"
+              >
+                <FileSpreadsheet size={14} /> Modèle d'import
+              </button>
 
               {/* Import - ouvre la prévisualisation */}
               <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-bold cursor-pointer hover:bg-slate-50 transition ${importLoading ? "opacity-60 cursor-wait" : ""}`}>
@@ -1067,13 +1177,19 @@ export default function PatrimoinesPage() {
                 <FilterDropdown
                   isOpen={filtersOpen} onClose={() => setFiltersOpen(false)}
                   filters={filters} onApply={handleApplyFilters}
-                  types={types} subTypes={subTypes} sites={sites}
+                  types={types} subTypes={subTypes} sites={sitesSelect}
                 />
               </div>
 
               {/* Ajouter */}
               <button
-                onClick={() => { setEditingData(null); setSelectedTypeId(""); setIsModalOpen(true); }}
+                onClick={() => {
+                  setEditingData(null);
+                  setSelectedTypeId("");
+                  setSelectedSubTypeId("");
+                  setSelectedDesignationId("");
+                  setIsModalOpen(true);
+                }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm"
               >
                 <Plus size={14} /> Ajouter un patrimoine
@@ -1081,31 +1197,20 @@ export default function PatrimoinesPage() {
             </div>
           </div>
 
-          {/* DataTable */}
+          {/* DataTable avec recherche et pagination intégrées */}
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            {isLoading ? (
-              <div className="py-16 flex flex-col items-center gap-3">
-                <span className="w-6 h-6 border-2 border-slate-200 border-t-slate-700 rounded-full animate-spin" />
-                <p className="text-slate-400 text-sm">Chargement des patrimoines...</p>
-              </div>
-            ) : assets.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-sm">
-                Aucun patrimoine{activeFiltersCount > 0 ? " pour ces filtres" : ""}.
-              </div>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={assets}
-                title={`${meta?.total ?? assets.length} patrimoine${(meta?.total ?? assets.length) > 1 ? "s" : ""}`}
-                onViewAll={() => { }}
-              />
-            )}
-            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between">
-              <p className="text-xs text-slate-400">
-                Page {page} sur {totalPages} · {meta?.total ?? 0} résultat{(meta?.total ?? 0) > 1 ? "s" : ""}
-              </p>
-              <Paginate currentPage={page} totalPages={totalPages} onPageChange={setPage} />
-            </div>
+            <DataTable
+              title="Liste du patrimoine"
+              columns={columns}
+              data={assets}
+              isLoading={isLoading}
+              onSearchChange={handleSearch}
+              pagination={{
+                currentPage: page,
+                totalPages: totalPages,
+                onPageChange: setPage,
+              }}
+            />
           </div>
 
         </main>
@@ -1115,7 +1220,14 @@ export default function PatrimoinesPage() {
       <AssetSidePanel
         asset={panelAsset}
         onClose={() => setPanelAsset(null)}
-        onEdit={() => { setEditingData(panelAsset); setSelectedTypeId(String(panelAsset?.type_company_asset_id ?? "")); setPanelAsset(null); setIsModalOpen(true); }}
+        onEdit={() => {
+          setEditingData(panelAsset);
+          setSelectedTypeId(String(panelAsset?.type_company_asset_id ?? ""));
+          setSelectedSubTypeId(String(panelAsset?.sub_type_company_asset_id ?? ""));
+          setSelectedDesignationId(String(panelAsset?.asset_designation_id ?? ""));
+          setPanelAsset(null);
+          setIsModalOpen(true);
+        }}
       />
 
       {/* Formulaire création / édition */}
@@ -1128,8 +1240,10 @@ export default function PatrimoinesPage() {
         initialValues={editingData ? {
           type_company_asset_id: String(editingData.type_company_asset_id ?? ""),
           sub_type_company_asset_id: String(editingData.sub_type_company_asset_id ?? ""),
+          asset_designation_id: String((editingData as any).asset_designation_id ?? ""),
+          asset_capacity_id: String((editingData as any).asset_capacity_id ?? ""),
           site_id: String(editingData.site_id ?? (editingData.site as any)?.id ?? ""),
-          designation: editingData.designation,
+          // designation: editingData.designation,
           serial_number: editingData.serial_number ?? "",
           product_type_code: editingData.article_code ?? "",
           status: editingData.status,
@@ -1142,8 +1256,21 @@ export default function PatrimoinesPage() {
         onFieldChange={(name, value, setter) => {
           if (name === "type_company_asset_id") {
             setSelectedTypeId(String(value));
-            // Réinitialiser le sous-type quand le type change pour éviter les incohérences
             setter("sub_type_company_asset_id", "");
+            setter("asset_designation_id", "");
+            setter("asset_capacity_id", "");
+            setSelectedSubTypeId("");
+            setSelectedDesignationId("");
+          } else if (name === "sub_type_company_asset_id") {
+            setSelectedSubTypeId(String(value));
+            setter("asset_designation_id", "");
+            setter("asset_capacity_id", "");
+            setSelectedDesignationId("");
+          } else if (name === "asset_designation_id") {
+            setSelectedDesignationId(String(value));
+            setter("asset_capacity_id", "");
+            const selected = designations.find(d => String(d.id) === String(value));
+            if (selected) setter("designation", selected.name);
           }
         }}
         onSubmit={handleCreateOrUpdate}

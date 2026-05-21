@@ -60,6 +60,7 @@ const ERROR_MAP: Record<string, string> = {
     "failed to update profile": "La mise à jour du profil a échoué. Réessayez.",
     "failed to update password": "La modification du mot de passe a échoué.",
     "current password is incorrect": "Le mot de passe actuel est incorrect.",
+    "email already exists": "Cette adresse email existe déjà.",
 
     // ── Tickets ────────────────────────────────────────────────────────────────
     "ticket not found": "Ce ticket est introuvable.",
@@ -78,7 +79,7 @@ const ERROR_MAP: Record<string, string> = {
     "devis already rejected": "Ce devis a déjà été refusé.",
 
     // ── Factures ──────────────────────────────────────────────────────────────
-    "invoice not found": "Cette facture est introuvable.",
+    "invoice not found": "Cette facture est introu  vable.",
     "invoice already paid": "Cette facture est déjà réglée.",
 
     // ── Sites ──────────────────────────────────────────────────────────────────
@@ -126,6 +127,10 @@ const VALIDATION_FIELD_MAP: Record<string, string> = {
     type: "Type",
     amount: "Montant",
     title: "Titre",
+    // Nouveaux champs harmonisés Backend
+    first_name: "Prénom",
+    last_name: "Nom",
+    phone_number: "Téléphone",
 };
 
 // ── Fonction principale ────────────────────────────────────────────────────────
@@ -259,7 +264,7 @@ export function isAuthError(error: any): boolean {
 export function isFileTooLarge(error: any): boolean {
     // Cas 1 : Le serveur a répondu explicitement 413
     if (error?.response?.status === 413) return true;
-    
+
     // Cas 2 : Erreur réseau alors qu'on envoyait un FormData (fichiers)
     // C'est le comportement classique des navigateurs quand Nginx/Apache coupe la connexion 413 abruptement.
     if (error?.message === "Network Error" && error?.config?.data instanceof FormData) {
@@ -267,4 +272,4 @@ export function isFileTooLarge(error: any): boolean {
     }
 
     return false;
-}
+}

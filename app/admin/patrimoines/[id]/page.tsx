@@ -13,6 +13,7 @@ import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import PageHeader from "@/components/PageHeader";
 import StatsCard from "@/components/StatsCard";
+import RichContent from "@/components/RichContent";
 import AttachmentViewer from "@/components/AttachmentViewer";
 import ReusableForm, { FieldConfig } from "@/components/ReusableForm";
 import { useTypes } from "../../../../hooks/admin/useTypes";
@@ -171,24 +172,24 @@ export default function PatrimoineDetailsPage() {
   };
 
   const assetFields: FieldConfig[] = [
-    {
-      name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true,
-      options: types.map((t: any) => ({ label: t.name, value: String(t.id) })),
-    },
-    {
-      name: "sub_type_company_asset_id", label: "Sous-type", type: "select", required: true,
-      options: (selectedTypeId
-        ? subTypes.filter((st: any) => String(st.type_company_asset_id) === selectedTypeId)
-        : subTypes
-      ).map((st: any) => ({ label: st.name, value: String(st.id) })),
-    },
-    {
-      name: "site_id", label: "Site", type: "select", required: true,
-      options: sites.map((s: any) => ({ label: s.nom, value: String(s.id) })),
-    },
-    { name: "designation", label: "Désignation", type: "text", required: true },
+    // {
+    //   name: "type_company_asset_id", label: "Famille / Type", type: "select", required: true, disabled: true,
+    //   options: types.map((t: any) => ({ label: t.name, value: String(t.id) })),
+    // },
+    // {
+    //   name: "sub_type_company_asset_id", label: "Sous-type", type: "select", required: true, disabled: true,
+    //   options: (selectedTypeId
+    //     ? subTypes.filter((st: any) => String(st.type_company_asset_id) === selectedTypeId)
+    //     : subTypes
+    //   ).map((st: any) => ({ label: st.name, value: String(st.id) })),
+    // },
+    // {
+    //   name: "site_id", label: "Site", type: "select", required: true, disabled: true,
+    //   options: sites.map((s: any) => ({ label: s.nom, value: String(s.id) })),
+    // },
+    // { name: "designation", label: "Désignation", type: "text", required: true, disabled: true },
+    // { name: "product_type_code", label: "Code Produit", type: "text", placeholder: "Ex: 03 (2 chiffres)", minLength: 2, maxLength: 2 },
     { name: "serial_number", label: "N° de Série", type: "text", placeholder: "Ex: SN123456789" },
-    { name: "product_type_code", label: "Code Produit", type: "text", placeholder: "Ex: 03 (2 chiffres)", minLength: 2, maxLength: 2 },
     {
       name: "status", label: "Statut", type: "select", required: true,
       options: Object.entries(ST_LABEL).map(([v, l]) => ({ label: l, value: v })),
@@ -197,8 +198,8 @@ export default function PatrimoineDetailsPage() {
       name: "criticite", label: "Criticité", type: "select", required: true,
       options: [{ label: "Critique", value: "critique" }, { label: "Non critique", value: "non_critique" }],
     },
-    { name: "date_entree", label: "Date d'entrée", type: "date", required: true },
-    { name: "valeur_entree", label: "Valeur d'entrée (FCFA)", type: "number", required: true },
+    { name: "date_entree", label: "Date d'entrée", type: "date", required: true, disabled: true },
+    { name: "valeur_entree", label: "Valeur d'entrée (FCFA)", type: "number", required: true, disabled: false },
     { name: "description", label: "Description", type: "rich-text", gridSpan: 2 },
     { name: "images", label: "Photos", type: "image-upload", gridSpan: 2, maxImages: 5 },
   ];
@@ -285,10 +286,10 @@ export default function PatrimoineDetailsPage() {
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition shadow-sm">
                     <Pencil size={14} /> Modifier le patrimoine
                   </button>
-                  <Link href={`/admin/patrimoines/transfert`}
+                  {/* <Link href={`/admin/patrimoines/transfert`}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 transition">
                     <ArrowRightLeft size={14} /> Transférer
-                  </Link>
+                  </Link> */}
                 </div>
               </div>
             ) : (
@@ -368,10 +369,7 @@ export default function PatrimoineDetailsPage() {
                   {asset.description && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
                       <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Description</h2>
-                      <div
-                        className="prose prose-sm max-w-none text-slate-700 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: asset.description }}
-                      />
+                      <RichContent html={asset.description} />
                     </div>
                   )}
 
@@ -390,7 +388,7 @@ export default function PatrimoineDetailsPage() {
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Tickets associés ({relatedTickets.length})</h2>
-                      <Link href={`/admin/tickets-curatifs?company_asset_id=${asset.id}`} className="text-xs font-bold text-slate-500 hover:text-slate-900 transition">
+                      <Link href={`/admin/tickets`} className="text-xs font-bold text-slate-500 hover:text-slate-900 transition">
                         Voir tout
                       </Link>
                     </div>

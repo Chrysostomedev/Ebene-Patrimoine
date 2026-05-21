@@ -13,10 +13,10 @@ import { useLanguage } from "../../contexts/LanguageContext";
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)                return "À l'instant";
-  if (diff < 3600)              return `il y a ${Math.floor(diff / 60)} min`;
-  if (diff < 86400)             return `il y a ${Math.floor(diff / 3600)} h`;
-  if (diff < 86400 * 7)         return `il y a ${Math.floor(diff / 86400)} j`;
+  if (diff < 60) return "À l'instant";
+  if (diff < 3600) return `il y a ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `il y a ${Math.floor(diff / 3600)} h`;
+  if (diff < 86400 * 7) return `il y a ${Math.floor(diff / 86400)} j`;
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
 }
 
@@ -26,14 +26,14 @@ const SOURCE_CONFIG: Record<NotifSource, {
   label: string; Icon: React.ElementType;
   iconBg: string; iconColor: string; dotColor: string;
 }> = {
-  ticket:      { label: "Ticket",      Icon: Ticket,    iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  site:        { label: "Site",        Icon: MapPin,    iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
-  prestataire: { label: "Prestataire", Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  patrimoine:  { label: "Patrimoine",  Icon: Building2, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
-  facture:     { label: "Facture",     Icon: Receipt,   iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#111827" },
-  devis:       { label: "Devis",       Icon: FileText,  iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
-  utilisateur: { label: "Utilisateur", Icon: Users,     iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
-  système:     { label: "Système",     Icon: Settings,  iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
+  ticket: { label: "Ticket", Icon: Ticket, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  site: { label: "Site", Icon: MapPin, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  prestataire: { label: "Prestataire", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  patrimoine: { label: "Patrimoine", Icon: Building2, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
+  facture: { label: "Facture", Icon: Receipt, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#111827" },
+  devis: { label: "Devis", Icon: FileText, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#4b5563" },
+  utilisateur: { label: "Utilisateur", Icon: Users, iconBg: "bg-gray-100", iconColor: "text-gray-700", dotColor: "#374151" },
+  système: { label: "Système", Icon: Settings, iconBg: "bg-gray-200", iconColor: "text-gray-800", dotColor: "#1f2937" },
 };
 
 function getCfg(source: NotifSource) {
@@ -66,8 +66,8 @@ function SourceBadge({ source }: { source: NotifSource }) {
 // ── Props ────────────────────────────────────────────────────────────────────
 
 interface NotificationPanelProps {
-  isOpen:       boolean;
-  onClose:      () => void;
+  isOpen: boolean;
+  onClose: () => void;
   initialNotif?: Notification | null; // ← AJOUT : notif pré-sélectionnée depuis ListNotifs
 }
 
@@ -78,7 +78,7 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
   const { t } = useLanguage();
 
   const [activeNotif, setActiveNotif] = useState<Notification | null>(null);
-  const [detailOpen,  setDetailOpen]  = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -104,7 +104,7 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
       }
     };
     if (isOpen) document.addEventListener("mousedown", handler);
-    return ()  => document.removeEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [isOpen, onClose]);
 
   // Bloque scroll body
@@ -131,23 +131,23 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
   };
 
   const unread = notifications.filter(n => !n.read);
-  const read   = notifications.filter(n =>  n.read);
+  const read = notifications.filter(n => n.read);
 
   if (!isOpen) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[70]" />
+      <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-[9990]" />
 
-      <div ref={panelRef} className="fixed right-0 top-0 h-full z-[71] flex">
+      <div ref={panelRef} className="notification-panel fixed right-0 top-0 h-full z-[9995] flex w-full md:w-auto">
 
         {/* ══ PANNEAU LISTE ══════════════════════════════════════════════ */}
         <div
-          className="w-[420px] h-full bg-white shadow-2xl flex flex-col"
+          className="w-full md:w-[420px] h-full bg-white shadow-2xl flex flex-col"
           style={{
-            transform:  isOpen ? "translateX(0)" : "translateX(100%)",
+            transform: isOpen ? "translateX(0)" : "translateX(100%)",
             transition: "transform 0.35s cubic-bezier(0.32, 0, 0, 1)",
-            borderRadius: "24px 0 0 24px",
+            borderRadius: "0",
           }}
         >
           {/* Header */}
@@ -245,10 +245,10 @@ export default function NotificationPanel({ isOpen, onClose, initialNotif }: Not
         <div
           className="absolute right-0 top-0 h-full w-[420px] bg-white shadow-2xl flex flex-col"
           style={{
-            transform:    detailOpen ? "translateX(0)" : "translateX(100%)",
-            transition:   "transform 0.3s cubic-bezier(0.32, 0, 0, 1)",
+            transform: detailOpen ? "translateX(0)" : "translateX(100%)",
+            transition: "transform 0.3s cubic-bezier(0.32, 0, 0, 1)",
             borderRadius: "24px 0 0 24px",
-            borderLeft:   "1px solid #f1f5f9",
+            borderLeft: "1px solid #f1f5f9",
           }}
         >
           {activeNotif && (
@@ -274,9 +274,8 @@ function NotifRow({ notif, isActive, onClick, onDelete }: {
   return (
     <div
       onClick={onClick}
-      className={`group flex items-start gap-3.5 px-5 py-4 cursor-pointer border-b border-slate-50 last:border-0 transition ${
-        isActive ? "bg-slate-50" : notif.read ? "hover:bg-slate-50/60" : "hover:bg-slate-50 bg-white"
-      }`}
+      className={`group flex items-start gap-3.5 px-5 py-4 cursor-pointer border-b border-slate-50 last:border-0 transition ${isActive ? "bg-slate-50" : notif.read ? "hover:bg-slate-50/60" : "hover:bg-slate-50 bg-white"
+        }`}
     >
       <div className="relative shrink-0 mt-0.5">
         <SourceIcon source={notif.source} size={16} />
@@ -330,7 +329,7 @@ function NotifDetail({ notif, onBack, onDelete }: {
         <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-black transition text-sm font-bold">
           <ArrowLeft size={16} /> Retour
         </button>
-       
+
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
@@ -372,10 +371,10 @@ function NotifDetail({ notif, onBack, onDelete }: {
 
         <div>
           {[
-            { label: "Source",   value: cfg.label },
-            { label: "Statut",   value: notif.read ? "Lu" : "Non lu" },
-            { label: "Reçu le",  value: new Date(notif.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) },
-            { label: "À",        value: new Date(notif.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) },
+            { label: "Source", value: cfg.label },
+            { label: "Statut", value: notif.read ? "Lu" : "Non lu" },
+            { label: "Reçu le", value: new Date(notif.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) },
+            { label: "À", value: new Date(notif.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) },
           ].map((row) => (
             <div key={row.label} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
               <p className="text-xs text-slate-400 font-medium">{row.label}</p>
@@ -387,12 +386,12 @@ function NotifDetail({ notif, onBack, onDelete }: {
 
       {notif.href && (
         <div className="px-6 py-5 border-t border-slate-100 shrink-0 space-y-2">
-          <a
+          {/* <a
             href={notif.href}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-black transition"
-          >
-            <ExternalLink size={15} /> Voir {cfg.label}
-          </a>
+          > */}
+          {/* <ExternalLink size={15} /> Voir {cfg.label} */}
+          {/* </a> */}
         </div>
       )}
     </>

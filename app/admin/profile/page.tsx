@@ -24,10 +24,10 @@ export default function AdminProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    first_name: "",
-    last_name:  "",
-    email:      "",
-    phone:      "",
+    first_name:   "",
+    last_name:    "",
+    email:        "",
+    phone_number: "",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -53,11 +53,16 @@ export default function AdminProfilePage() {
       console.log("[AdminProfile] données reçues :", data);
       setProfile(data);
       setFormData({
-        first_name: data.first_name ?? "",
-        last_name:  data.last_name  ?? "",
-        email:      data.email      ?? "",
-        phone:      data.phone_number ?? data.phone ?? "",
+        first_name:   data.first_name   ?? "",
+        last_name:    data.last_name    ?? "",
+        email:        data.email        ?? "",
+        phone_number: data.phone_number ?? data.phone ?? "",
       });
+      if (data.first_name || data.last_name) {
+        localStorage.setItem("first_name", data.first_name ?? "");
+        localStorage.setItem("last_name", data.last_name ?? "");
+        window.dispatchEvent(new CustomEvent("profile-updated"));
+      }
       if (data.url) {
         dispatchProfileUpdate(data.url);
       }
@@ -76,16 +81,15 @@ export default function AdminProfilePage() {
     setSaving(true);
     try {
       const fd = new FormData();
-      fd.append("first_name", formData.first_name);
-      fd.append("last_name",  formData.last_name);
-      fd.append("email",      formData.email);
-      if (formData.phone) fd.append("phone", formData.phone);
+      fd.append("first_name",   formData.first_name);
+      fd.append("last_name",    formData.last_name);
+      fd.append("email",        formData.email);
+      if (formData.phone_number) fd.append("phone_number", formData.phone_number);
       if (fileInputRef.current?.files?.[0]) {
         fd.append("avatar", fileInputRef.current.files[0]);
-        console.log("[AdminProfile] upload avatar :", fileInputRef.current.files[0].name);
       }
-      console.log("[AdminProfile] POST /admin/profile →", Object.fromEntries(fd.entries()));
-      const res  = await axiosInstance.post("/admin/profile", fd, {
+      // Retour à /admin/profile car /admin/profile/update renvoie une 404
+      const res = await axiosInstance.post("/admin/profile", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const data = res.data?.data ?? res.data;
@@ -93,6 +97,12 @@ export default function AdminProfilePage() {
       if (data?.url) {
         dispatchProfileUpdate(data.url);
       }
+
+      // Force immediate update of localStorage for the Navbar to react instantly
+      localStorage.setItem("first_name", formData.first_name);
+      localStorage.setItem("last_name", formData.last_name);
+      window.dispatchEvent(new CustomEvent("profile-updated"));
+
       toast.success("Profil mis à jour avec succès.");
       fetchProfile();
     } catch (e: any) {
@@ -299,8 +309,8 @@ export default function AdminProfilePage() {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Téléphone</label>
                     <input
                       type="tel"
-                      value={formData.phone}
-                      onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                      value={formData.phone_number}
+                      onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
                       className="w-full px-5 py-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:bg-white focus:border-slate-900 transition-all"
                       placeholder="+225 07 00 00 00 00"
                     />

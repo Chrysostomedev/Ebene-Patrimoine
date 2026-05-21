@@ -10,7 +10,7 @@ import type { FieldConfig } from "@/components/ReusableForm";
 import {
   ChevronLeft, MapPin, Wrench, Tag, Clock, CheckCircle2,
   FileText, Eye, Download, X, Star, User, Calendar,
-  Shield, AlertCircle, RefreshCw,
+  Shield, AlertCircle, RefreshCw, ArrowUpRight
 } from "lucide-react";
 import {
   providerTicketService, Ticket,
@@ -20,9 +20,12 @@ import {
 } from "../../../../services/provider/providerTicketService";
 import { providerReportService } from "../../../../services/provider/providerReportService";
 import { providerQuoteService } from "../../../../services/provider/providerQuoteService";
+import { providerInvoiceService } from "../../../../services/provider/providerInvoiceService";
 import { useToast } from "../../../../contexts/ToastContext";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { parseApiError } from "@/core/error";
+import ItemTableEditor from "@/components/form/ItemTableEditor";
+import { QuoteItem } from "../../../../services/provider/providerQuoteService";
 
 // ─── Champs formulaire rapport curatif ───────────────────────────────────────
 const reportFields: FieldConfig[] = [
@@ -41,9 +44,14 @@ const reportFields: FieldConfig[] = [
 ];
 
 const quoteFields: FieldConfig[] = [
-  { name: "items", label: "Articles du devis", type: "quote-items", required: true, gridSpan: 2 },
+  { name: "tax_rate", label: "TVA (%)", type: "number", placeholder: "18", required: true, defaultValue: 18 },
   { name: "description", label: "Description détaillée / Justification", type: "rich-text", required: true, gridSpan: 2 },
   { name: "quote_pdf", label: "Pièces jointes Devis (PDF, Images)", type: "pdf-upload", accept: "application/pdf,image/*", maxPDFs: 5, gridSpan: 2 } as any,
+];
+
+const invoiceFields: FieldConfig[] = [
+  { name: "comment", label: "Commentaire / Description", type: "rich-text", required: true, gridSpan: 2 },
+  { name: "invoice_attachments", label: "Pièces jointes (PDF, Images)", type: "pdf-upload", accept: "application/pdf,image/*", maxPDFs: 5, gridSpan: 2 } as any,
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -109,6 +117,13 @@ export default function ProviderTicketDetailPage() {
   const [quoteSubmitting, setQuoteSubmitting] = useState(false);
   const [quotes, setQuotes] = useState<any[]>([]);
 
+  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
+  const [invoice, setInvoice] = useState<any>(null);
+  const [quoteItems, setQuoteItems] = useState<QuoteItem[]>([]);
+  const [quoteTaxRate, setQuoteTaxRate] = useState(18);
+  const [invoiceError, setInvoiceError] = useState<string | undefined>(undefined);
+
   const reload = async () => {
     if (!ticketId) return;
     setLoading(true); setError("");
@@ -144,6 +159,31 @@ export default function ProviderTicketDetailPage() {
       } else {
         setQuotes([]);
       }
+
+      // Récupération des factures liées
+      let foundInvoice = null;
+      try {
+        const invRes = await providerInvoiceService.getInvoices({ per_page: 100 });
+        const items = (invRes as any)?.items || invRes || [];
+
+        // On utilise les devis fraîchement récupérés plutôt que l'état local (stale)
+        const currentQuotes = additionalInfo?.quotes || (additionalInfo?.devis ? [additionalInfo.devis] : []);
+
+        const reportId = ticketCore.reports?.[0]?.id || additionalInfo?.rapport?.id || fullyLoadedTicket.reports?.[0]?.id;
+
+        const approvedQuote = currentQuotes.find((q: any) =>
+          q && (["approved", "approuvé", "validé", "accepté", "validated"].includes(String(q.status || "").toLowerCase()) || q.is_approved)
+        );
+
+        foundInvoice = items.find((i: any) =>
+          (i.report_id && Number(i.report_id) === Number(reportId)) ||
+          (i.ticket_id && Number(i.ticket_id) === Number(ticketId)) ||
+          (approvedQuote && i.quote_id && Number(i.quote_id) === Number(approvedQuote.id))
+        );
+      } catch (err) {
+        console.error("[Invoice load error]", err);
+      }
+      setInvoice(foundInvoice);
     } catch (e: any) {
       console.error("[ProviderTicketDetail] erreur:", e?.response?.data ?? e);
       setError(e?.response?.data?.message ?? "Impossible de charger ce ticket.");
@@ -178,13 +218,17 @@ export default function ProviderTicketDetailPage() {
         start_date: formData.start_date,
         end_date: formData.end_date,
         anomaly_detected: formData.result === "anomalie",
-        attachments: formData.attachments as File[] | undefined,
+        attachments: Array.isArray(formData.attachments) ? formData.attachments : (formData.attachments?.files || []),
       });
       setIsReportOpen(false);
       toast.success("Rapport soumis avec succès. Le gestionnaire a été notifié.");
       reload();
     } catch (e: any) {
-      toast.error(parseApiError(e));
+      let msg = parseApiError(e);
+      if (e?.response?.status === 413 || String(e?.message).includes("413") || String(e?.response?.data?.message).includes("413")) {
+        msg = "Erreur de validation - Fichier trop volumineux (max 2Mo)";
+      }
+      toast.error(msg);
     } finally { setReportSubmitting(false); }
   };
 
@@ -192,19 +236,87 @@ export default function ProviderTicketDetailPage() {
     if (!ticket) return;
     setQuoteSubmitting(true);
     try {
+      const tax_rate = parseFloat(formData.tax_rate) || quoteTaxRate;
+      const amount_ht = quoteItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0);
+      const tax_amount = amount_ht * (tax_rate / 100);
+      const amount_ttc = amount_ht + tax_amount;
+
       await providerQuoteService.createQuote({
         ticket_id: ticket.id,
-        tax_rate: 18,
+        tax_rate: tax_rate,
         description: formData.description,
-        attachments: formData.quote_pdf, // Tableau de fichiers (PDF/Images)
-        items: formData.items ?? [{ designation: "Prestation", quantity: 1, unit_price: 0 }],
-      });
+        attachments: formData.quote_pdf,
+        items: quoteItems,
+        amount_ht: amount_ht, // Ajout des totaux calculés
+      } as any);
       setIsQuoteOpen(false);
       toast.success("Demande de devis envoyée avec succès.");
       reload();
     } catch (e: any) {
-      toast.error(parseApiError(e));
+      let msg = parseApiError(e);
+      if (e?.response?.status === 413 || String(e?.message).includes("413") || String(e?.response?.data?.message).includes("413")) {
+        msg = "Erreur de validation - Fichier trop volumineux (max 2Mo)";
+      }
+      toast.error(msg);
     } finally { setQuoteSubmitting(false); }
+  };
+
+  const handleSubmitInvoice = async (formData: any) => {
+    if (!ticket) return;
+    setInvoiceSubmitting(true);
+    try {
+      const reportId = ticket.reports?.[0]?.id || (ticket as any).report_id;
+      const allPossibleQuotes = [
+        ...(quotes || []),
+        ...((ticket as any)?.quotes || []),
+        ...((ticket as any)?.devis ? (Array.isArray((ticket as any).devis) ? (ticket as any).devis : [(ticket as any).devis]) : []),
+        ...(ticket?.reports?.flatMap((r: any) => r.quotes || []) || []),
+        ...((ticket as any)?.quote ? [(ticket as any).quote] : [])
+      ];
+      const approvedQuote = allPossibleQuotes.find(q =>
+        q && (["approved", "approuvé", "validé", "accepté", "validated"].includes(String(q.status || "").toLowerCase()) || q.is_approved)
+      );
+      const quoteId = approvedQuote?.id;
+
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      const dueStr = dueDate.toISOString().split('T')[0];
+
+      const newInvoice = await providerInvoiceService.createInvoice({
+        report_id: reportId,
+        ticket_id: ticket.id,
+        quote_id: quoteId,
+        amount_ht: approvedQuote?.amount_ht ? parseFloat(String(approvedQuote.amount_ht)) : undefined,
+        tax_amount: approvedQuote?.tax_amount ? parseFloat(String(approvedQuote.tax_amount)) : undefined,
+        amount_ttc: approvedQuote?.amount_ttc ? parseFloat(String(approvedQuote.amount_ttc)) : undefined,
+        invoice_date: today,
+        due_date: dueStr,
+        comment: formData.comment ?? "",
+        pdf_file: Array.isArray(formData.invoice_attachments) ? formData.invoice_attachments[0] : formData.invoice_attachments?.files?.[0],
+        attachments: Array.isArray(formData.invoice_attachments) ? formData.invoice_attachments : (formData.invoice_attachments?.files || [])
+      });
+
+      setInvoice(newInvoice);
+      setIsInvoiceOpen(false);
+      toast.success("Facture créée avec succès.");
+      reload();
+    } catch (e: any) {
+      console.error("[CRITICAL ERROR ON TICKET INVOICE CREATION]:", e);
+      if (e?.response) {
+        console.log("[TICKET INVOICE BACKEND RESPONSE ERROR]:", {
+          status: e.response.status,
+          data: e.response.data,
+          headers: e.response.headers,
+        });
+      }
+      let msg = parseApiError(e);
+      if (e?.response?.status === 413 || String(e?.message).includes("413") || String(e?.response?.data?.message).includes("413")) {
+        msg = "Erreur de validation - Fichier trop volumineux (max 2Mo)";
+      }
+      toast.error(msg);
+      setInvoiceError(msg); // ← ajouter cette ligne
+    } finally { setInvoiceSubmitting(false); }
   };
 
   // ─── Attachments aggregation ───────────────────────────────────────────────
@@ -299,14 +411,37 @@ export default function ProviderTicketDetailPage() {
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-3">
                     <div className="flex flex-col gap-2 w-full sm:w-auto">
-                      {quotes.length === 0 && canRequestDevis(ticket) && (
-                        <button
-                          onClick={() => setIsQuoteOpen(true)}
-                          className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-900 text-sm font-black hover:border-slate-900 transition-all active:scale-95 whitespace-nowrap"
-                        >
-                          <Tag size={18} /> Demander un devis
-                        </button>
-                      )}
+                      {(() => {
+                        const allPossibleQuotes = [
+                          ...(quotes || []),
+                          ...((ticket as any)?.quotes || []),
+                          ...((ticket as any)?.devis ? (Array.isArray((ticket as any).devis) ? (ticket as any).devis : [(ticket as any).devis]) : [])
+                        ];
+                        const approvedQuote = allPossibleQuotes.find(q =>
+                          q && (["approved", "approuvé", "validé", "accepté", "validated"].includes(String(q.status || "").toLowerCase()) || q.is_approved)
+                        );
+                        const hasApprovedQuote = ["approved", "devis_approuvé", "approuvé", "validé", "accepté", "validated"].includes(String(ticket?.status || "").toLowerCase()) || approvedQuote != null;
+
+                        if (invoice) {
+                          return null;
+                        }
+
+                        return hasApprovedQuote ? (
+                          <button
+                            onClick={() => setIsInvoiceOpen(true)}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 text-sm font-black hover:border-emerald-700 hover:bg-emerald-100 transition-all active:scale-95 whitespace-nowrap"
+                          >
+                            <FileText size={18} /> Créer une facture
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setIsQuoteOpen(true)}
+                            className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl border-2 border-slate-200 bg-white text-slate-900 text-sm font-black hover:border-slate-900 transition-all active:scale-95 whitespace-nowrap"
+                          >
+                            <Tag size={18} /> Créer un devis
+                          </button>
+                        );
+                      })()}
 
                       {canSubmitReport(ticket) && (
                         <button
@@ -404,9 +539,24 @@ export default function ProviderTicketDetailPage() {
                     </div>
                   )}
 
+                  {/* Source du ticket (si issu d'une visite) */}
+                  {((ticket as any).nature_observation || (ticket as any).observation_commentaire) && (
+                    <div className="bg-amber-50 rounded-3xl border border-amber-100 shadow-sm p-6 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-white">
+                          <AlertTriangle size={16} />
+                        </div>
+                        <h3 className="text-sm font-black text-amber-900 uppercase tracking-widest">Origine : {(ticket as any).nature_observation === 'anomalie' ? 'Anomalie détectée' : 'Observation lors d\'une visite'}</h3>
+                      </div>
+                      <div className="p-4 bg-white/50 rounded-2xl border border-amber-200/50 text-sm text-amber-900 leading-relaxed italic">
+                        {((ticket as any).observation_commentaire || "Aucun commentaire laissé lors de la visite.")}
+                      </div>
+                    </div>
+                  )}
+
                   {reports.length > 0 && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mes rapports ({reports.length})</h3>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mon rapport ({reports.length})</h3>
                       <div className="space-y-3">
                         {reports.map((r: any, i: number) => (
                           <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 bg-slate-50">
@@ -435,7 +585,7 @@ export default function ProviderTicketDetailPage() {
                   {/* Devis associés */}
                   {quotes.length > 0 && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mes devis associés ({quotes.length})</h3>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Mon devis associé ({quotes.length})</h3>
                       <div className="space-y-3">
                         {quotes.map((q: any, i: number) => {
                           // Calcul robuste du montant si manquant
@@ -474,6 +624,37 @@ export default function ProviderTicketDetailPage() {
                     </div>
                   )}
 
+                  {/* Factures associées */}
+                  {invoice && (
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Ma facture associée</h3>
+                      <div className="flex items-center justify-between p-4 rounded-2xl border border-emerald-100 bg-emerald-50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shadow-sm">
+                            <FileText size={20} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">{invoice.reference ?? `Facture #${invoice.id}`}</p>
+                            <p className="text-xs text-emerald-600 font-bold">{formatCurrency(invoice.amount_ttc)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {/* {invoice.pdf_path && (
+                            <button
+                              onClick={() => setPdfPreview({ url: getUrl(invoice.pdf_path), name: invoice.reference ?? "Facture" })}
+                              className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition shadow-sm"
+                            >
+                              <Eye size={16} />Apercu pdf
+                            </button>
+                          )} */}
+                          <Link href={`/provider/factures/${invoice.id}`} className="p-2.5 rounded-xl bg-white border border-slate-200 hover:bg-black hover:border-black hover:text-white transition shadow-sm">
+                            <Eye size={16} />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {photos.length > 0 && (
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
                       <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Photos ({photos.length})</h3>
@@ -481,8 +662,16 @@ export default function ProviderTicketDetailPage() {
                         {photos.map((att: any, i: number) => {
                           const url = getUrl(att);
                           return (
-                            <a key={i} href={url} target="_blank" rel="noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-100 hover:opacity-80 transition">
-                              <img src={url} alt="photo" className="w-full h-full object-cover" onError={() => console.error("[Photo] erreur:", url)} />
+                            <a key={i} href={url} target="_blank" rel="noreferrer" className="aspect-square rounded-xl overflow-hidden border border-slate-100 hover:opacity-80 transition bg-slate-50 flex items-center justify-center">
+                              <img
+                                src={url}
+                                alt="photo"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  console.error("[Photo] erreur:", url);
+                                  (e.target as HTMLImageElement).src = "https://placehold.co/400x400/f8fafc/64748b?text=Image+Indisponible";
+                                }}
+                              />
                             </a>
                           );
                         })}
@@ -504,7 +693,7 @@ export default function ProviderTicketDetailPage() {
                         { l: "Patrimoine", v: ticket.asset ? `${(ticket.asset as any).designation ?? (ticket.asset as any).nom ?? ""} (${(ticket.asset as any).codification ?? ""})` : "—" },
                         { l: "Type Actif", v: (ticket.asset as any)?.type?.name ?? (ticket.asset as any)?.type?.nom ?? (ticket.asset as any)?.type ?? "—" },
                         { l: "Sous-type", v: (ticket.asset as any)?.sub_type?.name ?? (ticket.asset as any)?.sub_type?.nom ?? (ticket.asset as any)?.sub_type ?? "—" },
-                        { l: "Service", v: ticket.service?.name ?? ticket.service?.nom ?? "—" },
+                        // { l: "Service", v: ticket.service?.name ?? ticket.service?.nom ?? "—" },
                         { l: "Prestataire", v: (ticket.provider as any)?.company_name ?? (ticket.provider as any)?.name ?? (ticket.provider as any)?.nom ?? "—" },
                         { l: "Créé le", v: fmtDate(ticket.created_at) },
                       ].map((r, i) => (
@@ -530,7 +719,7 @@ export default function ProviderTicketDetailPage() {
                                 <p className="text-xs font-bold text-slate-900 truncate flex-1">{name}</p>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => setPdfPreview({ url, name })} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"><Eye size={13} /> Aperçu</button>
+                                <button onClick={() => setPdfPreview({ url, name })} className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-slate-600 text-xs font-bold hover:bg-white transition"><Eye size={13} /> </button>
                                 <a href={url} download target="_blank" rel="noreferrer" className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-black transition"><Download size={13} /> Télécharger</a>
                               </div>
                             </div>
@@ -556,11 +745,12 @@ export default function ProviderTicketDetailPage() {
       {ticket && (
         <ReusableForm
           isOpen={isReportOpen}
-          onClose={() => setIsReportOpen(false)}
+          onClose={() => { setIsReportOpen(false); }}
           title={`Soumettre un rapport ${ticket.code_ticket}`}
           subtitle="Renseignez les informations de votre intervention. Le gestionnaire de site sera notifié automatiquement."
           fields={reportFields}
           onSubmit={handleSubmitReport}
+          isSubmitting={reportSubmitting}
           submitLabel={reportSubmitting ? "Soumission en cours..." : "Soumettre le rapport"}
         />
       )}
@@ -569,13 +759,39 @@ export default function ProviderTicketDetailPage() {
       {ticket && (
         <ReusableForm
           isOpen={isQuoteOpen}
-          onClose={() => setIsQuoteOpen(false)}
-          title={`Nouveau devis pour ${ticket.code_ticket || ticket.id}`}
-          subtitle="Renseignez le montant estimé et joignez un document PDF ou images si nécessaire."
+          onClose={() => { setIsQuoteOpen(false); }}
+          title={`Nouveau devis pour #${ticket.code_ticket || ticket.id}`}
+          subtitle="Renseignez le montant estimé et joignez un document PDF si nécessaire."
           fields={quoteFields}
           onSubmit={handleCreateQuote}
-          submitLabel={quoteSubmitting ? "Création..." : "Chiffrer et envoyer"}
+          isSubmitting={quoteSubmitting}
+          submitLabel={quoteSubmitting ? "Envoi en cours..." : "Envoyer"}
           initialValues={{ tax_rate: "18" }}
+          onFieldChange={(name, value) => {
+            if (name === "tax_rate") setQuoteTaxRate(parseFloat(value) || 0);
+          }}
+        >
+          <div className="col-span-2 mt-4">
+            <ItemTableEditor
+              onChange={setQuoteItems}
+              taxRate={quoteTaxRate}
+            />
+          </div>
+        </ReusableForm>
+      )}
+
+      {/* MODALE CRÉATION FACTURE */}
+      {ticket && (
+        <ReusableForm
+          isOpen={isInvoiceOpen}
+          onClose={() => { setIsInvoiceOpen(false); }}
+          title={`Nouvelle facture pour #${ticket.code_ticket || ticket.id}`}
+          subtitle="Renseignez la description/commentaire et joignez un document PDF ainsi que vos images."
+          fields={invoiceFields}
+          onSubmit={handleSubmitInvoice}
+          isSubmitting={invoiceSubmitting}
+          submitLabel={invoiceSubmitting ? "Envoi en cours..." : "Créer la facture"}
+          error={invoiceError}
         />
       )}
     </div>

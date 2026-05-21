@@ -2,23 +2,23 @@
 import { ManagerService, Manager, ManagerStats } from "../../services/admin/manager.service";
 
 export function useManagers() {
-  const [managers,    setManagers]    = useState<Manager[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [allManagers, setAllManagers] = useState<Manager[]>([]);
-  const [stats,       setStats]       = useState<ManagerStats>({
+  const [stats, setStats] = useState<ManagerStats>({
     total_managers: 0, active_managers: 0, inactive_managers: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [page,      setPageNum]   = useState(1);
-  const [search,    setSearch]    = useState("");
-  const [filters,   setFilters]   = useState<{ is_active?: boolean }>({});
-  const [meta,      setMeta]      = useState({
-    current_page: 1, last_page: 1, per_page: 15, total: 0,
+  const [page, setPageNum] = useState(1);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<{ is_active?: boolean }>({});
+  const [meta, setMeta] = useState({
+    current_page: 1, last_page: 1, per_page: 12, total: 0,
   });
 
   const doFetch = useCallback(async (p: number, s: string, f: { is_active?: boolean }) => {
     setIsLoading(true);
     try {
-      const params: any = { page: p, per_page: 15 };
+      const params: any = { page: p, per_page: 12 };
       if (s.trim()) params.search = s.trim();
       if (f.is_active !== undefined) params.is_active = f.is_active;
 

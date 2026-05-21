@@ -1,7 +1,7 @@
 // hooks/manager/useTickets.ts
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TicketService } from "../../services/manager/ticket.service";
 import { Ticket, TicketStats, TicketFilters, PaginatedResponse } from "../../types/manager.types";
 
@@ -26,15 +26,18 @@ export function useTickets(initialFilters: TicketFilters = {}): UseTicketsReturn
     per_page: 15,
     ...initialFilters,
   });
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(initialFilters.search);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const [paginatedData, statsData] = await Promise.all([
-        TicketService.getTickets(filters),
+        TicketService.getTickets({ ...filters, search: debouncedSearch }),
         TicketService.getStats(),
       ]);
       setTickets(paginatedData.items);
@@ -45,19 +48,36 @@ export function useTickets(initialFilters: TicketFilters = {}): UseTicketsReturn
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [filters, debouncedSearch]);
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(filters.search);
+    }, 400);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [filters.search]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   const setFilters = (partial: Partial<TicketFilters>) => {
-    setFiltersState((prev) => ({ ...prev, ...partial, page: 1 }));
+    setFiltersState((prev) => {
+      const next = { ...prev, ...partial };
+      if (partial.search !== undefined) {
+        next.page = 1;
+      }
+      return next;
+    });
   };
 
   const exportTickets = async () => {
     try {
-      const blob = await TicketService.exportTickets(filters);
+      const blob = await TicketService.exportTickets({ ...filters, search: debouncedSearch });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

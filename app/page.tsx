@@ -17,17 +17,23 @@ export default function Home() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-black text-white">
+    <div
+      className="flex min-h-screen flex-col items-center justify-center relative bg-cover bg-center text-white"
+      style={{ backgroundImage: "url('/assets/bg_login.png')" }}
+    >
+      {/* Overlay sombre pour lisibilité */}
+      <div className="absolute inset-0 bg-black/60" />
+
       {/* Logo avec légère animation */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 1 }}
-        className="mb-12"
+        className="relative z-10 mb-12"
       >
         <Image
-          src="/images/logo_canal.png" 
-          alt="CANAL+"
+          src="/images/logoci.png" 
+          alt="Ebene Patrimoine"
           width={240}
           height={80}
           priority
@@ -39,12 +45,12 @@ export default function Home() {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.5, duration: 0.8 }}
-        className="text-center px-6 sm:px-0 max-w-xl"
+        className="relative z-10 text-center px-6 sm:px-0 max-w-xl"
       >
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-          Bienvenue sur Facility Management
+          Bienvenue sur Ebene Patrimoine 
         </h1>
-        <p className="text-lg sm:text-xl text-gray-300">
+        <p className="text-lg sm:text-xl text-white/80">
           Gérez facilement vos parcs et suivez vos performances en temps réel.
         </p>
       </motion.div>
@@ -54,14 +60,13 @@ export default function Home() {
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 1, duration: 0.8 }}
-        className="mt-12"
+        className="relative z-10 mt-12"
       >
         <button
           onClick={() => router.push("/login")}
-          className="relative flex items-center gap-3 bg-white text-black font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-gray-200 transition-all duration-300"
+          className="relative flex items-center gap-3 bg-white text-theme-primary font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-gray-100 transition-all duration-300"
         >
           Continuer
-          {/* Petite icône animée à droite */}
           <motion.span
             className="inline-block"
             animate={{ x: [0, 5, 0] }}
@@ -71,8 +76,6 @@ export default function Home() {
           </motion.span>
         </button>
       </motion.div>
-
-     
     </div>
   );
 }

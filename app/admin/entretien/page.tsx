@@ -3,10 +3,12 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import RichContent from "@/components/RichContent";
 import StatsCard from "@/components/StatsCard";
 import DataTable, { ColumnConfig } from "@/components/DataTable";
 import PageHeader from "@/components/PageHeader";
 import ActionGroup from "@/components/ActionGroup";
+import Paginate from "@/components/Paginate";
 import {
     Eye, ArrowUpRight, Download, Filter, X,
     FileText, CheckCircle2, XCircle, AlertCircle,
@@ -32,6 +34,16 @@ type MaintenanceStatus =
 type AnomalyAction = "ras" | "immediate" | "devis";
 
 // ─── Static helpers ───────────────────────────────────────────────────────────
+const getActorName = (obj: any): string | null => {
+  if (!obj) return null;
+  const u = obj.user || obj;
+  const person = u.manager || u.admin || u;
+  const fn = (person.first_name || u.first_name || obj.first_name || "").trim();
+  const ln = (person.last_name || u.last_name || obj.last_name || "").trim();
+  const fullName = `${fn} ${ln}`.trim();
+  const rawName = person.name || u.name || obj.name || "";
+  return fullName || rawName || null;
+};
 
 const ALL_STATUSES = [
     "pending", "validated", "rejected", "submitted",
@@ -65,7 +77,7 @@ const STATUS_DOT: Record<string, string> = {
 };
 
 const WORKFLOW_STEPS = [
-    { key: "planifié", icon: CalendarDays, label: "Soumis" },
+    { key: "planifié", icon: CalendarDays, label: "Planifié" },
     { key: "en_cours", icon: PlayCircle, label: "En cours" },
     { key: "rapporté", icon: ClipboardList, label: "Rapporté" },
     { key: "validé", icon: ShieldCheck, label: "Validé" },
@@ -189,7 +201,7 @@ function ValidationModal({
     const [comment, setComment] = useState("");
     const [rejectReason, setRejectReason] = useState("");
 
-    const canValidate = rating > 0;
+    const canValidate = true; // Toujours possible si le mode est review
     const canReject = rejectReason.trim().length > 10;
 
     return (
@@ -222,18 +234,15 @@ function ValidationModal({
                     <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
                         {/* Rapport à relire */}
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
+                        {/* <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                 Rapport soumis par le prestataire
                             </p>
-                            <div
-                                className="prose prose-sm max-w-none text-sm text-slate-700 leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: ticket.description ?? "Aucune observation." }}
-                            />
-                        </div>
+                            <RichContent html={ticket.description} placeholder="Aucune observation." />
+                        </div> */}
 
                         {/* Toggle Valider / Rejeter */}
-                        {/* <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
+                        <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
                             <button
                                 type="button"
                                 onClick={() => setMode("review")}
@@ -250,15 +259,15 @@ function ValidationModal({
                             >
                                 <ThumbsDown size={15} /> Rejeter
                             </button>
-                        </div> */}
+                        </div>
 
                         {/* Mode VALIDER */}
                         {mode === "review" && (
                             <div className="space-y-4">
                                 {/* Notation étoiles */}
                                 <div className="flex flex-col gap-3">
-                                    <label className="text-sm font-bold text-slate-900">
-                                        Notation du rapport <span className="text-red-500">*</span>
+                                    <label className="text-sm font-bold text-slate-900" aria-required="true">
+                                        Notation du rapport <span className="text-slate-400 font-normal"></span>
                                     </label>
                                     <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col items-center gap-2">
                                         <StarRating value={rating} onChange={setRating} />
@@ -272,8 +281,8 @@ function ValidationModal({
 
                                 {/* Commentaire */}
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-sm font-bold text-slate-900">
-                                        Commentaire <span className="text-slate-400 font-normal">(optionnel)</span>
+                                    <label className="text-sm font-bold text-slate-900" aria-required="true">
+                                        Commentaire <span className="text-slate-400 font-normal"></span>
                                     </label>
                                     <textarea
                                         rows={3}
@@ -299,15 +308,11 @@ function ValidationModal({
                                     {submitting ? "Validation en cours…" : "Valider et envoyer "}
                                 </button>
 
-                                {!canValidate && (
-                                    <p className="text-center text-xs text-slate-400 -mt-2">
-                                        Une note est requise pour valider
-                                    </p>
-                                )}
+
                             </div>
                         )}
 
-                        {/* Mode REJETER
+                        {/* Mode REJETER */}
                         {mode === "reject" && (
                             <div className="space-y-4">
                                 <div className="flex flex-col gap-2">
@@ -341,7 +346,7 @@ function ValidationModal({
                                     {submitting ? "Rejet en cours…" : "Rejeter le rapport"}
                                 </button>
                             </div>
-                        )} */}
+                        )}
                     </div>
                 </div>
             </div>
@@ -359,7 +364,7 @@ function MaintenancePreviewPanel({
     onOpenValidation: (t: InterventionReport) => void;
 }) {
     const [copied, setCopied] = useState(false);
-    const reference = (ticket as any).reference || `#${ticket.id}`;
+    const reference = (ticket as any).reference || `${ticket.code_ticket}`;
     const copyRef = () => {
         navigator.clipboard.writeText(reference);
         setCopied(true); setTimeout(() => setCopied(false), 2000);
@@ -376,7 +381,7 @@ function MaintenancePreviewPanel({
                     </button>
                 </div>
                 <div className="px-6 pt-4 pb-5 shrink-0">
-                    <h2 className="text-2xl font-black text-slate-900">Entretien #{ticket.id}</h2>
+                    <h2 className="text-2xl font-black text-slate-900">Entretien {ticket.id}</h2>
                     <p className="text-slate-400 text-xs mt-0.5">Détails de la visite · lecture seule</p>
                 </div>
 
@@ -399,7 +404,7 @@ function MaintenancePreviewPanel({
                             },
                             { label: "Prestataire", value: ticket.provider?.company_name ?? ticket.provider?.name ?? "-" },
                             { label: "Site", value: ticket.site?.nom ?? ticket.site?.name ?? "-" },
-                            { label: "Date soumise", value: formatDate(ticket.start_date) },
+                            { label: "Date planifiée", value: formatDate(ticket.start_date) },
                             ...(ticket.validated_at ? [{ label: "Date réalisée", value: formatDate(ticket.validated_at) }] : []),
                         ].map((f, i) => (
                             <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
@@ -459,7 +464,7 @@ function MaintenancePreviewPanel({
                     {ticket.status === "validated" && (
                         <div className="flex items-center gap-2 py-3.5 px-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-bold">
                             <CheckCircle2 size={16} />
-                            Clôturé le {formatDate(ticket.validated_at)}
+                            Clôturé le {formatDate(ticket.validated_at)} par {getActorName((ticket as any).validator) || 'Administrateur'}
                         </div>
                     )}
                 </div>
@@ -478,11 +483,15 @@ export default function ManagerEntretienPage() {
         stats,
         isLoading,
         error: apiError,
-        fetchReports,
         fetchStats,
+        fetchReports,
         validateReport: validateReportHook,
         rejectReport: rejectReportHook,
-    } = useReports();
+        resetFilters,
+        meta,
+        filters: hookFilters,
+        setFilters: setHookFilters,
+    } = useReports({ type: "preventif", per_page: 15 });
 
     const [statusFilter, setStatusFilter] = useState("");
     const [selectedTicket, setSelectedTicket] = useState<InterventionReport | null>(null);
@@ -492,10 +501,6 @@ export default function ManagerEntretienPage() {
     const [submitting, setSubmitting] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        fetchReports();
-        fetchStats();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const openPanel = (t: InterventionReport) => { setSelectedTicket(t); setIsPanelOpen(true); };
     const closePanel = () => setIsPanelOpen(false);
@@ -504,26 +509,23 @@ export default function ManagerEntretienPage() {
     };
     const closeValidation = () => { setIsValidationOpen(false); setValidationTarget(null); };
 
+    useEffect(() => {
+        setHookFilters({ status: statusFilter || undefined });
+    }, [statusFilter]);
+
     const [dateRange, setDateRange] = useState<import("react-day-picker").DateRange | undefined>(undefined);
 
-    const filtered = reports
-        .filter(t => t.intervention_type === "preventif")
-        .filter(t => statusFilter ? t.status === statusFilter : true)
-        .filter(t => {
-            if (!dateRange?.from) return true;
-            const d = new Date(t.created_at ?? "");
-            if (isNaN(d.getTime())) return true;
-            const to = dateRange.to ?? dateRange.from;
-            const toEnd = new Date(to); toEnd.setHours(23, 59, 59, 999);
-            return d >= dateRange.from && d <= toEnd;
+    useEffect(() => {
+        setHookFilters({
+            date_debut: dateRange?.from ? dateRange.from.toISOString().split('T')[0] : undefined,
+            date_fin: dateRange?.to ? dateRange.to.toISOString().split('T')[0] : undefined,
         });
-
-    const pendingCount = reports.filter(t => t.status === "submitted" || t.status === "pending").length;
+    }, [dateRange]);
 
     const kpis = [
-        { label: "Total entretiens", value: stats?.total_reports ?? reports.length, delta: "", trend: "up" as const },
-        { label: "À valider", value: pendingCount, delta: "", trend: "up" as const },
-        { label: "Validés", value: stats?.validated_reports ?? reports.filter(t => t.status === "validated").length, delta: "", trend: "up" as const },
+        { label: "Total entretiens", value: stats?.total_reports ?? 0, delta: "", trend: "up" as const },
+        { label: "À valider", value: stats?.pending_reports ?? 0, delta: "", trend: "up" as const },
+        { label: "Validés", value: stats?.validated_reports ?? 0, delta: "", trend: "up" as const },
         { label: "Note moyenne", value: stats?.average_rating ? `${Number(stats.average_rating).toFixed(1)}/5` : "-", delta: "", trend: "up" as const },
     ];
 
@@ -644,7 +646,7 @@ export default function ManagerEntretienPage() {
                 <main className="mt-20 p-6 space-y-8">
 
                     <PageHeader
-                        title="Entretiens"
+                        title="Rapports préventifs"
                         subtitle="Consultez et validez les rapports d'entretien préventif soumis par les prestataires"
                     />
 
@@ -683,25 +685,29 @@ export default function ManagerEntretienPage() {
                                 className="border border-slate-200 bg-white text-slate-700 text-sm font-semibold
                   rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-slate-900 transition cursor-pointer">
                                 <option value="">Tous les statuts</option>
-                                {["pending", "submitted", "validated", "rejected"].map(s => (
+                                {["submitted", "validated", "rejected"].map(s => (
                                     <option key={s} value={s}>{STATUS_LABELS[s] ?? s}</option>
                                 ))}
                             </select>
                             {statusFilter && (
-                                <button onClick={() => setStatusFilter("")}
+                                <button onClick={resetFilters}
                                     className="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-400">
                                     <X size={14} />
                                 </button>
                             )}
                         </div>
-                        <ActionGroup actions={[
-                            { label: "Actualiser", icon: RefreshCw, onClick: () => { fetchReports(); fetchStats(); }, variant: "secondary" as const },
-                        ]} />
+                        <ActionGroup
+                            actions={[
+                                { label: "Actualiser", icon: RefreshCw, onClick: () => { fetchReports(); fetchStats(); }, variant: "secondary" as const },
+                            ]}
+                            dateRange={dateRange}
+                            onDateRangeChange={setDateRange}
+                        />
                     </div>
 
                     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
                         <div className="px-6 py-4 border-b border-slate-50 flex items-center justify-between">
-                            <span className="text-xs text-slate-400">{filtered.length} entretien{filtered.length > 1 ? "s" : ""}</span>
+                            <span className="text-xs text-slate-400">{meta?.total || reports.length} entretien{(meta?.total || reports.length) > 1 ? "s" : ""}</span>
                         </div>
                         {isLoading ? (
                             <div className="flex flex-col items-center justify-center p-20 gap-4">
@@ -709,7 +715,17 @@ export default function ManagerEntretienPage() {
                             </div>
                         ) : (
                             <div className="px-6 py-4">
-                                <DataTable title="Rapports des visites préventives" columns={columns} data={filtered} onViewAll={() => { }} />
+                                <DataTable title="Rapports des visites préventives" columns={columns} data={reports} onViewAll={() => { }} />
+
+                                {meta && meta.last_page > 1 && (
+                                    <div className="mt-6 flex justify-end">
+                                        <Paginate
+                                            currentPage={hookFilters.page || 1}
+                                            totalPages={meta.last_page}
+                                            onPageChange={(p) => setHookFilters({ ...hookFilters, page: p })}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
