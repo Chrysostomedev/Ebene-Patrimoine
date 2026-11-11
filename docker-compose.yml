@@ -1,11 +1,11 @@
 services:
-  canal-app:
+  ebene-patrimoine-app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-    container_name: ebene_patrimoine_app
+    container_name: ebene_patrimoine_container
     restart: always
     ports:
       - "3001:3000"
